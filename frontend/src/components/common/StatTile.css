@@ -1,0 +1,52 @@
+/* ===== STAT TILE ===== */
+.vk-stat-tile {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  gap: 0.6rem;
+  padding: 1.25rem 1.5rem;
+  background-color: var(--bs-white);
+  border: 1px solid var(--bs-dark);
+  border-radius: var(--radius-default);
+  min-width: 0;
+}
+
+/* Circular icon, matching the SectionCard header icon styling. */
+.vk-stat-tile-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 2.25rem;
+  height: 2.25rem;
+  flex-shrink: 0;
+  background-color: var(--gray-100);
+  border: 1px solid var(--bs-dark);
+  border-radius: 50%;
+  font-size: 1rem;
+  color: var(--bs-dark);
+}
+
+.vk-stat-tile-text {
+  min-width: 0;
+  max-width: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+}
+
+.vk-stat-tile-value {
+  font-family: var(--font-body);
+  font-weight: 600;
+  font-size: var(--fs-md);
+  color: var(--bs-dark);
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.vk-stat-tile-label {
+  font-size: var(--fs-xs);
+  color: var(--text-muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}

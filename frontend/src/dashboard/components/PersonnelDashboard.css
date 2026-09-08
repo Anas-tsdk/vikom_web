@@ -1,0 +1,750 @@
+/* ===== PERSONNEL DASHBOARD CONTAINER ===== */
+.personnel-dashboard {
+  padding: 2rem;
+  ;
+}
+
+/* ===== ERROR STATE ===== */
+.personnel-dashboard .error-text {
+  color: var(--bs-danger);
+  font-size: var(--fs-base);
+}
+
+/* ===== WELCOME SECTION ===== */
+
+/* ===== STATS GRID ===== */
+.personnel-dashboard .stats-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 1rem;
+  margin-bottom: 2rem;
+}
+
+/* Stat tiles use the shared <StatTile> component (.vk-stat-tile). */
+
+/* ===== DASHBOARD CONTENT LAYOUT ===== */
+.personnel-dashboard .dashboard-content {
+  display: flex;
+  gap: 1.5rem;
+  margin-bottom: 2rem;
+}
+
+.personnel-dashboard .dashboard-left {
+  flex: 1 1 58%;
+  display: flex;
+  flex-direction: column;
+}
+
+.personnel-dashboard .dashboard-right {
+  flex: 1 1 42%;
+  display: flex;
+  flex-direction: column;
+}
+
+.personnel-dashboard .mini-column {
+  width: 100%;
+  max-width: 22rem;
+  margin-bottom: 2rem;
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.personnel-dashboard .top-content {
+  display: flex;
+  gap: 1.5rem;
+  align-items: flex-start;
+  margin-bottom: 2rem;
+}
+
+.personnel-dashboard .availability-column {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.personnel-dashboard .availability-quick-actions {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0.6rem;
+  margin-bottom: 0;
+}
+
+.personnel-dashboard .quick-action-btn {
+  border: 1px solid var(--bs-primary);
+  border-radius: var(--radius-default);
+  background-color: var(--bs-primary);
+  color: var(--bs-white);
+  padding: 0.8rem 0.6rem;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0.4rem;
+  font-size: 0.86rem;
+  font-weight: 600;
+  line-height: 1.2;
+  text-align: center;
+  min-height: 5rem;
+}
+
+.personnel-dashboard .quick-action-btn i {
+  font-size: 1.2rem;
+}
+
+.personnel-dashboard .quick-action-btn:hover {
+  background-color: rgba(var(--bs-primary-rgb), 0.9);
+  color: var(--bs-white);
+}
+
+
+
+/* ===== DATA TABLE ===== */
+.personnel-dashboard .table-wrapper {
+  border: 1px solid var(--bs-dark);
+  border-radius: var(--radius-default);
+  overflow: hidden;
+}
+
+.personnel-dashboard .data-table {
+  width: 100%;
+  border-collapse: collapse;
+  background-color: var(--bs-white);
+}
+
+.personnel-dashboard .data-table thead {
+  background-color: var(--bs-light);
+  position: sticky;
+  top: 0;
+  z-index: 1;
+}
+
+.personnel-dashboard .data-table thead tr {
+  border-bottom: 1px solid var(--bs-dark);
+}
+
+.personnel-dashboard .data-table th {
+  font-weight: 600;
+  color: var(--bs-dark);
+  padding: 1rem 1.5rem;
+  text-align: left;
+  white-space: nowrap;
+}
+
+.personnel-dashboard .data-table tbody tr {
+  border-bottom: 1px solid var(--border-color);
+  transition: background-color 0.2s ease;
+}
+
+.personnel-dashboard .data-table tbody tr:last-child {
+  border-bottom: none;
+}
+
+.personnel-dashboard .data-table tbody tr:hover {
+  background-color: rgba(0, 0, 0, 0.02);
+}
+
+.personnel-dashboard .data-table td {
+  padding: 1rem 1.5rem;
+  color: var(--bs-dark);
+  vertical-align: middle;
+}
+
+/* Recent appointments now use the shared AppointmentCard; empty blocks use the
+   shared EmptyState. Their former styles lived here and have been removed. */
+
+/* ===== CALENDAR OVERVIEW ===== */
+.personnel-dashboard .calendar-overview {
+  margin-bottom: 0;
+  width: 100%;
+  max-width: 100%;
+}
+
+.personnel-dashboard .calendar-overview .card-body {
+  padding: 1rem;
+}
+
+.personnel-dashboard .calendar-header-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 0.75rem;
+}
+
+.personnel-dashboard .calendar-month-label {
+  font-size: var(--fs-base);
+  font-weight: 600;
+  color: var(--bs-dark);
+  margin: 0;
+}
+
+.personnel-dashboard .calendar-nav-btn {
+  border: none;
+  background-color: var(--bs-light);
+  color: var(--bs-dark);
+  width: 1.75rem;
+  height: 1.75rem;
+  border-radius: 50%;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  padding: 0;
+}
+
+.personnel-dashboard .calendar-nav-btn:hover {
+  background-color: rgba(var(--bs-primary-rgb), 0.12);
+  color: var(--bs-primary);
+}
+
+.personnel-dashboard .calendar-weekdays {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 0.35rem;
+  margin-bottom: 0.4rem;
+}
+
+.personnel-dashboard .calendar-weekday {
+  text-align: center;
+  font-size: var(--fs-xs);
+  font-weight: 600;
+  color: var(--bs-secondary);
+}
+
+.personnel-dashboard .calendar-grid {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 0.35rem;
+}
+
+.personnel-dashboard .calendar-day {
+  height: 2rem;
+  border: 1px solid transparent;
+  border-radius: 999px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  position: relative;
+  background-color: var(--bs-white);
+}
+
+.personnel-dashboard .calendar-day.outside-month {
+  opacity: 0.4;
+}
+
+.personnel-dashboard .calendar-day.current-week {
+  background-color: rgba(var(--bs-primary-rgb), 0.12);
+}
+
+.personnel-dashboard .calendar-day.today {
+  background-color: var(--bs-primary);
+}
+
+.personnel-dashboard .calendar-day.today .day-number {
+  color: var(--bs-white);
+}
+
+.personnel-dashboard .calendar-day.has-appointment {
+  border-color: rgba(var(--bs-primary-rgb), 0.45);
+}
+
+.personnel-dashboard .day-number {
+  font-size: var(--fs-sm);
+  font-weight: 500;
+  color: var(--bs-dark);
+}
+
+.personnel-dashboard .appointment-dot {
+  width: 4px;
+  height: 4px;
+  background-color: var(--bs-primary);
+  border-radius: 50%;
+  position: absolute;
+  bottom: 0.2rem;
+}
+
+/* ===== DAY TIMELINE TONES ===== */
+.personnel-dashboard .timeline-item.timeline-tone-rose {
+  background-color: rgba(var(--bs-pink-rgb), 0.25);
+}
+
+.personnel-dashboard .timeline-item.timeline-tone-blue {
+  background-color: rgba(var(--bs-primary-rgb), 0.15);
+}
+
+.personnel-dashboard .timeline-item.timeline-tone-violet {
+  background-color: rgba(var(--bs-purple-rgb), 0.2);
+}
+
+.personnel-dashboard .timeline-item.timeline-tone-olive {
+  background-color: rgba(var(--bs-success-rgb), 0.2);
+}
+
+/* ===== DAY TIMELINE ===== */
+.personnel-dashboard .timeline-overview {
+  width: 100%;
+  max-width: 100%;
+}
+
+.personnel-dashboard .timeline-overview .card-body {
+  padding: 0.8rem;
+}
+
+.personnel-dashboard .timeline-filter-toggle {
+  border: none;
+  border-radius: 999px;
+  background-color: var(--bs-secondary);
+  color: var(--bs-white);
+  font-size: var(--fs-xs);
+  font-weight: 600;
+  padding: 0.35rem 0.7rem;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  cursor: pointer;
+}
+
+/* Keep the pill flat (no Bootstrap btn shadow) across all states. */
+.personnel-dashboard .timeline-filter-toggle:hover,
+.personnel-dashboard .timeline-filter-toggle:focus,
+.personnel-dashboard .timeline-filter-toggle:active,
+.personnel-dashboard .timeline-filter-toggle.show {
+  background-color: var(--bs-secondary);
+  color: var(--bs-white);
+  box-shadow: none;
+}
+
+/* Replace Bootstrap's default caret with our chevron icon. */
+.personnel-dashboard .timeline-filter-toggle::after {
+  display: none;
+}
+
+.personnel-dashboard .timeline-filter-toggle .bi {
+  font-size: var(--fs-xs);
+}
+
+/* Rounded popup; the gap to the toggle comes from the popper offset. */
+.personnel-dashboard .timeline-filter-menu {
+  min-width: 8rem;
+  padding: 0.3rem;
+  border: none;
+  border-radius: var(--radius-default);
+  background-color: var(--bs-secondary);
+  overflow: hidden;
+}
+
+.personnel-dashboard .timeline-filter-menu .dropdown-item {
+  border-radius: calc(var(--radius-default) - 0.25rem);
+  padding: 0.4rem 0.7rem;
+  font-size: var(--fs-xs);
+  font-weight: 600;
+  color: var(--bs-white);
+}
+
+.personnel-dashboard .timeline-filter-menu .dropdown-item:hover,
+.personnel-dashboard .timeline-filter-menu .dropdown-item:focus {
+  background-color: rgba(var(--bs-primary-rgb), 0.85);
+  color: var(--bs-white);
+}
+
+.personnel-dashboard .timeline-filter-menu .dropdown-item.active,
+.personnel-dashboard .timeline-filter-menu .dropdown-item:active {
+  background-color: var(--bs-primary);
+  color: var(--bs-white);
+}
+
+.personnel-dashboard .timeline-date-label {
+  margin: 0 0 0.7rem;
+  font-size: var(--fs-md);
+  font-weight: 600;
+  color: var(--bs-dark);
+  text-transform: capitalize;
+}
+
+.personnel-dashboard .timeline-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+}
+
+.personnel-dashboard .timeline-row {
+  display: grid;
+  grid-template-columns: 2.35rem 1fr;
+  align-items: start;
+  gap: 0.5rem;
+}
+
+.personnel-dashboard .timeline-time {
+  font-size: var(--fs-xs);
+  font-weight: 600;
+  color: var(--bs-secondary);
+  line-height: 1.8rem;
+}
+
+.personnel-dashboard .timeline-row.active .timeline-time {
+  color: var(--bs-primary);
+}
+
+.personnel-dashboard .timeline-item {
+  border-radius: 1rem;
+  padding: 0.55rem 0.65rem;
+  display: flex;
+  align-items: center;
+  gap: 0;
+  position: relative;
+}
+
+.personnel-dashboard .timeline-item.active::before {
+  content: '';
+  position: absolute;
+  left: -2.8rem;
+  right: -0.4rem;
+  top: 0.95rem;
+  border-top: 1px dashed rgba(var(--bs-secondary-rgb), 0.6);
+}
+
+.personnel-dashboard .timeline-now-row {
+  display: grid;
+  grid-template-columns: 2.35rem 1fr;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.personnel-dashboard .timeline-now-time {
+  color: var(--bs-primary);
+  font-weight: 700;
+}
+
+.personnel-dashboard .timeline-now-line {
+  border-top: 1px dashed rgba(var(--bs-secondary-rgb), 0.6);
+}
+
+.personnel-dashboard .timeline-item-content {
+  min-width: 0;
+  width: 100%;
+}
+
+.personnel-dashboard .timeline-patient-name {
+  margin: 0;
+  font-size: var(--fs-sm);
+  font-weight: 600;
+  color: var(--bs-dark);
+}
+
+.personnel-dashboard .timeline-task-badges {
+  margin-top: 0.3rem;
+}
+
+.personnel-dashboard .timeline-task-badges .badge {
+  font-size: var(--fs-xs);
+  padding: 0.52rem 0.69rem;
+  font-weight: 500;
+}
+
+.personnel-dashboard .timeline-address {
+  margin: 0;
+  margin-top: 0.35rem;
+  font-size: var(--fs-xs);
+  color: var(--bs-secondary);
+}
+
+.personnel-dashboard .timeline-visit-type {
+  margin: 0;
+  margin-top: 0.35rem;
+  font-size: var(--fs-xs);
+  color: var(--bs-secondary);
+  font-weight: 600;
+}
+
+/* "Vis mer" now uses the standard Bootstrap button (btn btn-secondary btn-sm). */
+
+/* ===== AVAILABILITY OVERVIEW ===== */
+.personnel-dashboard .availability-overview .card-body {
+  padding: 1rem;
+}
+
+.personnel-dashboard .availability-day-planner {
+  display: flex;
+  flex-direction: column;
+  gap: 0.9rem;
+}
+
+.personnel-dashboard .availability-days-nav {
+  display: block;
+}
+
+.personnel-dashboard .availability-days-strip {
+  display: grid;
+  grid-template-columns: repeat(7, minmax(0, 1fr));
+  gap: 0.45rem;
+}
+
+.personnel-dashboard .availability-day-chip {
+  border: 1px solid var(--bs-dark);
+  border-radius: var(--radius-default);
+  background-color: var(--bs-light);
+  color: var(--bs-dark);
+  padding: 0.45rem 0.25rem;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0.1rem;
+  position: relative;
+}
+
+.personnel-dashboard .availability-day-chip.active {
+  background-color: var(--bs-primary);
+  color: var(--bs-white);
+  border-color: var(--bs-primary);
+}
+
+.personnel-dashboard .availability-day-chip-label {
+  font-size: var(--fs-xs);
+  font-weight: 500;
+}
+
+.personnel-dashboard .availability-day-chip-number {
+  font-size: var(--fs-md);
+  font-weight: 700;
+  line-height: 1.1;
+}
+
+.personnel-dashboard .availability-day-chip-month {
+  font-size: var(--fs-xs);
+  text-transform: capitalize;
+}
+
+.personnel-dashboard .availability-day-dot {
+  width: 4px;
+  height: 4px;
+  border-radius: 50%;
+  background-color: var(--bs-primary);
+  position: absolute;
+  bottom: 0.22rem;
+}
+
+.personnel-dashboard .availability-day-chip.active .availability-day-dot {
+  background-color: var(--bs-white);
+}
+
+.personnel-dashboard .availability-active-date {
+  margin: 0;
+  font-size: var(--fs-base);
+  font-weight: 600;
+  color: var(--bs-dark);
+}
+
+.personnel-dashboard .availability-slots-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0.7rem;
+}
+
+.personnel-dashboard .availability-slot-card {
+  border-radius: var(--radius-default);
+  border: 1px solid var(--bs-dark);
+  background-color: var(--bs-white);
+  min-height: 3.9rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.personnel-dashboard .availability-slot-card.booked {
+  opacity: 0.42;
+}
+
+.personnel-dashboard .availability-slot-card.available {
+  opacity: 1;
+}
+
+.personnel-dashboard .availability-slot-time {
+  font-size: var(--fs-2xl);
+  font-weight: 700;
+  color: var(--bs-dark);
+}
+
+/* ===== MEDIA QUERIES ===== */
+
+/* Large tablet: 1200px and below */
+@media (max-width: 1200px) {
+  .personnel-dashboard .stats-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+/* Tablet: 991px and below */
+@media (max-width: 991px) {
+  .personnel-dashboard {
+    padding: 1.5rem;
+  }
+
+  .personnel-dashboard .stats-grid {
+    grid-template-columns: repeat(2, 1fr);
+    gap: 0.875rem;
+  }
+
+  .personnel-dashboard .dashboard-content {
+    flex-direction: column;
+  }
+
+  .personnel-dashboard .top-content {
+    flex-direction: column;
+  }
+
+  .personnel-dashboard .mini-column {
+    width: 100%;
+    max-width: 100%;
+  }
+
+  .personnel-dashboard .availability-column {
+    width: 100%;
+  }
+
+  .personnel-dashboard .availability-quick-actions {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .personnel-dashboard .dashboard-left,
+  .personnel-dashboard .dashboard-right {
+    flex: 1 1 100%;
+  }
+
+  .personnel-dashboard .table-wrapper {
+    max-height: 300px;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .personnel-dashboard .data-table {
+    width: 100%;
+  }
+
+  .personnel-dashboard .data-table th,
+  .personnel-dashboard .data-table td {
+    padding: 0.75rem 0.875rem;
+    font-size: var(--fs-sm);
+    white-space: nowrap;
+  }
+}
+
+/* Mobile: 767px and below */
+@media (max-width: 767px) {
+  .personnel-dashboard {
+    padding: 1rem;
+  }
+
+  .personnel-dashboard .stats-grid {
+    grid-template-columns: 1fr;
+    gap: 0.75rem;
+    margin-bottom: 1.5rem;
+  }
+
+  .personnel-dashboard .dashboard-content {
+    gap: 1rem;
+    margin-bottom: 1rem;
+  }
+
+  .personnel-dashboard .top-content {
+    gap: 1rem;
+    margin-bottom: 1rem;
+  }
+
+  .personnel-dashboard .mini-column,
+  .personnel-dashboard .calendar-overview {
+    max-width: 100%;
+  }
+
+  .personnel-dashboard .availability-days-strip {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+  }
+
+  .personnel-dashboard .availability-slots-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 0.6rem;
+  }
+
+  .personnel-dashboard .availability-slot-time {
+    font-size: var(--fs-2xl);
+  }
+
+  .personnel-dashboard .quick-action-btn {
+    min-height: 4.4rem;
+    font-size: 0.8rem;
+  }
+
+  .personnel-dashboard .timeline-row {
+    grid-template-columns: 2.1rem 1fr;
+  }
+
+  .personnel-dashboard .timeline-now-row {
+    grid-template-columns: 2.1rem 1fr;
+  }
+
+  .personnel-dashboard .timeline-item.active::before {
+    left: -2.45rem;
+  }
+
+  .personnel-dashboard .card-header {
+    padding: 1rem;
+  }
+
+  .personnel-dashboard .card-title {
+    font-size: var(--fs-md);
+  }
+
+  .personnel-dashboard .card-body {
+    padding: 1rem;
+  }
+
+  .personnel-dashboard .table-wrapper {
+    max-height: 250px;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .personnel-dashboard .data-table {
+    width: 100%;
+    display: block;
+    overflow-x: auto;
+  }
+
+  .personnel-dashboard .data-table thead,
+  .personnel-dashboard .data-table tbody {
+    display: block;
+  }
+
+  .personnel-dashboard .data-table tr {
+    display: flex;
+  }
+
+  .personnel-dashboard .data-table th,
+  .personnel-dashboard .data-table td {
+    padding: 0.625rem 0.75rem;
+    font-size: var(--fs-sm);
+    flex: 1;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .personnel-dashboard .data-table th:first-child,
+  .personnel-dashboard .data-table td:first-child {
+    flex: 1.5;
+  }
+
+  .personnel-dashboard .empty-state {
+    padding: 2rem 0.5rem;
+  }
+
+  .personnel-dashboard .empty-icon {
+    font-size: 3rem;
+  }
+
+  .personnel-dashboard .empty-text {
+    font-size: var(--fs-base);
+  }
+}

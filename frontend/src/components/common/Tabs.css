@@ -1,0 +1,94 @@
+/* ===== REUSABLE TABBED NAV =====
+   Shared tab style: a rounded light bar of equal-width tabs, with a solid black
+   pill marking the active tab (white label + white count circle).
+   Use anywhere with the markup:
+     <ul class="vk-tabs-nav" role="tablist">
+       <li class="vk-tabs-item" role="presentation">
+         <button class="vk-tab-button [active]" role="tab"> ... </button>
+       </li>
+     </ul>
+*/
+
+.vk-tabs-nav {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.25rem;
+  list-style: none;
+  margin: 0 0 1.5rem 0;
+  padding: 0.4rem;
+  background-color: var(--bs-light);
+  border: 1px solid var(--bs-dark);
+  border-radius: var(--radius-default);
+}
+
+.vk-tabs-item {
+  flex: 1 1 auto;
+}
+
+.vk-tab-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  width: 100%;
+  background: transparent;
+  border: none;
+  padding: 0.7rem 1rem;
+  font-weight: 600;
+  color: var(--bs-dark);
+  cursor: pointer;
+  border-radius: var(--radius-default);
+  transition: all 0.2s ease;
+}
+
+.vk-tab-button:hover {
+  background-color: rgba(var(--bs-secondary-rgb), 0.05);
+}
+
+.vk-tab-button.active {
+  background-color: var(--bs-secondary);
+  color: var(--bs-white);
+}
+
+.vk-tab-button i {
+  font-size: 1.05rem;
+}
+
+.vk-tab-count {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 1.5rem;
+  height: 1.5rem;
+  padding: 0 0.4rem;
+  font-size: var(--fs-xs);
+  border-radius: 999px;
+  background-color: rgba(var(--bs-dark-rgb), 0.1);
+  color: var(--bs-dark);
+}
+
+.vk-tab-button.active .vk-tab-count {
+  background-color: var(--bs-white);
+  color: var(--bs-dark);
+}
+
+@media (max-width: 575px) {
+  .vk-tab-button .vk-tab-label {
+    display: none;
+  }
+}
+
+/* ===== CARD VARIANT =====
+   Wraps the tab bar + active content in a bordered rounded box. */
+.vk-tabs-card {
+  display: flex;
+  flex-direction: column;
+  border: 1px solid var(--bs-dark);
+  border-radius: var(--radius-card);
+  padding: 1.25rem;
+}
+
+.vk-tabs-content {
+  flex: 1 1 auto;
+}

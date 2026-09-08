@@ -1,0 +1,9 @@
+/* Page title/subtitle sizing is proportional to the 14px body text. */
+
+.vk-page-title {
+  font-size: var(--fs-2xl); /* 32px */
+}
+
+.vk-page-subtitle {
+  font-size: var(--fs-base); /* 16px */
+}

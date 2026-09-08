@@ -1,0 +1,120 @@
+/* ===================================
+   Authentication (Login / Register)
+   Global form, alert, and button theming lives in index.css. Everything here is
+   scoped to the auth pages and tokenized.
+   =================================== */
+
+.auth-container {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  min-height: 100vh;
+  padding: var(--space-6);
+}
+
+/* Logo at top of login page */
+.auth-container .login-logo {
+  margin-bottom: var(--space-6);
+  text-align: center;
+}
+
+.auth-container .login-logo img {
+  max-width: 200px;
+  height: auto;
+}
+
+/* Auth card */
+.auth-container .auth-card {
+  padding: var(--space-7);
+  border-radius: var(--radius-card);
+  width: 100%;
+  max-width: 480px;
+  border: 1px solid var(--bs-secondary);
+  background-color: var(--bs-white);
+}
+
+.auth-container .auth-card .card-body {
+  padding: 0;
+  background-color: var(--bs-white);
+}
+
+/* Header */
+.auth-container .auth-header {
+  text-align: center;
+  margin-bottom: var(--space-6);
+}
+
+.auth-container .auth-title {
+  font-family: var(--font-heading);
+  font-size: var(--fs-2xl);
+  font-weight: 600;
+  color: var(--bs-dark);
+  margin-bottom: var(--space-2);
+}
+
+.auth-container .auth-subtitle {
+  font-size: var(--fs-base);
+  color: var(--text-muted);
+  margin: 0;
+}
+
+/* Form */
+.auth-container .auth-form {
+  display: flex;
+  flex-direction: column;
+}
+
+.auth-container .form-control,
+.auth-container .form-select {
+  font-size: var(--fs-base);
+  padding: var(--space-3) var(--space-4);
+  border-radius: var(--radius-default);
+  border: 2px solid var(--border-color);
+  background-color: var(--bs-white);
+  width: 100%;
+}
+
+/* Footer */
+.auth-container .auth-footer {
+  text-align: center;
+  margin-top: var(--space-5);
+  padding-top: var(--space-5);
+  border-top: 1px solid var(--border-color);
+}
+
+.auth-container .auth-footer p {
+  color: var(--text-muted);
+  margin: 0;
+}
+
+.auth-container .auth-footer a {
+  color: var(--bs-secondary);
+  text-decoration: none;
+  font-weight: 600;
+  border-bottom: 2px solid var(--bs-primary);
+}
+
+.auth-container .auth-footer a:hover {
+  color: var(--bs-primary);
+  border-bottom-color: transparent;
+}
+
+/* ===================================
+   Responsive
+   =================================== */
+@media (max-width: 768px) {
+  .auth-container .auth-card {
+    padding: var(--space-6);
+  }
+}
+
+@media (max-width: 480px) {
+  .auth-container .auth-card {
+    padding: var(--space-5);
+  }
+
+  .auth-container .auth-title {
+    font-size: var(--fs-xl);
+  }
+}

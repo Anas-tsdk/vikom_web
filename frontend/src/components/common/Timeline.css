@@ -1,0 +1,77 @@
+/* ===== TIMELINE ===== */
+.vk-timeline {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.vk-timeline-item {
+  position: relative;
+  display: flex;
+  gap: 1rem;
+  padding-bottom: 1.25rem;
+}
+
+/* Connecting rail between dots */
+.vk-timeline-item::before {
+  content: '';
+  position: absolute;
+  left: 0.84rem;
+  top: 1.75rem;
+  bottom: 0;
+  width: 1px;
+  background-color: var(--border-color);
+}
+
+.vk-timeline-item:last-child {
+  padding-bottom: 0;
+}
+
+.vk-timeline-item:last-child::before {
+  display: none;
+}
+
+.vk-timeline-dot {
+  position: relative;
+  z-index: 1;
+  flex-shrink: 0;
+  width: 1.75rem;
+  height: 1.75rem;
+  border-radius: 50%;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.8rem;
+  border: 1px solid var(--bs-dark);
+}
+
+.vk-timeline-content {
+  flex: 1;
+  min-width: 0;
+  padding-top: 0.1rem;
+}
+
+.vk-timeline-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 0.75rem;
+}
+
+.vk-timeline-title {
+  font-weight: 600;
+  color: var(--bs-dark);
+}
+
+.vk-timeline-date {
+  font-size: var(--fs-sm);
+  color: var(--text-muted);
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+.vk-timeline-meta {
+  font-size: var(--fs-sm);
+  color: var(--text-muted);
+  margin-top: 0.15rem;
+}

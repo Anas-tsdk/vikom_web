@@ -1,0 +1,42 @@
+/* ===== SECTION CARD ===== */
+.vk-section-card {
+  height: 100%;
+}
+
+/* Body stays white while the header keeps its light tone */
+.vk-section-card .card-body {
+  background-color: var(--bs-white);
+}
+
+.vk-section-card-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+}
+
+.vk-section-card-title {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  color: var(--bs-dark);
+}
+
+.vk-section-card-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 2.25rem;
+  height: 2.25rem;
+  flex-shrink: 0;
+  background-color: var(--gray-100);
+  border: 1px solid var(--bs-dark);
+  border-radius: 50%;
+  font-size: 1rem;
+  color: var(--bs-dark);
+}
+
+.vk-section-card-action {
+  display: inline-flex;
+  align-items: center;
+}

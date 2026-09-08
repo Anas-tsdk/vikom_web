@@ -1,0 +1,77 @@
+/* ===== SIDEBAR STYLES ===== */
+
+/* Sidebar container - fixed on left side, spans full height */
+.sidebar {
+  width: 14rem; /* 260px converted to rem */
+  height: 100vh;
+  position: fixed;
+  top: 0;
+  left: 0;
+  background-color: var(--bs-secondary);
+  /* border-right: 1px solid var(--bs-secondary); */
+  overflow-y: auto;
+  overflow-x: hidden;
+  z-index: 1000;
+  display: flex;
+  flex-direction: column;
+  border-radius: var(--radius-card);
+  margin-left: 1rem;
+  margin-top: 1rem;
+  margin-bottom: 1rem;
+}
+
+/* Brand logo section at top of sidebar */
+.sidebar-brand {
+  padding: 1.5rem 1rem;
+  text-align: center;
+  border-bottom: 1px solid var(--bs-light);
+}
+
+.sidebar-logo {
+  max-width: 100%;
+  height: auto;
+  max-height: 30px;
+}
+
+/* Navigation links container */
+.sidebar-nav {
+  padding: 1rem 0.5rem;
+  flex-grow: 1;
+}
+
+/* Individual navigation links */
+.sidebar .nav-link {
+  color: var(--bs-light);
+  padding: 0.875rem 1.25rem;
+  margin-bottom: 0.5rem;
+  border-radius: var(--radius-card);
+  font-family: var(--font-primary);
+  font-size: var(--fs-base);
+  font-weight: 400;
+  display: flex;
+  align-items: center;
+  gap: 0.625rem;
+  transition: all 0.2s ease;
+  text-decoration: none;
+}
+
+.sidebar .nav-link i {
+  font-size: 1rem;
+  line-height: 1;
+}
+
+/* Active navigation link - highlights current page */
+.sidebar .nav-link.active {
+  background-color: var(--bs-primary);
+  color: var(--bs-white);
+}
+
+/* ===== RESPONSIVE DESIGN ===== */
+
+/* Mobile layout - sidebar hidden, content takes full width */
+@media (max-width: 991px) {
+  /* Hides sidebar on mobile - replaced by navbar dropdown */
+  .sidebar {
+    display: none;
+  }
+}

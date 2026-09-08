@@ -1,0 +1,18 @@
+/* ===== PATIENT LIST PAGE =====
+   Uses the standard page padding (matches the other feature pages) and the
+   shared PageHeader; the table is the shared DataTable. */
+.patient-list-page {
+  padding: var(--space-6);
+}
+
+@media (max-width: 991px) {
+  .patient-list-page {
+    padding: var(--space-5);
+  }
+}
+
+@media (max-width: 767px) {
+  .patient-list-page {
+    padding: var(--space-4);
+  }
+}

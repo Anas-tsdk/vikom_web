@@ -1,0 +1,267 @@
+/* ===== PLANNING OVERVIEW PAGE =====
+   Header uses PageHeader; the visits and map cards use the shared SectionCard;
+   empty/error blocks use EmptyState / Bootstrap Alert. Remaining styles are
+   scoped to the page root and tokenized. */
+.planning-overview-page {
+  padding: var(--space-6);
+}
+
+/* ===== FILTERS ===== */
+.planning-overview-page .filters-bar {
+  margin-bottom: var(--space-6);
+}
+
+.planning-overview-page .controls-bar {
+  display: grid;
+  grid-template-columns: minmax(220px, 1.5fr) repeat(3, minmax(140px, auto));
+  gap: var(--space-3);
+  align-items: center;
+  border: 1px solid var(--bs-dark);
+  border-radius: var(--radius-default);
+  background-color: var(--bs-light);
+  padding: var(--space-3);
+  overflow: hidden;
+}
+
+.planning-overview-page .search-control,
+.planning-overview-page .compact-select {
+  height: 3rem;
+  border-radius: var(--radius-default);
+  border: 1px solid var(--bs-dark);
+  background-color: var(--bs-white);
+  color: var(--bs-dark);
+  font-weight: 500;
+}
+
+.planning-overview-page .search-control {
+  padding: var(--space-2) var(--space-4);
+}
+
+.planning-overview-page .compact-select {
+  padding: 0.5rem 2.25rem 0.5rem 0.9rem;
+  background-position: right 0.8rem center;
+}
+
+.planning-overview-page .search-control:focus,
+.planning-overview-page .compact-select:focus {
+  border-color: var(--bs-primary);
+  box-shadow: var(--focus-ring);
+}
+
+/* ===== CONTENT GRID ===== */
+.planning-overview-page .planning-content {
+  display: grid;
+  grid-template-columns: 3fr 7fr;
+  gap: var(--space-5);
+  align-items: stretch;
+}
+
+.planning-overview-page .visits-section,
+.planning-overview-page .map-section {
+  display: flex;
+}
+
+.planning-overview-page .visits-card,
+.planning-overview-page .map-card {
+  width: 100%;
+}
+
+/* ===== VISITS LIST ===== */
+.planning-overview-page .visits-list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+}
+
+.planning-overview-page .visit-item {
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-default);
+  padding: var(--space-4);
+  background-color: var(--bs-white);
+}
+
+.planning-overview-page .visit-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  margin-bottom: var(--space-3);
+}
+
+.planning-overview-page .visit-main {
+  flex: 1;
+  text-align: left;
+}
+
+.planning-overview-page .patient-name {
+  font-size: var(--fs-md);
+  font-weight: 600;
+  color: var(--bs-dark);
+  margin-bottom: var(--space-1);
+  text-align: left;
+}
+
+.planning-overview-page .visit-address {
+  font-size: var(--fs-sm);
+  color: var(--bs-dark);
+  margin-bottom: 0;
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.planning-overview-page .visit-meta {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  align-items: flex-end;
+}
+
+.planning-overview-page .visit-details {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: var(--space-3);
+}
+
+.planning-overview-page .visit-datetime {
+  font-size: var(--fs-sm);
+  color: var(--bs-dark);
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.planning-overview-page .visit-tasks {
+  margin-bottom: var(--space-3);
+}
+
+.planning-overview-page .visit-actions {
+  display: flex;
+  gap: var(--space-2);
+}
+
+/* ===== MAP ===== */
+.planning-overview-page .map-body {
+  flex: 1;
+}
+
+.planning-overview-page .map-placeholder {
+  height: 100%;
+  background: linear-gradient(135deg, var(--gray-100) 0%, var(--gray-200) 100%);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 280px;
+}
+
+.planning-overview-page .map-content {
+  text-align: center;
+  color: var(--bs-dark);
+}
+
+.planning-overview-page .map-icon {
+  font-size: 3rem;
+  margin-bottom: var(--space-4);
+  opacity: 0.7;
+}
+
+.planning-overview-page .map-title {
+  font-size: var(--fs-lg);
+  font-weight: 600;
+  margin-bottom: var(--space-2);
+}
+
+.planning-overview-page .map-text {
+  font-size: var(--fs-sm);
+  margin-bottom: var(--space-5);
+  max-width: 200px;
+  line-height: 1.4;
+}
+
+.planning-overview-page .map-areas {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  max-width: 180px;
+}
+
+.planning-overview-page .map-area {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: var(--space-2);
+  border-radius: var(--radius-default);
+  font-size: var(--fs-xs);
+  font-weight: 500;
+}
+
+.planning-overview-page .map-area.downtown {
+  background-color: rgba(var(--bs-primary-rgb), 0.1);
+  color: var(--bs-primary);
+}
+
+.planning-overview-page .map-area.suburb {
+  background-color: rgba(var(--bs-success-rgb), 0.1);
+  color: var(--bs-success);
+}
+
+.planning-overview-page .map-area.rural {
+  background-color: rgba(var(--bs-warning-rgb), 0.1);
+  color: var(--bs-warning);
+}
+
+.planning-overview-page .area-label {
+  font-weight: 600;
+}
+
+.planning-overview-page .area-count {
+  opacity: 0.8;
+}
+
+/* ===== RESPONSIVE ===== */
+@media (max-width: 992px) {
+  .planning-overview-page .controls-bar {
+    grid-template-columns: 1fr 1fr;
+  }
+
+  .planning-overview-page .planning-content {
+    grid-template-columns: 1fr;
+  }
+
+  .planning-overview-page .map-placeholder {
+    height: 300px;
+  }
+}
+
+@media (max-width: 768px) {
+  .planning-overview-page {
+    padding: var(--space-4);
+  }
+
+  .planning-overview-page .controls-bar {
+    grid-template-columns: 1fr;
+  }
+
+  .planning-overview-page .visit-header {
+    flex-direction: column;
+    gap: var(--space-2);
+  }
+
+  .planning-overview-page .visit-meta {
+    align-items: flex-start;
+  }
+
+  .planning-overview-page .visit-details {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: var(--space-2);
+  }
+
+  .planning-overview-page .visit-actions {
+    flex-direction: column;
+  }
+
+  .planning-overview-page .visit-actions .btn {
+    width: 100%;
+  }
+}

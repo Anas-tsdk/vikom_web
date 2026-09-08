@@ -1,0 +1,305 @@
+/* Google Fonts Import */
+@import url('https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&family=Nunito:wght@600;700;800&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Nunito:ital,wght@0,200..1000;1,200..1000&display=swap');
+
+:root {
+  /* Bootstrap colour overrides */
+  --bs-primary: #7c56e3;
+  --bs-primary-rgb: 124, 86, 227;
+  --bs-primary-hover: #6b47c9;
+  --bs-secondary: #1e214c;
+  --bs-secondary-rgb: 30, 33, 76;
+  --bs-secondary-hover: #151742;
+  --bs-info: #1932b2;
+  --bs-info-rgb: 25, 50, 178;
+  --bs-success: #28a745;
+  --bs-success-rgb: 40, 167, 69;
+  --success-soft: #5dc36e;
+  --bs-warning: #ffc107;
+  --bs-warning-rgb: 255, 193, 7;
+  --bs-danger: #dc3545;
+  --bs-danger-rgb: 220, 53, 69;
+  --bs-danger-hover: #c82333;
+  --bs-dark: #111215;
+  --bs-dark-rgb: 17, 18, 21;
+  --bs-light: #f8f9fa;
+  --bs-light-rgb: 248, 249, 250;
+  --bs-white: #ffffff;
+  --bs-white-rgb: 255, 255, 255;
+
+  /* Custom variables */
+  --font-primary: 'Poppins', sans-serif;
+  --font-heading: 'Nunito', sans-serif;
+
+  /* Radius scale */
+  --radius-sm: 0.75rem;
+  --radius-default: 1rem;
+  --radius-card: 1.25rem;
+  --radius-pill: 999px;
+
+  /* Neutral / gray scale — replaces raw hex repeated across feature CSS */
+  --gray-100: #f8f9fa;
+  --gray-200: #e9ecef;
+  --gray-300: #dee2e6;
+  --gray-400: #ced4da;
+  --gray-500: #adb5bd;
+  --gray-600: #6c757d;
+  --gray-700: #495057;
+  --gray-800: #343a40;
+  --gray-900: #111215;
+
+  /* Semantic neutrals */
+  --border-color: var(--gray-300);
+  --border-strong: var(--bs-dark);
+  --text-muted: var(--gray-600);
+  --surface-muted: var(--gray-100);
+
+  /* Danger / error surface (shared by alerts) */
+  --danger-surface-bg: #f8d7da;
+  --danger-surface-fg: #842029;
+  --danger-surface-border: #f5c2c7;
+
+  /* Success surface */
+  --success-surface-bg: #d4edda;
+  --success-surface-fg: #155724;
+  --success-surface-border: #c3e6cb;
+
+  /* Spacing scale (Bootstrap-aligned: prefer padding/margin/gap utilities in JSX) */
+  --space-1: 0.25rem;
+  --space-2: 0.5rem;
+  --space-3: 0.75rem;
+  --space-4: 1rem;
+  --space-5: 1.5rem;
+  --space-6: 2rem;
+  --space-7: 3rem;
+
+  /* Font-size scale */
+  --fs-xs: 0.75rem;
+  --fs-sm: 0.875rem;
+  --fs-base: 1rem;
+  --fs-md: 1.125rem;
+  --fs-lg: 1.25rem;
+  --fs-xl: 1.5rem;
+  --fs-2xl: 2rem;
+  --fs-hero: 4rem;
+
+  /* Elevation / shadow scale */
+  --shadow-sm: 0 2px 4px rgba(0, 0, 0, 0.1);
+  --shadow-md: 0 4px 8px rgba(0, 0, 0, 0.1);
+  --shadow-lg: 0 8px 24px rgba(0, 0, 0, 0.12);
+  --focus-ring: 0 0 0 0.2rem rgba(var(--bs-primary-rgb), 0.2);
+
+  font-synthesis: none;
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* Base Styles */
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+body {
+  font-family: var(--font-primary);
+  font-size: var(--fs-sm);
+  font-weight: 400;
+  line-height: 1.6;
+  color: var(--bs-dark);
+  background-color: var(--bs-white);
+}
+
+h1, h2, h3, h4, h5, h6 {
+  font-family: var(--font-heading);
+  font-weight: 700;
+  color: var(--bs-secondary);
+  line-height: 1.2;
+}
+
+/* Heading scale — sized from the type tokens so headings stay coherent with the
+   body scale (replaces Bootstrap's root-relative defaults). Components may still
+   override per-context (e.g. .card-title, .vk-page-title). */
+h1 { font-size: var(--fs-2xl); }
+h2 { font-size: var(--fs-xl); }
+h3 { font-size: var(--fs-lg); }
+h4 { font-size: var(--fs-md); }
+h5 { font-size: var(--fs-base); }
+h6 { font-size: var(--fs-sm); }
+
+/* Bootstrap Button Overrides — ONE app-wide button.
+   Every button is the same size (matches IconButton / the "Ring pasient"
+   button). The only per-button variation is the background colour (a solid
+   variant) and whether it has a border (an outline variant). */
+.btn {
+  font-size: 0.95rem;
+  font-weight: 500;
+  padding: 0.4rem 1rem;
+  border-radius: var(--radius-sm);
+  border: 1px solid transparent;
+  transition: all 0.2s ease;
+}
+
+/* Sizes are intentionally collapsed: size="sm"/"lg" render at the base size so
+   there is a single consistent button everywhere. */
+.btn-sm,
+.btn-lg {
+  font-size: 0.95rem;
+  padding: 0.4rem 1rem;
+  border-radius: var(--radius-sm);
+}
+
+/* Solid buttons — colour comes from the background. */
+.btn-primary {
+  background-color: var(--bs-primary);
+  border-color: var(--bs-primary);
+}
+
+.btn-primary:hover {
+  background-color: var(--bs-primary-hover);
+  border-color: var(--bs-primary-hover);
+}
+
+.btn-secondary {
+  background-color: var(--bs-secondary);
+  border-color: var(--bs-secondary);
+}
+
+.btn-secondary:hover {
+  background-color: var(--bs-secondary-hover);
+  border-color: var(--bs-secondary-hover);
+}
+
+/* Bordered buttons — every outline variant is the same: transparent fill, one
+   dark border, dark text (the IconButton look). Colour only ever comes from a
+   solid variant's background, never the border. */
+.btn[class*='btn-outline-'] {
+  color: var(--bs-dark);
+  background-color: transparent;
+  border: 1px solid var(--bs-dark);
+}
+
+.btn[class*='btn-outline-']:hover:not(:disabled) {
+  color: var(--bs-dark);
+  background-color: var(--bs-light);
+  border-color: var(--bs-dark);
+}
+
+/* Bootstrap Card Overrides */
+.card {
+  border-radius: var(--radius-default);
+  overflow: hidden;
+}
+
+/* Interactive lift — add `vk-hoverable` to any clickable card/row to give it a
+   hover affordance: a soft drop shadow and a small upward nudge. */
+.vk-hoverable {
+  cursor: pointer;
+  transition: transform 0.15s ease, box-shadow 0.15s ease;
+}
+
+.vk-hoverable:hover {
+  transform: translateY(-3px);
+  box-shadow: 4px 4px 0 var(--bs-dark);
+}
+
+/* Keyboard focus affordance for clickable cards/rows. */
+.vk-card-clickable:focus-visible {
+  outline: 2px solid var(--bs-dark);
+  outline-offset: 2px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .vk-hoverable {
+    transition: box-shadow 0.15s ease;
+  }
+
+  .vk-hoverable:hover {
+    transform: none;
+  }
+}
+
+/* Badge Styling — one consistent pill, smaller than buttons (badges live inside
+   modules). The shared Badge component owns colours; this keeps any stray
+   react-bootstrap <Badge> consistent too. */
+.badge {
+  font-size: var(--fs-xs);
+  font-weight: 500;
+  padding: 0.3rem 0.65rem;
+  border-radius: var(--radius-pill);
+}
+
+/* Shared dismissible error alert — single source for the inline page-level
+   error banner previously duplicated across feature CSS files. */
+.vk-error-alert {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  background-color: var(--danger-surface-bg);
+  color: var(--danger-surface-fg);
+  border: 1px solid var(--danger-surface-border);
+  border-radius: var(--radius-default);
+  padding: var(--space-4) var(--space-5);
+  margin-bottom: var(--space-5);
+}
+
+.vk-error-alert__close {
+  background: none;
+  border: none;
+  font-size: var(--fs-xl);
+  color: var(--danger-surface-fg);
+  cursor: pointer;
+  padding: 0;
+  line-height: 1;
+  transition: opacity 0.2s ease;
+}
+
+.vk-error-alert__close:hover {
+  opacity: 0.7;
+}
+
+/* Bootstrap Form theming (app-wide) */
+.form-label {
+  font-size: var(--fs-base);
+  font-weight: 600;
+  color: var(--bs-dark);
+  margin-bottom: var(--space-2);
+}
+
+.form-control:focus,
+.form-select:focus {
+  border-color: var(--bs-dark);
+  box-shadow: none;
+}
+
+.form-control::placeholder {
+  color: var(--gray-500);
+  opacity: 1;
+}
+
+/* Bootstrap inputs don't inherit the body size, so they need an explicit rule. */
+.form-control,
+.form-select {
+  font-size: var(--fs-sm);
+}
+
+/* Bootstrap Alert theming (app-wide) */
+.alert {
+  padding: var(--space-4);
+  border-radius: var(--radius-default);
+  margin-bottom: var(--space-4);
+  font-size: var(--fs-sm);
+}
+
+.alert-danger {
+  background-color: var(--danger-surface-bg);
+  color: var(--danger-surface-fg);
+  border: 1px solid var(--danger-surface-border);
+}
+
+.alert-success {
+  background-color: var(--success-surface-bg);
+  color: var(--success-surface-fg);
+  border: 1px solid var(--success-surface-border);
+}

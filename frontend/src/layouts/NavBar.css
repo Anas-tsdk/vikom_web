@@ -1,0 +1,218 @@
+/* ===== NAVBAR STYLES ====== */
+
+/* Navbar container - default state */
+.navbar-container {
+    padding: 1rem 4rem;
+    border-bottom: 1px solid var(--bs-secondary);
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    background-color: transparent;
+    z-index: 999;
+}
+
+/* Navbar with sidebar - shifts right to accommodate fixed sidebar */
+.navbar-with-sidebar {
+    left: 16.25rem; /* matches sidebar width */
+    width: calc(100% - 16.25rem);
+    border-bottom: none; /* removes border for authenticated layout */
+    /* The authenticated navbar is a transparent fixed overlay. Let clicks fall
+       through its empty area to the page content beneath (e.g. breadcrumb
+       links), while its own controls re-enable pointer events below. */
+    pointer-events: none;
+}
+
+.navbar-with-sidebar .user-dropdown-wrapper,
+.navbar-with-sidebar .navbar-toggler,
+.navbar-with-sidebar .mobile-sidebar-menu,
+.navbar-with-sidebar .mobile-logout-wrapper {
+    pointer-events: auto;
+}
+
+/* Logo in navbar - only visible when user is not authenticated */
+.navbar-logo {
+    height: 50px;
+}
+
+/* ===== AUTHENTICATION BUTTONS (Not Logged In) ===== */
+.auth-buttons-wrapper {
+    display: flex;
+    gap: 1.5rem;
+}
+
+.auth-btn-login,
+.auth-btn-register {
+    font-family: var(--font-primary);
+    font-size: 1.1rem;
+    font-weight: 500;
+    padding: 0.75rem 2.5rem;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 120px;
+    border-radius: var(--radius-default);
+    border: 1px solid;
+    cursor: pointer;
+    text-decoration: none;
+    transition: all 0.2s ease;
+}
+
+.auth-btn-login {
+    border-color: var(--bs-secondary);
+    color: var(--bs-secondary);
+    background-color: transparent;
+}
+
+.auth-btn-register {
+    color: var(--bs-white);
+    background-color: var(--bs-secondary);
+    border-color: var(--bs-secondary);
+}
+
+.auth-btn-register:hover {
+    color: var(--bs-white);
+    background-color: var(--bs-secondary-hover);
+    border-color: var(--bs-secondary-hover);
+}
+
+/* ===== USER DROPDOWN (Logged In) ===== */
+.user-dropdown-wrapper {
+    display: flex;
+    align-items: center;
+}
+
+.user-dropdown {
+    background: rgba(255, 255, 255, 0.1);
+    backdrop-filter: blur(0.625rem);
+    -webkit-backdrop-filter: blur(0.625rem);
+    border-radius: var(--radius-default);
+}
+
+.user-dropdown-title {
+    font-weight: 600;
+    color: var(--bs-secondary);
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0;
+    margin: 0;
+}
+
+.user-dropdown-title i {
+    font-size: 1.5rem;
+}
+
+.user-dropdown .dropdown-toggle {
+    font-weight: 600;
+    color: var(--bs-secondary);
+    transition: all 0.2s ease;
+    padding: 0;
+    margin: 0;
+    border-radius: var(--radius-default);
+}
+
+.user-dropdown .dropdown-toggle:hover {
+    background-color: var(--bs-light);
+}
+
+.dropdown-logout {
+    color: var(--bs-danger);
+    font-weight: 500;
+}
+
+.dropdown-logout:hover {
+    background-color: var(--bs-white);
+    color: var(--bs-danger);
+}
+
+/* ===== MOBILE SIDEBAR MENU ===== */
+/* Shows sidebar navigation items in navbar dropdown on mobile */
+.mobile-sidebar-menu {
+    width: 100%;
+    padding: 0.5rem 0;
+}
+
+.mobile-sidebar-menu .nav-link {
+    padding: 0.75rem 1.5rem;
+    color: var(--bs-dark);
+    font-weight: 500;
+    text-align: right;
+    transition: all 0.2s ease;
+}
+
+.mobile-sidebar-menu .nav-link:hover {
+    color: var(--bs-dark);
+}
+
+.mobile-sidebar-menu .nav-link.active {
+    color: var(--bs-dark);
+}
+
+/* Mobile logout button - direct access without dropdown */
+.mobile-logout-wrapper {
+    width: 100%;
+}
+
+.mobile-logout-btn {
+    color: var(--bs-danger);
+    font-weight: 600;
+    padding: 0.75rem 1.5rem;
+    text-align: right;
+    border-radius: var(--radius-default);
+    transition: all 0.2s ease;
+    display: inline-block;
+    width: auto;
+}
+
+.mobile-logout-btn:hover {
+    background-color: var(--bs-danger);
+    color: var(--bs-white);
+}
+
+/* ===== RESPONSIVE DESIGN ===== */
+@media (max-width: 991px) {
+    /* Navbar returns to full width on mobile */
+    .navbar-with-sidebar {
+        left: 0;
+        width: 100%;
+    }
+
+    .navbar-container {
+        padding: 1rem 2rem;
+    }
+
+    .auth-buttons-wrapper {
+        flex-direction: column;
+        width: 100%;
+        padding: 1rem 0;
+    }
+
+    .auth-btn-login,
+    .auth-btn-register {
+        width: 100%;
+        text-align: center;
+    }
+
+    .user-dropdown-wrapper {
+        width: 100%;
+    }
+
+    /* Shows mobile sidebar menu on small screens */
+    .mobile-sidebar-menu {
+        display: block;
+    }
+
+    /* Aligns mobile logout wrapper to the right */
+    .mobile-logout-wrapper {
+        display: flex;
+        justify-content: flex-end;
+    }
+}
+
+/* Hides mobile sidebar menu on desktop */
+@media (min-width: 992px) {
+    .mobile-sidebar-menu {
+        display: none;
+    }
+}

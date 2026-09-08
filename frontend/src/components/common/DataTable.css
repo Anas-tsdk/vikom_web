@@ -1,0 +1,43 @@
+/* ===== REUSABLE DATA TABLE =====
+   Thin rounded card wrapper with a light header and a transparent body.
+   Built on Bootstrap's Table + its CSS variables (no !important). */
+
+.vk-table-wrap {
+  border: 1px solid var(--bs-dark);
+  border-radius: var(--radius-card);
+  overflow: hidden;
+  background-color: var(--bs-white);
+}
+
+.vk-table {
+  --bs-table-bg: transparent;
+  --bs-table-hover-bg: var(--bs-light);
+  font-size: var(--fs-sm);
+  margin-bottom: 0;
+}
+
+/* Light header */
+.vk-table thead th {
+  --bs-table-bg: var(--bs-light);
+  font-weight: 600;
+  color: var(--bs-dark);
+  border-bottom: 1px solid var(--bs-dark);
+  padding: 0.75rem 1rem;
+  white-space: nowrap;
+}
+
+/* Transparent body rows */
+.vk-table tbody td {
+  padding: 0.75rem 1rem;
+  vertical-align: middle;
+  color: var(--bs-dark);
+  border-bottom: 1px solid var(--border-color);
+}
+
+.vk-table tbody tr:last-child td {
+  border-bottom: none;
+}
+
+.vk-table-row-clickable {
+  cursor: pointer;
+}

@@ -1,0 +1,86 @@
+/* ===== PATIENT DETAILS PAGE ===== */
+
+/* Standard page padding — matches the other feature pages. */
+.patient-details-page {
+  padding: var(--space-6);
+}
+
+@media (max-width: 991px) {
+  .patient-details-page {
+    padding: var(--space-5);
+  }
+}
+
+@media (max-width: 767px) {
+  .patient-details-page {
+    padding: var(--space-4);
+  }
+}
+
+/* Breadcrumb styling now lives in the shared Breadcrumb component. */
+
+/* Vertical stack of cards within a column — fills its column height so the
+   left and right columns stay equal height (no gap at the bottom). */
+.patient-details-page .vk-card-stack {
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+  height: 100%;
+}
+
+/* Cards inside a stack size to their content (override SectionCard height:100%) */
+.patient-details-page .vk-card-stack > .vk-section-card {
+  height: auto;
+}
+
+/* The last card (Notater) grows to absorb any extra vertical space */
+.patient-details-page .vk-card-stack > :last-child {
+  flex: 1 1 auto;
+}
+
+/* Call log list */
+.patient-details-page .vk-call-log {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.patient-details-page .vk-call-log-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 0.75rem 1rem;
+  background-color: var(--bs-white);
+  border: 1px solid var(--bs-dark);
+  border-radius: var(--radius-default);
+}
+
+.patient-details-page .vk-call-log-main {
+  display: flex;
+  align-items: center;
+  gap: 0.85rem;
+  min-width: 0;
+}
+
+.patient-details-page .vk-call-log-icon {
+  font-size: 1.25rem;
+  color: var(--bs-dark);
+}
+
+/* Saved note text preserves line breaks */
+.patient-details-page .vk-notes-text {
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+/* "Koblet til TV-profil" now uses the shared Badge (bg="connected" bordered). */
+
+/* The .vk-tabs-card base styling is shared (components/common/Tabs.css).
+   Here it only needs to fill its column height so the right column stays level
+   with the left one. */
+.patient-details-page .vk-tabs-card {
+  height: 100%;
+}
+
+/* Tab styles live in components/common/Tabs.css (shared/reusable). */

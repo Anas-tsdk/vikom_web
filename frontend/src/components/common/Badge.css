@@ -1,0 +1,66 @@
+/* ===== BADGE — the single app-wide badge =====
+   Fixed size/shape; only the background colour and the (dark) border toggle
+   vary per instance. Smaller than buttons since badges sit inside modules. */
+.vk-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  font-size: var(--fs-xs);
+  font-weight: 500;
+  line-height: 1.2;
+  padding: 0.3rem 0.65rem;
+  border-radius: var(--radius-pill);
+  border: 1px solid transparent;
+  white-space: nowrap;
+}
+
+/* Border toggle — always the same dark border. */
+.vk-badge--bordered {
+  border-color: var(--bs-dark);
+}
+
+/* Background colours (the only colour knob). Text colour is paired for contrast. */
+.vk-badge--neutral {
+  background-color: var(--gray-200);
+  color: var(--bs-dark);
+}
+
+.vk-badge--light {
+  background-color: var(--bs-white);
+  color: var(--bs-dark);
+}
+
+.vk-badge--primary {
+  background-color: var(--bs-primary);
+  color: var(--bs-white);
+}
+
+.vk-badge--secondary {
+  background-color: var(--bs-secondary);
+  color: var(--bs-white);
+}
+
+.vk-badge--info {
+  background-color: var(--bs-info);
+  color: var(--bs-white);
+}
+
+.vk-badge--success {
+  background-color: var(--bs-success);
+  color: var(--bs-white);
+}
+
+.vk-badge--warning {
+  background-color: var(--bs-warning);
+  color: var(--bs-dark);
+}
+
+.vk-badge--danger {
+  background-color: var(--bs-danger);
+  color: var(--bs-white);
+}
+
+.vk-badge--connected {
+  background-color: var(--success-soft);
+  color: var(--bs-dark);
+}

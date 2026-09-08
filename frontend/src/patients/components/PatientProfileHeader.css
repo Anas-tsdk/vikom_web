@@ -1,0 +1,107 @@
+/* ===== PATIENT PROFILE HEADER ===== */
+.vk-profile-header {
+  background-color: var(--bs-white);
+  border: 1px solid var(--bs-dark);
+  border-radius: var(--radius-card);
+  padding: 1.5rem 1.75rem;
+  margin-bottom: 1.5rem;
+}
+
+.vk-profile-header-top {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 1.5rem;
+  flex-wrap: wrap;
+}
+
+.vk-profile-identity {
+  display: flex;
+  align-items: center;
+  gap: 1.25rem;
+  min-width: 0;
+}
+
+.vk-profile-identity-text {
+  min-width: 0;
+}
+
+.vk-profile-eyebrow {
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  font-size: var(--fs-xs);
+  font-weight: 600;
+  color: var(--text-muted);
+  margin: 0 0 0.15rem;
+}
+
+.vk-profile-name {
+  font-weight: 700;
+  margin: 0 0 0.6rem;
+  
+}
+
+.vk-profile-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+/* Chip styling now lives in the shared Badge component. */
+
+.vk-profile-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex-shrink: 0;
+}
+
+/* Match the "Ring pasient" button height to the icon button / icon badges */
+.vk-profile-actions .btn {
+  display: inline-flex;
+  align-items: center;
+  height: 2.25rem;
+  padding-top: 0;
+  padding-bottom: 0;
+  padding-left: 1rem;
+  padding-right: 1rem;
+  font-size: 0.95rem;
+  border-radius: var(--radius-sm);
+}
+
+/* KPI strip */
+.vk-profile-stats {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 1rem;
+  margin-top: 1.5rem;
+}
+
+/* ===== RESPONSIVE ===== */
+@media (max-width: 991px) {
+  .vk-profile-stats {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+@media (max-width: 767px) {
+  .vk-profile-header {
+    padding: 1.25rem;
+  }
+
+  .vk-profile-actions {
+    width: 100%;
+  }
+
+  .vk-profile-actions .btn {
+    flex: 1;
+  }
+
+  .vk-profile-name {
+    font-size: var(--fs-xl);
+  }
+
+  .vk-profile-stats {
+    grid-template-columns: 1fr;
+  }
+}

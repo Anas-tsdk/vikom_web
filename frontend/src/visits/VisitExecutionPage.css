@@ -1,0 +1,68 @@
+/* Visit execution workspace. Layout uses Bootstrap utilities + shared
+   SectionCard/Breadcrumb; only the bits below need page-specific styling. */
+.visit-execution-page {
+  padding: var(--space-6);
+}
+
+/* Header contact chips use the shared Badge component. */
+
+/* Fremgang (progress) card */
+.visit-execution-page .vk-progress-card {
+  background-color: var(--bs-light);
+  border: 1px solid var(--bs-dark);
+  border-radius: var(--radius-card);
+}
+
+.visit-execution-page .vk-progress-card .progress {
+  height: 0.625rem;
+  background-color: var(--bs-white);
+  border: 1px solid var(--gray-300);
+  border-radius: var(--radius-pill);
+}
+
+.visit-execution-page .vk-progress-card .progress-bar {
+  border-radius: var(--radius-pill);
+}
+
+/* Task list rows */
+.visit-execution-page .vk-task-list {
+  display: flex;
+  flex-direction: column;
+}
+
+.visit-execution-page .vk-task-row {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.6rem 0;
+  border-bottom: 1px solid var(--gray-200);
+}
+
+.visit-execution-page .vk-task-row:last-child {
+  border-bottom: none;
+}
+
+/* Circular checkbox button */
+.visit-execution-page .vk-task-check {
+  border: none;
+  background: transparent;
+  padding: 0;
+  line-height: 1;
+  font-size: 1.25rem;
+  color: var(--gray-500);
+  display: inline-flex;
+}
+
+.visit-execution-page .vk-task-check:not(:disabled):hover {
+  color: var(--bs-success);
+}
+
+.visit-execution-page .vk-task-check:disabled {
+  cursor: default;
+}
+
+@media (max-width: 768px) {
+  .visit-execution-page {
+    padding: var(--space-4);
+  }
+}

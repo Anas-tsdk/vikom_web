@@ -1,0 +1,19 @@
+/* ===== APPOINTMENT LIST PAGE =====
+   Layout is handled by shared components (PageHeader, Tabs, AppointmentCard,
+   EmptyState) and Bootstrap utilities. Only the page padding lives here.
+   The error banner is the shared .vk-error-alert (see index.css). */
+.appointment-list-page {
+  padding: var(--space-6);
+}
+
+@media (max-width: 991px) {
+  .appointment-list-page {
+    padding: var(--space-5);
+  }
+}
+
+@media (max-width: 767px) {
+  .appointment-list-page {
+    padding: var(--space-4);
+  }
+}

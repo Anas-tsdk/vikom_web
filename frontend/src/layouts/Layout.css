@@ -1,0 +1,38 @@
+/* ===== LAYOUT STYLES ===== */
+
+/* Layout container with sidebar - positions sidebar and content correctly */
+.layout-with-sidebar {
+  display: flex;
+  min-height: 100vh;
+}
+
+/* Content area with navbar - adds top padding to account for fixed navbar */
+.content-with-navbar {
+  padding-top: 5.25rem; /* accounts for fixed navbar height */
+  min-height: 100vh;
+}
+
+/* Content area with both sidebar and navbar */
+.content-with-sidebar {
+  margin-left: 16.25rem; /* matches sidebar width */
+  padding-top: 2.25rem; /* accounts for fixed navbar height */
+  padding-left: 2rem;
+  padding-right: 2rem;
+  padding-bottom: 2rem;
+  min-height: 100vh;
+  flex-grow: 1;
+}
+
+/* ===== RESPONSIVE DESIGN ===== */
+@media (max-width: 991px) {
+  /* Content takes full width on mobile */
+  .content-with-sidebar {
+    margin-left: 0;
+    padding: 1rem;
+    padding-top: 4.75rem; /* maintains navbar spacing */
+  }
+
+  .content-with-navbar {
+    padding-top: 5rem;
+  }
+}

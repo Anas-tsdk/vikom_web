@@ -1,0 +1,49 @@
+/* Visit archive — a clean, record-book table styled with the design tokens.
+   Bootstrap owns the table layout; these rules only set the healthcare-archive
+   tone (muted header, soft row separators, gentle hover). */
+
+.vk-archive-table thead th {
+  font-family: var(--font-heading);
+  font-size: var(--fs-xs);
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  color: var(--text-muted);
+  border-bottom: 2px solid var(--border-color);
+  white-space: nowrap;
+  padding-top: var(--space-3);
+  padding-bottom: var(--space-3);
+}
+
+.vk-archive-table tbody td {
+  border-bottom: 1px solid var(--border-color);
+  padding-top: var(--space-3);
+  padding-bottom: var(--space-3);
+}
+
+.vk-archive-table tbody tr:last-child td {
+  border-bottom: none;
+}
+
+.vk-archive-table tbody tr:hover {
+  background-color: var(--surface-muted);
+}
+
+/* Search box with a leading icon, sized to sit neatly above the table. */
+.vk-archive-search {
+  position: relative;
+  width: 100%;
+  max-width: 18rem;
+}
+
+.vk-archive-search .bi-search {
+  position: absolute;
+  top: 50%;
+  left: var(--space-3);
+  transform: translateY(-50%);
+  color: var(--gray-500);
+  pointer-events: none;
+}
+
+.vk-archive-search .form-control {
+  padding-left: 2.25rem;
+}
