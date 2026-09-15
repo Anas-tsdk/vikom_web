@@ -6,6 +6,22 @@
   padding: var(--space-6);
 }
 
+.appointment-list-page .appointment-filters {
+  display: grid;
+  grid-template-columns: minmax(220px, 1fr) minmax(180px, 0.5fr) auto;
+  gap: var(--space-3);
+  align-items: end;
+  padding: var(--space-3);
+  margin-bottom: var(--space-4);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-default);
+  background: var(--bs-light);
+}
+
+.appointment-list-page .appointment-filters:has(#appointment-nurse-filter) {
+  grid-template-columns: minmax(200px, .8fr) minmax(220px, 1fr) minmax(180px, .5fr) auto;
+}
+
 @media (max-width: 991px) {
   .appointment-list-page {
     padding: var(--space-5);
@@ -15,5 +31,9 @@
 @media (max-width: 767px) {
   .appointment-list-page {
     padding: var(--space-4);
+  }
+
+  .appointment-list-page .appointment-filters {
+    grid-template-columns: 1fr;
   }
 }

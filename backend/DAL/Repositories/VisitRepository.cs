@@ -42,6 +42,7 @@ namespace backend.DAL.Repositories
         {
             return await _context.Visits
                 .Include(v => v.Patient)
+                .Include(v => v.ResponsibleUser)
                 .Include(v => v.Tasks)
                 .Include(v => v.Appointment)
                     .ThenInclude(a => a.Availability)
@@ -54,6 +55,7 @@ namespace backend.DAL.Repositories
         {
             return await _context.Visits
                 .Include(v => v.Patient)
+                .Include(v => v.ResponsibleUser)
                 .Include(v => v.Tasks)
                 .Include(v => v.Appointment)
                     .ThenInclude(a => a.Availability)

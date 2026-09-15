@@ -1,13 +1,18 @@
 import React from 'react';
 import { Nav } from 'react-bootstrap';
 import { Link, useLocation } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
 import { getUserInfo } from '../auth/AuthService';
+import { isHeadNurseRole, isPortalRole } from '../auth/roles';
 import './Sidebar.css';
+import useDailyCheckInAlertCount from '../checkins/hooks/useDailyCheckInAlertCount';
 
 const Sidebar: React.FC = () => {
   const location = useLocation();
+  const { t } = useTranslation();
   const userInfo = getUserInfo();
   const role = userInfo?.role;
+  const checkInAlertCount = useDailyCheckInAlertCount();
 
   // checks if current route matches the given path
   const isActive = (path: string) => location.pathname === path;
@@ -34,11 +39,11 @@ const Sidebar: React.FC = () => {
           className={isActive('/dashboard') ? 'active' : ''}
         >
           <i className="bi bi-grid" aria-hidden="true"></i>
-          Oversikt
+          {t('Oversikt')}
         </Nav.Link>
 
         {/* Personnel navigation */}
-        {role === 'Personnel' && (
+        {isPortalRole(role) && (
           <>
             <Nav.Link 
               as={Link} 
@@ -46,7 +51,7 @@ const Sidebar: React.FC = () => {
               className={isActive('/availability') ? 'active' : ''}
             >
               <i className="bi bi-calendar4" aria-hidden="true"></i>
-              Kalender
+              {t('Kalender')}
             </Nav.Link>
             <Nav.Link 
               as={Link} 
@@ -54,15 +59,38 @@ const Sidebar: React.FC = () => {
               className={isActive('/appointments') ? 'active' : ''}
             >
               <i className="bi bi-briefcase" aria-hidden="true"></i>
-              Avtaler
+              {t('Avtaler')}
             </Nav.Link>
+            {isHeadNurseRole(role) && (
+              <Nav.Link
+                as={Link}
+                to="/alerts"
+                className={isActive('/alerts') ? 'active' : ''}
+              >
+                <i className="bi bi-shield-exclamation" aria-hidden="true"></i>
+                {t('Trygghetsvarsler')}
+                {checkInAlertCount > 0 && (
+                  <span className="badge rounded-pill text-bg-danger ms-auto">{checkInAlertCount}</span>
+                )}
+              </Nav.Link>
+            )}
+            {isHeadNurseRole(role) && (
+              <Nav.Link
+                as={Link}
+                to="/appointments/cancelled"
+                className={isActive('/appointments/cancelled') ? 'active' : ''}
+              >
+                <i className="bi bi-calendar-x" aria-hidden="true"></i>
+                {t('Avlyste avtaler')}
+              </Nav.Link>
+            )}
             <Nav.Link 
               as={Link} 
               to="/patients" 
               className={isActive('/patients') ? 'active' : ''}
             >
               <i className="bi bi-people" aria-hidden="true"></i>
-              Pasienter
+              {t('Pasienter')}
             </Nav.Link>
             <Nav.Link 
               as={Link} 
@@ -70,8 +98,18 @@ const Sidebar: React.FC = () => {
               className={isActive('/planning') ? 'active' : ''}
             >
               <i className="bi bi-list-ul" aria-hidden="true"></i>
-              Planlegging
+              {t('Planlegging')}
             </Nav.Link>
+            {isHeadNurseRole(role) && (
+              <Nav.Link
+                as={Link}
+                to="/nurses"
+                className={isActive('/nurses') ? 'active' : ''}
+              >
+                <i className="bi bi-person-badge" aria-hidden="true"></i>
+                {t('Sykepleiere')}
+              </Nav.Link>
+            )}
           </>
         )}
       </Nav>

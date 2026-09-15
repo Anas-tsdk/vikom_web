@@ -39,10 +39,25 @@ namespace backend.Controllers
                 var (user, error) = await ResolveCallerAsync();
                 if (error != null) return error;
 
+                // ResolveCaller deliberately performs a minimal identity lookup.
+                // This response also needs the authoritative medication collection.
+                var patient = await _userRepository.GetByIdWithMedicationsAsync(user!.Id);
+                if (patient == null) return NotFound();
+
                 return Ok(new TvProfileDto
                 {
-                    FullName = user!.FullName,
-                    UserName = user.UserName ?? string.Empty
+                    FullName = patient.FullName,
+                    UserName = patient.UserName ?? string.Empty,
+                    DailyTasks = patient.TreatmentPlan,
+                    Medications = patient.Medications
+                        .OrderBy(medication => medication.SortOrder)
+                        .Select(medication => new MedicationDto
+                        {
+                            Name = medication.Name,
+                            Dosage = medication.Dosage,
+                            Schedule = medication.Schedule
+                        })
+                        .ToList()
                 });
             }
             catch (Exception ex)
@@ -76,6 +91,7 @@ namespace backend.Controllers
                     {
                         FullName = member?.FullName ?? link.SecondaryUserName,
                         RelationshipType = link.RelationshipType,
+                        Role = member?.Role ?? string.Empty,
                         PhoneNumber = member?.PhoneNumber
                     });
                 }

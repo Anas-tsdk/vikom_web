@@ -53,13 +53,15 @@ Other scripts: `npm run build` (type-check + production build to `dist/`), `npm 
 
 ## Configuration
 
-- Backend URL: hardcoded in `src/config/config.ts` (`API_URL = 'http://localhost:5084'`). Change the file if your backend runs elsewhere.
+- Backend URL: `VITE_API_URL` in `.env.local` (defaults to `http://localhost:5084`).
 - Supabase (calls only): `VITE_SUPABASE_URL` and `VITE_SUPABASE_ANON_KEY` in `.env.local`. Without them the portal works, but the call button reports Supabase as not configured.
+- Routing: `VITE_ROUTING_API_URL` is optional and defaults to the public OSRM demo service.
 
 ## Conventions
 
 - **Service layer:** every feature has its own service module (`AppointmentService.ts`, `VisitService.ts`, …) that wraps `fetch` and attaches the JWT via `AuthService.getAuthHeader()`. Components never call `fetch` directly.
-- **Auth:** login stores the backend-issued JWT in `localStorage` (`jwt`) plus a `userInfo` object; `PersonnelOnlyRoute` guards every non-public route (the portal is personnel-only).
+- **Auth:** login stores the backend-issued JWT in `localStorage` (`jwt`) plus a `userInfo` object; `PersonnelOnlyRoute` guards every non-public route. Public registration creates a normal Nurse. Head Nurses can create staff accounts and plan across nurses.
+- **Languages:** Norwegian, English, German, Finnish, and Swedish are selected from **Languages** in the profile menu and persisted locally.
 - **Styling:** one co-located plain CSS file per page/component (no CSS modules); design tokens from `index.css`; Bootstrap Icons (`bi-*`) for all icons.
 - **Reuse first:** check `components/common/` and the design system before writing a new component.
 
@@ -67,9 +69,10 @@ Other scripts: `npm run build` (type-check + production build to `dist/`), `npm 
 
 - Public: `/`, `/login`, `/register`
 - Personnel-only: `/dashboard`, `/appointments`, `/appointments/archive`, `/availability`, `/patients`, `/patients/:username`, `/besok/:appointmentId` (the visit workspace; `?type=Digital` starts a digital visit), `/planning`
+- Head-Nurse-only UI: `/nurses` (staff registration and role overview)
 
 ## Troubleshooting
 
 - **CORS errors:** in Development the backend accepts any loopback origin, so a different Vite port is fine. Just make sure the backend is running on 5084.
-- **401 responses:** the JWT (24h expiry) may have expired; there is no automatic redirect yet, so log out and back in.
+- **401 responses:** expired or malformed stored JWTs are cleared automatically. Log in again; also do this after a staff role changes so the new role is present in the token and UI.
 - **Call button errors:** either `.env.local` is missing, or the patient has no `supabaseProfileId` (not linked to a TV account).

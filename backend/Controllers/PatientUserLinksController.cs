@@ -2,34 +2,38 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Authorization;
 using backend.DTOs;
 using backend.Services;
+using System.Security.Claims;
 
 namespace backend.Controllers
 {
     // The portal is personnel-only; patients reach their data through the TV app's
     // Supabase-authenticated endpoints instead.
-    [Authorize(Roles = "Personnel")]
+    [Authorize(Policy = AuthorizationPolicies.PortalStaff)]
     [ApiController]
     [Route("api/[controller]")]
     public class PatientUserLinksController : ControllerBase
     {
         private readonly IPatientUserLinkService _service;
+        private readonly IPortalAccessService _access;
         private readonly ILogger<PatientUserLinksController> _logger;
 
         public PatientUserLinksController(
             IPatientUserLinkService service,
+            IPortalAccessService access,
             ILogger<PatientUserLinksController> logger)
         {
             _service = service;
+            _access = access;
             _logger = logger;
         }
 
         // GET: api/patientuserlinks
         [HttpGet]
-        [Authorize(Roles = "Personnel")]
         public async Task<ActionResult<IEnumerable<PatientUserLinkDto>>> GetAll()
         {
             try
             {
+                if (!await _access.IsHeadNurseAsync(User)) return Forbid();
                 var links = await _service.GetAllAsync();
                 return Ok(links);
             }
@@ -46,6 +50,7 @@ namespace backend.Controllers
         {
             try
             {
+                if (!await _access.IsHeadNurseAsync(User)) return Forbid();
                 var links = await _service.GetByPatientIdAsync(patientId);
                 return Ok(links);
             }
@@ -62,6 +67,7 @@ namespace backend.Controllers
         {
             try
             {
+                if (!await _access.IsHeadNurseAsync(User)) return Forbid();
                 var links = await _service.GetBySecondaryUserIdAsync(secondaryUserId);
                 return Ok(links);
             }
@@ -74,17 +80,28 @@ namespace backend.Controllers
 
         // POST: api/patientuserlinks
         [HttpPost]
-        [Authorize(Roles = "Personnel")]
         public async Task<ActionResult<PatientUserLinkDto>> Create([FromBody] CreatePatientUserLinkRequest request)
         {
             try
             {
+                if (!await _access.IsHeadNurseAsync(User)) return Forbid();
                 if (!ModelState.IsValid)
                 {
                     return BadRequest(ModelState);
                 }
 
-                var link = await _service.CreateAsync(request.PatientId, request.SecondaryUserId, request.RelationshipType);
+                var userId = User.FindFirstValue(ClaimTypes.NameIdentifier);
+                if (string.IsNullOrWhiteSpace(userId)) return Unauthorized();
+
+                var targetPersonnelId = string.IsNullOrWhiteSpace(request.SecondaryUserId)
+                    ? userId
+                    : request.SecondaryUserId;
+                if (!await _access.CanManagePersonnelAsync(User, targetPersonnelId)) return Forbid();
+                if (!await _access.IsPortalStaffAsync(targetPersonnelId))
+                    return BadRequest("The selected user is not a nurse");
+                if (!await _access.CanAccessPatientAsync(User, request.PatientId)) return Forbid();
+
+                var link = await _service.CreateAsync(request.PatientId, targetPersonnelId, request.RelationshipType);
                 return CreatedAtAction(nameof(GetById), new { id = link.Id }, link);
             }
             catch (Exception ex)
@@ -100,11 +117,13 @@ namespace backend.Controllers
         {
             try
             {
+                if (!await _access.IsHeadNurseAsync(User)) return Forbid();
                 var link = await _service.GetByIdAsync(id);
                 if (link == null)
                 {
                     return NotFound();
                 }
+                if (!await _access.CanManagePersonnelAsync(User, link.SecondaryUserId)) return Forbid();
                 return Ok(link);
             }
             catch (Exception ex)
@@ -116,11 +135,15 @@ namespace backend.Controllers
 
         // DELETE: api/patientuserlinks/{id}
         [HttpDelete("{id}")]
-        [Authorize(Roles = "Personnel")]
         public async Task<IActionResult> Delete(int id)
         {
             try
             {
+                if (!await _access.IsHeadNurseAsync(User)) return Forbid();
+                var link = await _service.GetByIdAsync(id);
+                if (link == null) return NotFound();
+                if (!await _access.CanManagePersonnelAsync(User, link.SecondaryUserId)) return Forbid();
+
                 var result = await _service.DeleteAsync(id);
                 if (!result)
                 {

@@ -1,16 +1,36 @@
 import React, { useState } from 'react';
 import { Navbar, Container, Nav, NavDropdown } from 'react-bootstrap';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
 import * as AuthService from '../auth/AuthService';
+import type { SupportedLanguage } from '../i18n';
+import { isHeadNurseRole, isPortalRole } from '../auth/roles';
 import './NavBar.css';
+import useDailyCheckInAlertCount from '../checkins/hooks/useDailyCheckInAlertCount';
+
+const languageOptions: ReadonlyArray<{
+  code: SupportedLanguage;
+  labelKey: 'Norsk' | 'Engelsk' | 'Tysk' | 'Finsk' | 'Svensk' | 'Fransk' | 'Nederlandsk';
+}> = [
+  { code: 'no', labelKey: 'Norsk' },
+  { code: 'en', labelKey: 'Engelsk' },
+  { code: 'de', labelKey: 'Tysk' },
+  { code: 'fi', labelKey: 'Finsk' },
+  { code: 'sv', labelKey: 'Svensk' },
+  { code: 'fr', labelKey: 'Fransk' },
+  { code: 'nl', labelKey: 'Nederlandsk' },
+];
 
 const NavBar: React.FC = () => {
   const navigate = useNavigate();
   const location = useLocation();
+  const { t, i18n } = useTranslation();
   const isAuthenticated = AuthService.isAuthenticated();
   const userInfo = AuthService.getUserInfo();
   const role = userInfo?.role;
   const [showMobileMenu, setShowMobileMenu] = useState(false);
+  const [showLanguageMenu, setShowLanguageMenu] = useState(false);
+  const checkInAlertCount = useDailyCheckInAlertCount();
 
   // handles logout action
   const handleLogout = () => {
@@ -33,6 +53,13 @@ const NavBar: React.FC = () => {
 
   // determines if logo should be shown in navbar (only when not authenticated)
   const showLogoInNavbar = !isAuthenticated;
+
+  const changeLanguage = (language: SupportedLanguage) => {
+    void i18n.changeLanguage(language);
+  };
+
+  const currentLanguage = i18n.resolvedLanguage?.split('-')[0];
+  const translatedRole = isHeadNurseRole(role) ? t('Ledende sykepleier') : t('Sykepleier');
 
   return (
     <Navbar expand="lg" className={`navbar-container ${isAuthenticated ? 'navbar-with-sidebar' : ''}`}>
@@ -66,10 +93,10 @@ const NavBar: React.FC = () => {
                     onClick={closeMobileMenu}
                     className={isActive('/dashboard') ? 'active' : ''}
                   >
-                    Oversikt
+                    {t('Oversikt')}
                   </Nav.Link>
 
-                  {role === 'Personnel' && (
+                  {isPortalRole(role) && (
                     <>
                       <Nav.Link 
                         as={Link} 
@@ -77,7 +104,7 @@ const NavBar: React.FC = () => {
                         onClick={closeMobileMenu}
                         className={isActive('/availability') ? 'active' : ''}
                       >
-                        Min kalender
+                        {t('Min kalender')}
                       </Nav.Link>
                       <Nav.Link 
                         as={Link} 
@@ -85,8 +112,57 @@ const NavBar: React.FC = () => {
                         onClick={closeMobileMenu}
                         className={isActive('/patients') ? 'active' : ''}
                       >
-                        Mine pasienter
+                        {t('Mine pasienter')}
                       </Nav.Link>
+                      <Nav.Link
+                        as={Link}
+                        to="/appointments"
+                        onClick={closeMobileMenu}
+                        className={isActive('/appointments') ? 'active' : ''}
+                      >
+                        {t('Avtaler')}
+                      </Nav.Link>
+                      {isHeadNurseRole(role) && (
+                        <Nav.Link
+                          as={Link}
+                          to="/alerts"
+                          onClick={closeMobileMenu}
+                          className={isActive('/alerts') ? 'active' : ''}
+                        >
+                          {t('Trygghetsvarsler')}
+                          {checkInAlertCount > 0 && (
+                            <span className="badge rounded-pill text-bg-danger ms-2">{checkInAlertCount}</span>
+                          )}
+                        </Nav.Link>
+                      )}
+                      {isHeadNurseRole(role) && (
+                        <Nav.Link
+                          as={Link}
+                          to="/appointments/cancelled"
+                          onClick={closeMobileMenu}
+                          className={isActive('/appointments/cancelled') ? 'active' : ''}
+                        >
+                          {t('Avlyste avtaler')}
+                        </Nav.Link>
+                      )}
+                      <Nav.Link
+                        as={Link}
+                        to="/planning"
+                        onClick={closeMobileMenu}
+                        className={isActive('/planning') ? 'active' : ''}
+                      >
+                        {t('Planlegging')}
+                      </Nav.Link>
+                      {isHeadNurseRole(role) && (
+                        <Nav.Link
+                          as={Link}
+                          to="/nurses"
+                          onClick={closeMobileMenu}
+                          className={isActive('/nurses') ? 'active' : ''}
+                        >
+                          {t('Sykepleiere')}
+                        </Nav.Link>
+                      )}
                     </>
                   )}
                 </div>
@@ -94,22 +170,129 @@ const NavBar: React.FC = () => {
                 {/* Desktop: User dropdown with fullName */}
                 <div className="user-dropdown-wrapper d-none d-lg-flex">
                   <NavDropdown 
-                    title={<><p className="user-dropdown-title"><i className="bi bi-person-circle"></i> {userInfo.fullName}</p></>} 
+                    title={(
+                      <span className="user-dropdown-title">
+                        <i className="bi bi-person-circle" aria-hidden="true"></i>
+                        <span className="user-dropdown-identity">
+                          <span>{userInfo.fullName}</span>
+                          {isPortalRole(role) && <small>{translatedRole}</small>}
+                        </span>
+                      </span>
+                    )}
                     id="account-dropdown" 
                     align="end"
                     className="user-dropdown"
+                    onToggle={(isOpen) => {
+                      if (!isOpen) setShowLanguageMenu(false);
+                    }}
                   >
-                    
+                    <button
+                      type="button"
+                      className="dropdown-item language-menu-toggle"
+                      aria-expanded={showLanguageMenu}
+                      aria-controls="account-language-options"
+                      onClick={(event) => {
+                        event.stopPropagation();
+                        setShowLanguageMenu((isOpen) => !isOpen);
+                      }}
+                    >
+                      <span className="language-menu-label">
+                        <i className="bi bi-globe2" aria-hidden="true"></i>
+                        {t('Språk')}
+                      </span>
+                      <i
+                        className={`bi ${showLanguageMenu ? 'bi-chevron-up' : 'bi-chevron-down'}`}
+                        aria-hidden="true"
+                      ></i>
+                    </button>
+                    {showLanguageMenu && (
+                      <div
+                        id="account-language-options"
+                        className="language-options"
+                        role="group"
+                        aria-label={t('Språk')}
+                      >
+                        {languageOptions.map(({ code, labelKey }) => {
+                          const isSelected = currentLanguage === code;
+
+                          return (
+                            <button
+                              type="button"
+                              className={`dropdown-item language-option ${isSelected ? 'active' : ''}`}
+                              key={code}
+                              aria-pressed={isSelected}
+                              onClick={(event) => {
+                                event.stopPropagation();
+                                changeLanguage(code);
+                              }}
+                            >
+                              <span>{t(labelKey)}</span>
+                              {isSelected && (
+                                <i className="bi bi-check2" aria-hidden="true"></i>
+                              )}
+                            </button>
+                          );
+                        })}
+                      </div>
+                    )}
+                    <NavDropdown.Divider />
                     <NavDropdown.Item onClick={handleLogout} className="dropdown-logout">
-                      Logg ut
+                      {t('Logg ut')}
                     </NavDropdown.Item>
                   </NavDropdown>
                 </div>
 
-                {/* Mobile: Direct logout button without dropdown */}
-                <div className="d-lg-none mobile-logout-wrapper">
+                <div className="d-lg-none mobile-account-tools">
+                  <div className="mobile-account-summary">
+                    <i className="bi bi-person-circle" aria-hidden="true"></i>
+                    <span className="user-dropdown-identity">
+                      <span>{userInfo.fullName}</span>
+                      {isPortalRole(role) && <small>{translatedRole}</small>}
+                    </span>
+                  </div>
+                  <button
+                    type="button"
+                    className="mobile-language-toggle"
+                    aria-expanded={showLanguageMenu}
+                    aria-controls="mobile-language-options"
+                    onClick={() => setShowLanguageMenu((isOpen) => !isOpen)}
+                  >
+                    <span className="language-menu-label">
+                      <i className="bi bi-globe2" aria-hidden="true"></i>
+                      {t('Språk')}
+                    </span>
+                    <i
+                      className={`bi ${showLanguageMenu ? 'bi-chevron-up' : 'bi-chevron-down'}`}
+                      aria-hidden="true"
+                    ></i>
+                  </button>
+                  {showLanguageMenu && (
+                    <div
+                      id="mobile-language-options"
+                      className="mobile-language-options"
+                      role="group"
+                      aria-label={t('Språk')}
+                    >
+                      {languageOptions.map(({ code, labelKey }) => {
+                        const isSelected = currentLanguage === code;
+
+                        return (
+                          <button
+                            type="button"
+                            className={`mobile-language-option ${isSelected ? 'active' : ''}`}
+                            key={code}
+                            aria-pressed={isSelected}
+                            onClick={() => changeLanguage(code)}
+                          >
+                            <span>{t(labelKey)}</span>
+                            {isSelected && <i className="bi bi-check2" aria-hidden="true"></i>}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  )}
                   <Nav.Link onClick={handleLogout} className="mobile-logout-btn">
-                    Logg ut
+                    {t('Logg ut')}
                   </Nav.Link>
                 </div>
               </>
@@ -117,10 +300,10 @@ const NavBar: React.FC = () => {
               // displays login and register buttons when not authenticated
               <div className="auth-buttons-wrapper">
                 <Nav.Link as={Link} to="/login" className="auth-btn-login">
-                  Logg inn
+                  {t('Logg inn')}
                 </Nav.Link>
                 <Nav.Link as={Link} to="/register" className="auth-btn-register">
-                  Registrer
+                  {t('Registrer')}
                 </Nav.Link>
               </div>
             )}

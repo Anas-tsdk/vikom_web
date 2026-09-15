@@ -8,7 +8,7 @@ namespace backend.DTOs
     public class CallLogUpdateDto
     {
         [Required(ErrorMessage = "Status is required.")]
-        [RegularExpression(@"^(Initiated|Answered|Declined|Ended|Missed)$", ErrorMessage = "Invalid call status value.")]
+        [RegularExpression(@"^(Initiated|Answered|Declined|Ended|Missed|Failed)$", ErrorMessage = "Invalid call status value.")]
         public string Status { get; set; } = string.Empty;
     }
 }

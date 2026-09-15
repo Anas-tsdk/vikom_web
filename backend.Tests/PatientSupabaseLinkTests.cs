@@ -133,6 +133,8 @@ public class PatientSupabaseLinkTests : IDisposable
         var saved = await ReloadAsync(patient.Id);
         Assert.Equal(ProfileA, saved.SupabaseProfileId);
         Assert.Equal(IngridHandle, saved.ProfileUsername);
+        Assert.True(saved.DailyCheckInEnabled);
+        Assert.NotNull(saved.DailyCheckInStartedAt);
     }
 
     [Fact]
@@ -159,6 +161,8 @@ public class PatientSupabaseLinkTests : IDisposable
         var saved = await ReloadAsync(patient.Id);
         Assert.Null(saved.SupabaseProfileId);
         Assert.Equal(IngridHandle, saved.ProfileUsername);
+        Assert.False(saved.DailyCheckInEnabled);
+        Assert.Null(saved.DailyCheckInStartedAt);
     }
 
     [Fact]
@@ -178,6 +182,7 @@ public class PatientSupabaseLinkTests : IDisposable
         var saved = await ReloadAsync(created.Id);
         Assert.Null(saved.ProfileUsername);
         Assert.Equal(ProfileA, saved.SupabaseProfileId);
+        Assert.True(saved.DailyCheckInEnabled);
 
         // The details DTO drives the URL the portal navigates to, and with no
         // handle it must fall back to the GUID rather than inventing one.
@@ -194,6 +199,45 @@ public class PatientSupabaseLinkTests : IDisposable
             () => _service.UpdatePatientAsync(other.Id, UpdateDtoFor(other, ProfileA)));
 
         Assert.Contains("Ingrid Berg", error.Message);
+    }
+
+    [Fact]
+    public async Task Assigned_patients_are_unioned_with_existing_care_team_links()
+    {
+        var nurse = await AddPatientAsync("nurse.assignments@example.test", "Nurse", null);
+        var linked = await AddPatientAsync("patient.linked@example.test", "Linked Patient", null);
+        var assigned = await AddPatientAsync("patient.assigned@example.test", "Assigned Patient", null);
+
+        _context.PatientUserLinks.Add(new PatientUserLink
+        {
+            PatientId = linked.Id,
+            SecondaryUserId = nurse.Id,
+            RelationshipType = "Personnel"
+        });
+        var slot = new Availability
+        {
+            PersonnelId = nurse.Id,
+            Date = DateTime.Today.AddDays(1),
+            StartTime = TimeSpan.FromHours(9),
+            EndTime = TimeSpan.FromHours(10)
+        };
+        _context.Appointments.Add(new Appointment
+        {
+            PatientId = assigned.Id,
+            Availability = slot,
+            StartTime = slot.StartTime,
+            EndTime = slot.EndTime,
+            Tasks = "Care",
+            Status = "Booked"
+        });
+        await _context.SaveChangesAsync();
+
+        var visible = (await _service.GetLinkedPatientsAsync(nurse.Id))
+            .Select(patient => patient.Id)
+            .ToHashSet();
+
+        Assert.Contains(linked.Id, visible);
+        Assert.Contains(assigned.Id, visible);
     }
 
     [Fact]
@@ -223,6 +267,91 @@ public class PatientSupabaseLinkTests : IDisposable
         var saved = await ReloadAsync(patient.Id);
         Assert.Equal(ProfileB, saved.SupabaseProfileId);
         Assert.Equal(IngridHandle, saved.ProfileUsername);
+    }
+
+    [Fact]
+    public async Task Contact_coordinates_clinical_data_and_medications_are_saved_together()
+    {
+        var patient = await AddPatientAsync("patient.clinical@homecare.local", "Kari Nordmann", "kari.nordmann");
+
+        var updated = await _service.UpdatePatientAsync(patient.Id, new PatientUpdateDto
+        {
+            FullName = patient.FullName,
+            Email = patient.Email!,
+            Address = "Grensen 12, 0159 Oslo",
+            Latitude = 59.914,
+            Longitude = 10.744,
+            DateOfBirth = new DateTime(1945, 2, 3),
+            NextOfKinName = "Ola Nordmann",
+            NextOfKinRelation = "Sønn",
+            GeneralPractitioner = "Dr. Hansen",
+            Allergies = "Penicillin",
+            Diagnoses = ["Diabetes type 2", "Hypertensjon"],
+            ConditionFlags = ["Bruker rullator"],
+            TreatmentPlan = "Ukentlig oppfølging",
+            Medications =
+            [
+                new MedicationDto { Name = "Metformin", Dosage = "500 mg", Schedule = "Morgen og kveld" },
+                new MedicationDto { Name = "Amlodipin", Dosage = "5 mg", Schedule = "Morgen" },
+            ],
+        });
+
+        Assert.NotNull(updated);
+        Assert.Equal(59.914, updated.Latitude);
+        Assert.Equal(10.744, updated.Longitude);
+        Assert.Equal("Dr. Hansen", updated.Clinical.GeneralPractitioner);
+        Assert.Equal(2, updated.Clinical.Diagnoses.Count);
+        Assert.Equal(2, updated.Clinical.Medications.Count);
+        Assert.Equal("Metformin", updated.Clinical.Medications[0].Name);
+
+        _context.ChangeTracker.Clear();
+        Assert.Equal(2, await _context.PatientMedications.CountAsync(m => m.PatientId == patient.Id));
+    }
+
+    [Fact]
+    public async Task Repeated_patient_saves_replace_medications_without_duplicating_them()
+    {
+        var patient = await AddPatientAsync(
+            "patient.medication@homecare.local",
+            "Medisin Pasient",
+            "medisin.pasient");
+
+        // Reproduce the production state: the medicine exists in the database,
+        // but the patient is loaded in a fresh request without its navigation.
+        _context.PatientMedications.Add(new PatientMedication
+        {
+            PatientId = patient.Id,
+            Name = "Ciscutan",
+            Dosage = "50 mg",
+            Schedule = "2 ganger daglig",
+            SortOrder = 0,
+        });
+        await _context.SaveChangesAsync();
+        _context.ChangeTracker.Clear();
+
+        var update = UpdateDtoFor(patient, null);
+        update.Medications =
+        [
+            new MedicationDto { Name = "Ciscutan", Dosage = "50 mg", Schedule = "2 ganger daglig" },
+            // A duplicated client row must not recreate the database problem.
+            new MedicationDto { Name = " ciscutan ", Dosage = " 50 mg ", Schedule = " 2 ganger daglig " },
+        ];
+
+        await _service.UpdatePatientAsync(patient.Id, update);
+        _context.ChangeTracker.Clear();
+        await _service.UpdatePatientAsync(patient.Id, update);
+        _context.ChangeTracker.Clear();
+
+        var saved = await _context.PatientMedications
+            .AsNoTracking()
+            .Where(m => m.PatientId == patient.Id)
+            .ToListAsync();
+
+        var medication = Assert.Single(saved);
+        Assert.Equal("Ciscutan", medication.Name);
+        Assert.Equal("50 mg", medication.Dosage);
+        Assert.Equal("2 ganger daglig", medication.Schedule);
+        Assert.Equal(0, medication.SortOrder);
     }
 
     public void Dispose()

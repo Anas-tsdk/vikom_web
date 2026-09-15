@@ -1,54 +1,73 @@
 import React, { useState, useEffect } from 'react';
 import { Form, Button, Spinner, Alert } from 'react-bootstrap';
-import { getAuthHeader } from '../../auth/AuthService';
-import { API_URL } from '../../config/config';
+import { useTranslation } from 'react-i18next';
 import PatientService from '../../patients/services/PatientService';
+import PersonnelService, { type NurseSummary } from '../../personnel/services/PersonnelService';
 import { fetchWeekAvailability } from '../../availability/services/AvailabilityService';
 import type { Appointment } from '../types/appointment';
 import type { PatientListDto } from '../../patients/types/patient';
-import type { AvailabilitySlot, DayAvailability } from '../../availability/types/availability';
-
-interface User {
-  id: number;
-  personnelId: number;
-  fullName: string;
-}
-
-// Helper function to fetch personnel
-const fetchPersonnel = async (): Promise<User[]> => {
-  const response = await fetch(`${API_URL}/api/personnel`, {
-    headers: { 'Content-Type': 'application/json', ...getAuthHeader() }
-  });
-  if (!response.ok) throw new Error('Failed to fetch personnel');
-  return response.json();
-};
+import type { AvailabilitySlot, DayAvailability, WeekAvailability } from '../../availability/types/availability';
+import { localeForLanguage } from '../../i18n';
+import { addWeeks, formatDateISO, getMonday } from '../../utils/dateUtils';
 
 interface AppointmentFormProps {
   initialData?: Appointment;
+  defaultPersonnelId?: string;
   onSubmit: (data: Appointment) => void;
   onCancel: () => void;
 }
 
-const AppointmentForm: React.FC<AppointmentFormProps> = ({ initialData, onSubmit, onCancel }) => {
+const ALL_TASKS = [
+  { id: 'medisin', label: 'Medisin', description: 'Hjelp med medisinering og dosering' },
+  { id: 'bading', label: 'Bading', description: 'Hjelp med personlig hygiene og bading' },
+  { id: 'matlaging', label: 'Matlaging', description: 'Hjelp med måltider og matlaging' },
+  { id: 'handel', label: 'Handel', description: 'Hjelp med å handle mat og nødvendigheter' },
+  { id: 'husholdning', label: 'Husholdning', description: 'Lett husarbeid og rengjøring' },
+  { id: 'digitalhjelp', label: 'Digital hjelp', description: 'Hjelp med telefon, nettbrett eller PC' },
+  { id: 'transport', label: 'Transport', description: 'Støtte til avtaler og ærender' },
+] as const;
 
-  // Mock tasks available for booking, localized to Norwegian
-  const allTasks = [
-    { id: 'medisin', label: 'Medisin', description: 'Hjelp med medisinering og dosering' },
-    { id: 'bading', label: 'Bading', description: 'Hjelp med personlig hygiene og bading' },
-    { id: 'matlaging', label: 'Matlaging', description: 'Hjelp med måltider og matlaging' },
-    { id: 'handel', label: 'Handel', description: 'Hjelp med å handle mat og nødvendigheter' },
-    { id: 'husholdning', label: 'Husholdning', description: 'Lett husarbeid og rengjøring' },
-    { id: 'digitalhjelp', label: 'Digital hjelp', description: 'Hjelp med telefon, nettbrett eller PC' },
-    { id: 'transport', label: 'Transport', description: 'Støtte til avtaler og ærender' },
-  ];
+const BOOKING_WEEKS = 12;
 
-  // Mock permission mapping - which tasks the selected personnel has approved
-  const allowedTasksByPersonnel: Record<string, string[]> = {
-    // Personnel ID '1' can handle medication and bathing
-    '1': ['medisin', 'bading', 'husholdning'],
-    // Personnel ID '2' can handle digital help and shopping
-    '2': ['digitalhjelp', 'handel', 'transport'],
-  };
+const slotStartTimestamp = (date: string, time: string): number | null => {
+  const [year, month, day] = date.split('-').map(Number);
+  const [hour, minute, second = 0] = time.split(':').map(Number);
+  if (![year, month, day, hour, minute, second].every(Number.isFinite)) return null;
+
+  const value = new Date(year, month - 1, day, hour, minute, second).getTime();
+  return Number.isNaN(value) ? null : value;
+};
+
+const isSelectableSlot = (
+  date: string,
+  slot: AvailabilitySlot,
+  currentAppointment: Appointment | undefined,
+  declinedAppointment: Appointment | undefined,
+  now: Date,
+): boolean => {
+  const declinedStart = declinedAppointment?.declinedSlotStartTime?.slice(0, 5);
+  const declinedEnd = declinedAppointment?.declinedSlotEndTime?.slice(0, 5);
+  const isDeclinedTime =
+    declinedAppointment?.declinedSlotDate === date &&
+    !!declinedStart &&
+    !!declinedEnd &&
+    slot.startTime.slice(0, 5) < declinedEnd &&
+    declinedStart < slot.endTime.slice(0, 5);
+  if (isDeclinedTime) return false;
+
+  const isCurrentAppointmentSlot =
+    currentAppointment?.date === date && currentAppointment.availabilityId === slot.id;
+  if (isCurrentAppointmentSlot) return true;
+  if (slot.isBooked) return false;
+
+  const startsAt = slotStartTimestamp(date, slot.startTime);
+  // Mirrors the backend rule: a new booking must start strictly after now.
+  return startsAt !== null && startsAt > now.getTime();
+};
+
+const AppointmentForm: React.FC<AppointmentFormProps> = ({ initialData, defaultPersonnelId, onSubmit, onCancel }) => {
+  const { t, i18n } = useTranslation();
+  const locale = localeForLanguage(i18n.resolvedLanguage);
 
   const [selectedTaskIds, setSelectedTaskIds] = useState<string[]>([]);
 
@@ -59,9 +78,9 @@ const AppointmentForm: React.FC<AppointmentFormProps> = ({ initialData, onSubmit
     patientId: initialData?.patientId || '',
     availabilityId: initialData?.availabilityId || 0,
     tasks: initialData?.tasks || '',
-    startTime: '',
-    endTime: '',
-    status: 'Booked',
+    startTime: initialData?.startTime || '',
+    endTime: initialData?.endTime || '',
+    status: initialData?.status || 'Booked',
   });
 
   // When editing an existing appointment, prefill selected tasks based on the stored task string
@@ -73,7 +92,7 @@ const AppointmentForm: React.FC<AppointmentFormProps> = ({ initialData, onSubmit
       .map((t) => t.trim())
       .filter(Boolean);
 
-    const selectedIds = allTasks
+    const selectedIds = ALL_TASKS
       .filter((task) => taskLabels.includes(task.label))
       .map((task) => task.id);
 
@@ -82,9 +101,11 @@ const AppointmentForm: React.FC<AppointmentFormProps> = ({ initialData, onSubmit
 
   // Dropdown options
   const [patients, setPatients] = useState<PatientListDto[]>([]);
-  const [personnel, setPersonnel] = useState<User[]>([]);
-  const [selectedPersonnelId, setSelectedPersonnelId] = useState<string>('');
-  const [selectedDate, setSelectedDate] = useState<string>('');
+  const [personnel, setPersonnel] = useState<NurseSummary[]>([]);
+  const [selectedPersonnelId, setSelectedPersonnelId] = useState<string>(
+    initialData?.personnelId || defaultPersonnelId || '',
+  );
+  const [selectedDate, setSelectedDate] = useState<string>(initialData?.date || '');
   const [availableDates, setAvailableDates] = useState<string[]>([]);
   const [availableSlots, setAvailableSlots] = useState<AvailabilitySlot[]>([]);
   const [allDaysData, setAllDaysData] = useState<DayAvailability[]>([]);
@@ -92,6 +113,12 @@ const AppointmentForm: React.FC<AppointmentFormProps> = ({ initialData, onSubmit
   const [loadingDates, setLoadingDates] = useState<boolean>(false);
   const [loadingSlots, setLoadingSlots] = useState<boolean>(false);
   const [errors, setErrors] = useState<{ [key: string]: string }>({});
+  const currentAppointmentForPersonnel =
+    selectedPersonnelId === initialData?.personnelId ? initialData : undefined;
+
+  useEffect(() => {
+    if (!initialData?.id && defaultPersonnelId) setSelectedPersonnelId(defaultPersonnelId);
+  }, [defaultPersonnelId, initialData?.id]);
 
   // Loads initial data on mount
   useEffect(() => {
@@ -104,7 +131,7 @@ const AppointmentForm: React.FC<AppointmentFormProps> = ({ initialData, onSubmit
         setPatients(patientList);
 
         // Loads all personnel for selection
-        const personnelList = await fetchPersonnel();
+        const personnelList = await PersonnelService.getAll();
         setPersonnel(personnelList);
       } catch {
         // Failed to load form data
@@ -118,6 +145,7 @@ const AppointmentForm: React.FC<AppointmentFormProps> = ({ initialData, onSubmit
 
   // Loads available dates when personnel is selected
   useEffect(() => {
+    let active = true;
     const loadAvailableDates = async () => {
       if (!selectedPersonnelId) {
         setAvailableDates([]);
@@ -128,36 +156,54 @@ const AppointmentForm: React.FC<AppointmentFormProps> = ({ initialData, onSubmit
       try {
         setLoadingDates(true);
         
-        // Fetches next 4 weeks of availability data
-        const today = new Date();
-        const startDate = today.toISOString().split('T')[0];
-        const weekData = await fetchWeekAvailability(selectedPersonnelId, startDate);
+        // Fetch the configured booking horizon. Each request also materializes
+        // recurring weekly rules into real, bookable database slots.
+        const monday = getMonday(new Date());
+        const weeks: WeekAvailability[] = [];
+        // Reading a week also materializes its recurring schedule into SQLite.
+        // Keep these requests sequential so a newly registered nurse's first
+        // booking load cannot race concurrent database writes.
+        for (let offset = 0; offset < BOOKING_WEEKS; offset += 1) {
+          weeks.push(await fetchWeekAvailability(
+            selectedPersonnelId,
+            formatDateISO(addWeeks(monday, offset)),
+          ));
+        }
+        const allDays = weeks.flatMap((week) => week.days);
+        const now = new Date();
+        const todayIso = formatDateISO(now);
         
         // Extracts dates that have available (unbooked) slots
-        const datesWithSlots = weekData.days
+        const datesWithSlots = allDays
           .filter(day => {
             // Checks if day has windows with available slots
-            const hasAvailableSlots = day.windows.some(window => 
-              window.isAvailable && 
-              window.slots && 
-              window.slots.some(slot => !slot.isBooked)
+            const hasAvailableSlots = day.windows.some(window =>
+              window.isAvailable &&
+              window.slots &&
+              window.slots.some(slot =>
+                isSelectableSlot(day.date, slot, currentAppointmentForPersonnel, initialData, now))
             );
-            return hasAvailableSlots;
+            const isCurrentAppointmentDate = currentAppointmentForPersonnel?.date === day.date;
+            return isCurrentAppointmentDate || (day.date >= todayIso && hasAvailableSlots);
           })
           .map(day => day.date);
         
+        if (!active) return;
         setAvailableDates(datesWithSlots);
-        setAllDaysData(weekData.days);
+        setAllDaysData(allDays);
       } catch {
-        setAvailableDates([]);
-        setAllDaysData([]);
+        if (active) {
+          setAvailableDates([]);
+          setAllDaysData([]);
+        }
       } finally {
-        setLoadingDates(false);
+        if (active) setLoadingDates(false);
       }
     };
 
-    loadAvailableDates();
-  }, [selectedPersonnelId]);
+    void loadAvailableDates();
+    return () => { active = false; };
+  }, [currentAppointmentForPersonnel, initialData, selectedPersonnelId]);
 
   // Loads available time slots when date is selected
   useEffect(() => {
@@ -178,12 +224,25 @@ const AppointmentForm: React.FC<AppointmentFormProps> = ({ initialData, onSubmit
 
       // Extracts all unbooked slots from available windows
       const slots: AvailabilitySlot[] = [];
+      const now = new Date();
       dayData.windows.forEach(window => {
         if (window.isAvailable && window.slots) {
-          const unbookedSlots = window.slots.filter(slot => !slot.isBooked);
-          slots.push(...unbookedSlots);
+          const selectableSlots = window.slots.filter((slot) =>
+            isSelectableSlot(selectedDate, slot, currentAppointmentForPersonnel, initialData, now));
+          slots.push(...selectableSlots);
         }
       });
+
+      if (currentAppointmentForPersonnel?.availabilityId &&
+          currentAppointmentForPersonnel.date === selectedDate &&
+          !slots.some((slot) => slot.id === currentAppointmentForPersonnel.availabilityId)) {
+        slots.push({
+          id: currentAppointmentForPersonnel.availabilityId,
+          startTime: currentAppointmentForPersonnel.startTime,
+          endTime: currentAppointmentForPersonnel.endTime,
+          isBooked: true,
+        });
+      }
 
       setAvailableSlots(slots);
     } catch {
@@ -191,7 +250,7 @@ const AppointmentForm: React.FC<AppointmentFormProps> = ({ initialData, onSubmit
     } finally {
       setLoadingSlots(false);
     }
-  }, [selectedDate, allDaysData]);
+  }, [currentAppointmentForPersonnel, initialData, selectedDate, allDaysData]);
 
   // Handles personnel selection
   const handlePersonnelChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
@@ -257,36 +316,34 @@ const AppointmentForm: React.FC<AppointmentFormProps> = ({ initialData, onSubmit
   // Gets selected slot details for display
   const selectedSlot = availableSlots.find(slot => slot.id === formData.availabilityId);
 
-  // Determines which tasks are allowed based on selected personnel
-  const allowedTaskIds = selectedPersonnelId && allowedTasksByPersonnel[selectedPersonnelId]
-    ? allowedTasksByPersonnel[selectedPersonnelId]
-    : allTasks.map((t) => t.id);
-
-  const allowedTasks = allTasks.filter((task) => allowedTaskIds.includes(task.id));
+  // Capability data is not part of the current personnel API, so every real
+  // task is offered. The previous numeric-ID mock silently mismatched Identity
+  // GUIDs and gave a false impression that permissions were enforced.
+  const allowedTasks = ALL_TASKS;
 
   // Validates form before submission
   const validate = (): boolean => {
     const newErrors: { [key: string]: string } = {};
 
     if (!formData.patientId) {
-      newErrors.patientId = 'Vennligst velg en pasient';
+      newErrors.patientId = t('Vennligst velg en pasient');
     }
 
     if (!selectedPersonnelId) {
-      newErrors.personnelId = 'Vennligst velg en ansatt';
+      newErrors.personnelId = t('Vennligst velg en ansatt');
     }
 
     if (!selectedDate) {
-      newErrors.date = 'Vennligst velg en dato';
+      newErrors.date = t('Vennligst velg en dato');
     }
 
     if (!formData.availabilityId || formData.availabilityId === 0) {
-      newErrors.availabilityId = 'Vennligst velg et tidspunkt';
+      newErrors.availabilityId = t('Vennligst velg et tidspunkt');
     }
 
     // Validates that at least one task is selected
     if (selectedTaskIds.length === 0) {
-      newErrors.tasks = 'Velg minst én oppgave';
+      newErrors.tasks = t('Velg minst én oppgave');
     }
 
     setErrors(newErrors);
@@ -303,7 +360,7 @@ const AppointmentForm: React.FC<AppointmentFormProps> = ({ initialData, onSubmit
 
     // Convert selected task IDs back into a comma-separated string for backend
     const selectedTaskLabels = selectedTaskIds
-      .map((id) => allTasks.find((t) => t.id === id)?.label)
+      .map((id) => ALL_TASKS.find((task) => task.id === id)?.label)
       .filter(Boolean);
 
     onSubmit({
@@ -316,7 +373,7 @@ const AppointmentForm: React.FC<AppointmentFormProps> = ({ initialData, onSubmit
     return (
       <div className="text-center py-4">
         <Spinner animation="border" role="status">
-            <span className="visually-hidden">Laster...</span>
+            <span className="visually-hidden">{t('Laster...')}</span>
         </Spinner>
       </div>
     );
@@ -324,16 +381,27 @@ const AppointmentForm: React.FC<AppointmentFormProps> = ({ initialData, onSubmit
 
   return (
     <Form onSubmit={handleSubmit}>
+      {initialData?.declinedSlotDate && (
+        <Alert variant="warning" className="mb-3">
+          <div className="fw-semibold">{t('Opprinnelig avslått tidspunkt')}</div>
+          <div>
+            {initialData.declinedSlotDate} · {initialData.declinedSlotStartTime}–{initialData.declinedSlotEndTime}
+          </div>
+          <small>{t('Dette tidspunktet kan ikke brukes igjen for denne pasienten.')}</small>
+        </Alert>
+      )}
+
       {/* Patient selection */}
       <Form.Group className="mb-3">
-        <Form.Label>Klient <span className="text-danger">*</span></Form.Label>
+        <Form.Label>{t('Klient')} <span className="text-danger">*</span></Form.Label>
         {errors.patientId && <div className="text-danger small mb-1">{errors.patientId}</div>}
         <Form.Select
           value={formData.patientId}
           onChange={handlePatientChange}
           isInvalid={!!errors.patientId}
+          disabled={Boolean(initialData?.id)}
         >
-          <option value="">-- Velg pasient --</option>
+          <option value="">{t('-- Velg pasient --')}</option>
           {patients.map((patient) => (
             <option key={patient.id} value={patient.id}>
               {patient.fullName}
@@ -344,17 +412,17 @@ const AppointmentForm: React.FC<AppointmentFormProps> = ({ initialData, onSubmit
 
       {/* Personnel selection */}
       <Form.Group className="mb-3">
-        <Form.Label>Ansatt <span className="text-danger">*</span></Form.Label>
+        <Form.Label>{t('Ansatt')} <span className="text-danger">*</span></Form.Label>
         {errors.personnelId && <div className="text-danger small mb-1">{errors.personnelId}</div>}
         <Form.Select
           value={selectedPersonnelId}
           onChange={handlePersonnelChange}
           isInvalid={!!errors.personnelId}
         >
-          <option value="">-- Velg ansatt --</option>
+          <option value="">{t('-- Velg ansatt --')}</option>
           {personnel.map((person) => (
             <option key={person.id} value={person.id}>
-              {person.fullName}
+              {person.fullName}{person.role === 'HeadNurse' ? ` · ${t('Ledende sykepleier')}` : ''}
             </option>
           ))}
         </Form.Select>
@@ -362,12 +430,12 @@ const AppointmentForm: React.FC<AppointmentFormProps> = ({ initialData, onSubmit
 
       {/* Date selection - populated after personnel selection */}
       <Form.Group className="mb-3">
-        <Form.Label>Dato <span className="text-danger">*</span></Form.Label>
+        <Form.Label>{t('Dato')} <span className="text-danger">*</span></Form.Label>
         {errors.date && <div className="text-danger small mb-1">{errors.date}</div>}
         {loadingDates ? (
           <div className="text-center py-2">
             <Spinner animation="border" size="sm" role="status">
-              <span className="visually-hidden">Laster datoer...</span>
+              <span className="visually-hidden">{t('Laster datoer...')}</span>
             </Spinner>
           </div>
         ) : (
@@ -380,12 +448,12 @@ const AppointmentForm: React.FC<AppointmentFormProps> = ({ initialData, onSubmit
             >
               <option value="">
                 {selectedPersonnelId 
-                  ? '-- Velg Dato --' 
-                  : '-- Velg Ansatt --'}
+                  ? t('-- Velg Dato --')
+                  : t('-- Velg Ansatt --')}
               </option>
               {availableDates.map((date) => (
                 <option key={date} value={date}>
-                  {new Date(date).toLocaleDateString('nb-NO', { 
+                  {new Date(date).toLocaleDateString(locale, {
                     weekday: 'short', 
                     day: '2-digit', 
                     month: 'short', 
@@ -396,7 +464,7 @@ const AppointmentForm: React.FC<AppointmentFormProps> = ({ initialData, onSubmit
             </Form.Select>
             {selectedPersonnelId && availableDates.length === 0 && !loadingDates && (
               <Form.Text className="text-muted">
-                  Ingen tilgjengelige datoer for denne ansatte.
+                  {t('Ingen tilgjengelige datoer for denne ansatte.')}
               </Form.Text>
             )}
           </>
@@ -405,12 +473,12 @@ const AppointmentForm: React.FC<AppointmentFormProps> = ({ initialData, onSubmit
 
       {/* Time slot selection - populated after date selection */}
       <Form.Group className="mb-3">
-        <Form.Label>Tidspunkt <span className="text-danger">*</span></Form.Label>
+        <Form.Label>{t('Tidspunkt')} <span className="text-danger">*</span></Form.Label>
         {errors.availabilityId && <div className="text-danger small mb-1">{errors.availabilityId}</div>}
         {loadingSlots ? (
           <div className="text-center py-2">
             <Spinner animation="border" size="sm" role="status">
-              <span className="visually-hidden">Laster tidspunkter...</span>
+              <span className="visually-hidden">{t('Laster tidspunkter...')}</span>
             </Spinner>
           </div>
         ) : (
@@ -423,8 +491,8 @@ const AppointmentForm: React.FC<AppointmentFormProps> = ({ initialData, onSubmit
             >
               <option value="0">
                 {selectedDate 
-                  ? '-- Velg Tidspunkt --' 
-                  : '-- Velg Dato --'}
+                  ? t('-- Velg Tidspunkt --')
+                  : t('-- Velg Dato --')}
               </option>
               {availableSlots.map((slot) => (
                 <option key={slot.id} value={slot.id}>
@@ -434,7 +502,7 @@ const AppointmentForm: React.FC<AppointmentFormProps> = ({ initialData, onSubmit
             </Form.Select>
             {selectedDate && availableSlots.length === 0 && !loadingSlots && (
               <Form.Text className="text-muted">
-                Ingen ledige tidspunkter for denne datoen.
+                {t('Ingen ledige tidspunkter for denne datoen.')}
               </Form.Text>
             )}
           </>
@@ -446,14 +514,17 @@ const AppointmentForm: React.FC<AppointmentFormProps> = ({ initialData, onSubmit
         <Alert variant="info" className="mb-3">
           <small>
             <i className="bi bi-info-circle me-2"></i>
-            Avtalen er planlagt fra <strong>{selectedSlot.startTime}</strong> til <strong>{selectedSlot.endTime}</strong>
+            {t('Avtalen er planlagt fra {{start}} til {{end}}', {
+              start: selectedSlot.startTime,
+              end: selectedSlot.endTime,
+            })}
           </small>
         </Alert>
       )}
 
-      {/* Tasks selection (based on what the selected personnel has approved) */}
+      {/* Tasks included in this appointment. */}
       <Form.Group className="mb-3">
-        <Form.Label>Oppgaver <span className="text-danger">*</span></Form.Label>
+        <Form.Label>{t('Oppgaver')} <span className="text-danger">*</span></Form.Label>
         {errors.tasks && <div className="text-danger small mb-1">{errors.tasks}</div>}
 
         {allowedTasks.length > 0 ? (
@@ -465,8 +536,8 @@ const AppointmentForm: React.FC<AppointmentFormProps> = ({ initialData, onSubmit
                 id={`task-${task.id}`}
                 label={
                   <div>
-                    <strong>{task.label}</strong>
-                    <div className="text-muted" style={{ fontSize: '0.9rem' }}>{task.description}</div>
+                    <strong>{t(task.label)}</strong>
+                    <div className="text-muted" style={{ fontSize: '0.9rem' }}>{t(task.description)}</div>
                   </div>
                 }
                 checked={selectedTaskIds.includes(task.id)}
@@ -474,24 +545,16 @@ const AppointmentForm: React.FC<AppointmentFormProps> = ({ initialData, onSubmit
               />
             ))}
           </div>
-        ) : (
-          <Form.Text className="text-muted">
-            Ingen oppgaver er tilgjengelig for denne ansatte. Velg en annen ansatt for å se tilgjengelige oppgaver.
-          </Form.Text>
-        )}
-
-        <Form.Text className="text-muted">
-          Oppgavene som vises er basert på hva sykepleier har godkjent.
-        </Form.Text>
+        ) : null}
       </Form.Group>
 
       {/* Buttons */}
       <div className="d-flex gap-2">
         <Button variant="primary" type="submit">
-          {initialData ? 'Oppdater' : 'Opprett'}
+          {initialData ? t('Oppdater') : t('Opprett')}
         </Button>
         <Button variant="outline-secondary" onClick={onCancel}>
-          Avbryt
+          {t('Avbryt')}
         </Button>
       </div>
     </Form>

@@ -53,5 +53,47 @@ namespace backend.Controllers
                 return StatusCode(500, "An error occurred while retrieving appointments");
             }
         }
+
+        // POST: api/tv/appointments/{id}/response
+        // The Supabase token identifies the patient; the service also verifies
+        // that the appointment belongs to that patient before changing anything.
+        [HttpPost("{id}/response")]
+        public async Task<ActionResult<AppointmentDto>> Respond(
+            int id,
+            [FromBody] AppointmentResponseRequest request)
+        {
+            if (!ModelState.IsValid) return BadRequest(ModelState);
+
+            try
+            {
+                var (user, error) = await ResolveCallerAsync();
+                if (error != null) return error;
+
+                var appointment = await _appointmentService.RespondToInvitationAsync(
+                    id,
+                    user!.Id,
+                    request.Response,
+                    request.ProposedDate,
+                    request.ProposedStartTime,
+                    request.ProposedEndTime);
+                return appointment == null ? NotFound() : Ok(appointment);
+            }
+            catch (InvalidOperationException exception)
+            {
+                _logger.LogWarning(
+                    exception,
+                    "Patient could not answer appointment invitation {AppointmentId}",
+                    id);
+                return Conflict(exception.Message);
+            }
+            catch (Exception exception)
+            {
+                _logger.LogError(
+                    exception,
+                    "Error answering appointment invitation {AppointmentId}",
+                    id);
+                return StatusCode(500, "An error occurred while answering the appointment invitation");
+            }
+        }
     }
 }

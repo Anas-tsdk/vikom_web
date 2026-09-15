@@ -1,11 +1,13 @@
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Identity;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.IdentityModel.Tokens;
 using System.IdentityModel.Tokens.Jwt;
 using System.Security.Claims;
 using System.Text;
 using backend.Models;
 using backend.DTOs;
+using backend.Services;
 
 namespace backend.Controllers
 {
@@ -13,10 +15,6 @@ namespace backend.Controllers
     [Route("api/[controller]")]
     public class AuthController : ControllerBase
     {
-        // Patients authenticate through Supabase on the TV app; the web portal only
-        // serves personnel, so this is the sole role the portal ever issues or accepts.
-        private const string PersonnelRole = "Personnel";
-
         private readonly UserManager<User> _userManager;
         private readonly SignInManager<User> _signInManager;
         private readonly IConfiguration _configuration;
@@ -48,8 +46,9 @@ namespace backend.Controllers
                 UserName = registerDto.UserName,
                 Email = registerDto.Email,
                 FullName = registerDto.FullName,
-                // The portal is personnel-only, so the role is never taken from the request.
-                Role = PersonnelRole,
+                // Public registration can never grant planning/admin privileges.
+                // A HeadNurse must be provisioned by an existing trusted process.
+                Role = UserRoles.Nurse,
                 PhoneNumber = registerDto.PhoneNumber,
                 Address = registerDto.Address
             };
@@ -61,8 +60,14 @@ namespace backend.Controllers
                 return BadRequest(result.Errors);
             }
 
-            // Assign role to user
-            await _userManager.AddToRoleAsync(user, PersonnelRole);
+            var roleResult = await _userManager.AddToRoleAsync(user, UserRoles.Nurse);
+            if (!roleResult.Succeeded)
+            {
+                // Do not leave an account that has a model role but no matching
+                // Identity role: it would sign in yet fail every policy check.
+                await _userManager.DeleteAsync(user);
+                return BadRequest(roleResult.Errors);
+            }
 
             _logger.LogInformation($"User {registerDto.UserName} registered successfully");
 
@@ -94,7 +99,7 @@ namespace backend.Controllers
 
             // The credentials are valid, but only personnel may use the portal. Patients
             // sign in through Supabase on the TV app instead.
-            if (user.Role != PersonnelRole)
+            if (!UserRoles.IsPortalStaff(user.Role))
             {
                 _logger.LogWarning("Blocked portal login for non-personnel user {UserName}", loginDto.UserName);
                 return StatusCode(StatusCodes.Status403Forbidden, new { message = "Portalen er kun for helsepersonell." });
@@ -108,6 +113,34 @@ namespace backend.Controllers
             return Ok(new 
             { 
                 token = token,
+                userName = user.UserName,
+                fullName = user.FullName,
+                role = user.Role,
+                userId = user.Id
+            });
+        }
+
+        // POST: api/auth/refresh
+        // Re-issues the session from the current database record. This is
+        // important when an administrator changes a staff role while an older
+        // (but still valid) JWT is stored in the browser. The legacy Personnel
+        // role remains accepted by the portal policy during this transition,
+        // but the returned token and user information use Nurse/HeadNurse.
+        [Authorize(Policy = AuthorizationPolicies.PortalStaff)]
+        [HttpPost("refresh")]
+        public async Task<IActionResult> RefreshSession()
+        {
+            var userId = User.FindFirstValue(ClaimTypes.NameIdentifier);
+            if (string.IsNullOrWhiteSpace(userId)) return Unauthorized();
+
+            var user = await _userManager.FindByIdAsync(userId);
+            if (user == null || !UserRoles.IsPortalStaff(user.Role))
+                return Unauthorized();
+
+            var token = await GenerateJwtToken(user);
+            return Ok(new
+            {
+                token,
                 userName = user.UserName,
                 fullName = user.FullName,
                 role = user.Role,

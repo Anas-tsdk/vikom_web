@@ -6,10 +6,17 @@ namespace backend.DAL.Repositories
     public class AppointmentRepository : IAppointmentRepository
     {
         private readonly ApplicationDbContext _context;
+        private readonly TimeProvider _timeProvider;
 
         public AppointmentRepository(ApplicationDbContext context)
+            : this(context, TimeProvider.System)
+        {
+        }
+
+        public AppointmentRepository(ApplicationDbContext context, TimeProvider timeProvider)
         {
             _context = context;
+            _timeProvider = timeProvider;
         }
 
         public async Task<IEnumerable<Appointment>> GetAllAsync()
@@ -41,6 +48,32 @@ namespace backend.DAL.Repositories
                 .ThenInclude(av => av.Personnel)
                 .Where(a => a.PatientId == patientId)
                 .ToListAsync();
+        }
+
+        public async Task<bool> HasDeclinedSlotOverlapAsync(
+            string patientId,
+            DateTime date,
+            TimeSpan startTime,
+            TimeSpan endTime)
+        {
+            var history = await _context.DeclinedAppointmentSlots
+                .Where(slot => slot.PatientId == patientId && slot.Date == date.Date)
+                .ToListAsync();
+
+            return history.Any(slot => slot.StartTime < endTime && startTime < slot.EndTime);
+        }
+
+        public async Task RecordDeclinedSlotAsync(DeclinedAppointmentSlot slot)
+        {
+            var alreadyRecorded = await HasDeclinedSlotOverlapAsync(
+                slot.PatientId,
+                slot.Date,
+                slot.StartTime,
+                slot.EndTime);
+            if (alreadyRecorded) return;
+
+            _context.DeclinedAppointmentSlots.Add(slot);
+            await _context.SaveChangesAsync();
         }
 
         public async Task<IEnumerable<Appointment>> GetByPersonnelIdAsync(string personnelId)
@@ -94,17 +127,24 @@ namespace backend.DAL.Repositories
 
         public async Task<IEnumerable<Appointment>> GetUpcomingByPersonnelIdAsync(string personnelId, int count)
         {
-            var today = DateTime.Today;
+            var now = DateTime.Now;
+            var today = now.Date;
+            var currentTime = now.TimeOfDay;
             var appointments = await _context.Appointments
                 .Include(a => a.Patient)
                 .Include(a => a.Visit)
                 .Include(a => a.Availability)
                 .ThenInclude(av => av.Personnel)
-                .Where(a => a.Availability.PersonnelId == personnelId && a.Availability.Date >= today && a.Status == "Booked")
+                .Where(a => a.Availability.PersonnelId == personnelId
+                    && a.Status == "Booked"
+                    && a.Availability.Date >= today)
                 .OrderBy(a => a.Availability.Date)
                 .ToListAsync();
             
             return DeduplicateBySlot(appointments)
+                // SQLite cannot translate TimeSpan comparisons. Dates are narrowed
+                // in SQL above; only the small set scheduled for today is checked here.
+                .Where(a => a.Availability.Date > today || a.EndTime >= currentTime)
                 .OrderBy(a => a.Availability.Date)
                 .ThenBy(a => a.StartTime)
                 .Take(count)
@@ -143,19 +183,33 @@ namespace backend.DAL.Repositories
 
         public async Task<IEnumerable<Appointment>> GetRecentByPersonnelIdAsync(string personnelId, int count)
         {
-            var today = DateTime.Today;
+            if (count <= 0)
+            {
+                return Array.Empty<Appointment>();
+            }
+
+            var now = _timeProvider.GetLocalNow().DateTime;
+            var today = now.Date;
+            var currentTime = now.TimeOfDay;
             var appointments = await _context.Appointments
                 .Include(a => a.Patient)
                 .Include(a => a.Visit)
                 .Include(a => a.Availability)
                 .ThenInclude(av => av.Personnel)
-                .Where(a => a.Availability.PersonnelId == personnelId && a.Availability.Date < today)
-                .OrderByDescending(a => a.Availability.Date)
+                .Where(a => a.Availability.PersonnelId == personnelId
+                    && a.Availability.Date <= today
+                    && (a.Status == "Completed" || a.Status == "NotCompleted"))
                 .ToListAsync();
-            
-            return appointments
+
+            return DeduplicateBySlot(appointments)
+                // A terminal status can be written early by an integration or
+                // imported database. It is only "recent" once its scheduled end
+                // has actually passed. SQLite cannot translate TimeSpan
+                // comparisons, so today's small candidate set is checked here.
+                .Where(a => a.Availability.Date < today || a.EndTime <= currentTime)
                 .OrderByDescending(a => a.Availability.Date)
-                .ThenByDescending(a => a.StartTime)
+                .ThenByDescending(a => a.EndTime)
+                .ThenByDescending(a => a.Id)
                 .Take(count)
                 .ToList();
         }
@@ -202,9 +256,17 @@ namespace backend.DAL.Repositories
 
         public async Task<int> GetPendingCountAsync(string personnelId)
         {
-            return await _context.Appointments
-                .Where(a => a.Availability.PersonnelId == personnelId && a.Status == "Booked")
-                .CountAsync();
+            var now = DateTime.Now;
+            var today = now.Date;
+            var currentTime = now.TimeOfDay;
+            var appointments = await _context.Appointments
+                .Include(a => a.Availability)
+                .Where(a => a.Availability.PersonnelId == personnelId
+                    && a.Status == "Booked"
+                    && a.Availability.Date >= today)
+                .ToListAsync();
+            return DeduplicateBySlot(appointments)
+                .Count(a => a.Availability.Date > today || a.EndTime >= currentTime);
         }
 
         public async Task<int> GetCancelledCountAsync(string personnelId)

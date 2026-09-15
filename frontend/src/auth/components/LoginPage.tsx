@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { Container, Form, Button, Alert, Card } from 'react-bootstrap';
+import { useTranslation } from 'react-i18next';
 import * as AuthService from '../AuthService';
 import '../../css/Forms.css';
 
@@ -9,6 +10,7 @@ import '../../css/Forms.css';
  * Provides a form for users to enter credentials and access the system.
  */
 const LoginPage: React.FC = () => {
+  const { t } = useTranslation();
   // stores username input value
   const [userName, setUserName] = useState('');
   
@@ -40,7 +42,7 @@ const LoginPage: React.FC = () => {
       navigate('/dashboard');
     } else {
       // displays the specific failure reason (bad credentials vs. server unreachable)
-      setError(result.message ?? 'Feil brukernavn eller passord');
+      setError(t(result.message ?? 'Feil brukernavn eller passord'));
     }
   };
 
@@ -59,8 +61,8 @@ const LoginPage: React.FC = () => {
         <Card.Body className="auth-card-body">
           {/* Header */}
         <div className="auth-header">
-          <h2 className="auth-title">Velkommen tilbake</h2>
-          <p className="auth-subtitle">Logg inn for å fortsette til ViKom</p>
+          <h2 className="auth-title">{t('Velkommen tilbake')}</h2>
+          <p className="auth-subtitle">{t('Logg inn for å fortsette til ViKom')}</p>
         </div>
           
           {/* conditionally displays error alert if error exists */}
@@ -70,7 +72,7 @@ const LoginPage: React.FC = () => {
           <Form onSubmit={handleSubmit} className="auth-form">
             {/* username input field */}
             <Form.Group className="mb-3">
-              <Form.Label>Brukernavn</Form.Label>
+              <Form.Label>{t('Brukernavn')}</Form.Label>
               <Form.Control
                 type="text"
                 value={userName}
@@ -81,7 +83,7 @@ const LoginPage: React.FC = () => {
             
             {/* password input field */}
             <Form.Group className="mb-3">
-              <Form.Label>Passord</Form.Label>
+              <Form.Label>{t('Passord')}</Form.Label>
               <Form.Control
                 type="password"
                 value={password}
@@ -92,14 +94,14 @@ const LoginPage: React.FC = () => {
             
             {/* submit button */}
             <Button variant="secondary" type="submit" className="w-100">
-              Logg inn
+              {t('Logg inn')}
             </Button>
           </Form>
 
           {/* Footer */}
           <div className="auth-footer">
             <p className="mb-0">
-              Har du ikke en konto? <Link to="/register">Registrer deg her</Link>
+              {t('Har du ikke en konto?')} <Link to="/register">{t('Registrer deg her')}</Link>
             </p>
           </div>
         </Card.Body>

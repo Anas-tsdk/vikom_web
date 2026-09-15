@@ -16,8 +16,13 @@ namespace backend.Services
         // New window-based methods
         Task<WeekAvailabilityDto> GetWeekAvailabilityAsync(string personnelId, DateTime startDate);
         Task<DayAvailabilityDto> GetDayAvailabilityAsync(string personnelId, DateTime date);
+        Task<AvailabilityWindowDto?> GetWindowByIdAsync(int id);
         Task<AvailabilityWindowDto> CreateWindowAsync(string personnelId, CreateAvailabilityWindowDto dto);
-        Task<AvailabilityWindowDto> UpdateWindowAsync(int id, UpdateAvailabilityWindowDto dto);
-        Task<bool> DeleteWindowAsync(int id);
+        Task<AvailabilityWindowDto> UpdateWindowAsync(string personnelId, int id, UpdateAvailabilityWindowDto dto);
+        Task<bool> DeleteWindowAsync(string personnelId, int id);
+        Task<IReadOnlyList<WeeklyAvailabilityRuleDto>> GetWeeklyScheduleAsync(string personnelId);
+        Task<IReadOnlyList<WeeklyAvailabilityRuleDto>> UpdateWeeklyScheduleAsync(
+            string personnelId,
+            IReadOnlyList<WeeklyAvailabilityRuleDto> rules);
     }
 }

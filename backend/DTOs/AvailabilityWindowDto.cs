@@ -32,6 +32,8 @@ namespace backend.DTOs
         
         [Required]
         public bool IsAvailable { get; set; }
+
+        public bool IsGeneratedFromWeeklySchedule { get; set; }
         
         public List<AvailabilitySlotDto> Slots { get; set; } = new();
     }
@@ -49,6 +51,8 @@ namespace backend.DTOs
         
         [Required]
         public bool IsAvailable { get; set; }
+
+        public bool ApplyToWeek { get; set; }
     }
 
     public class UpdateAvailabilityWindowDto
@@ -64,5 +68,18 @@ namespace backend.DTOs
         
         [Required]
         public bool IsAvailable { get; set; }
+
+        public bool ApplyToWeek { get; set; }
+    }
+
+    public class WeeklyAvailabilityRuleDto
+    {
+        [Range(0, 6)]
+        public int DayOfWeek { get; set; }
+
+        public bool IsAvailable { get; set; }
+        public string? StartTime { get; set; }
+        public string? EndTime { get; set; }
+        public string? Notes { get; set; }
     }
 }

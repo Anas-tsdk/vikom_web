@@ -6,7 +6,8 @@ namespace backend.DTOs
     {
         public int Id { get; set; }
         
-        [Required]
+        // Optional on writes: the server uses the caller for normal nurses and
+        // permits a HeadNurse to select another nurse explicitly.
         public string PersonnelId { get; set; } = string.Empty;
         
         public string? PersonnelName { get; set; }

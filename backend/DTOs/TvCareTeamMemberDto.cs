@@ -14,6 +14,9 @@ namespace backend.DTOs
         /// <summary>"Personnel" or "Relative" — from the patient-user link.</summary>
         public string RelationshipType { get; set; } = string.Empty;
 
+        /// <summary>The staff role, used to identify the patient's head nurse.</summary>
+        public string Role { get; set; } = string.Empty;
+
         public string? PhoneNumber { get; set; }
     }
 }

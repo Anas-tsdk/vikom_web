@@ -1,6 +1,7 @@
 import React from 'react';
 import { Button } from 'react-bootstrap';
 import { Link } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
 import type { PatientDetailsDto } from '../types/patient';
 import Avatar from '../../components/common/Avatar';
 import StatTile from '../../components/common/StatTile';
@@ -10,8 +11,10 @@ import './PatientProfileHeader.css';
 
 interface PatientProfileHeaderProps {
   patient: PatientDetailsDto;
-  onCall: () => void;
-  onEdit: () => void;
+  onAudioCall: () => void;
+  onVideoCall: () => void;
+  /** Head nurses manage demographics and the TV-account link. */
+  onEdit?: () => void;
   /** When set, shows a "Fortsett besøk" shortcut to the active visit-execution page. */
   ongoingVisitHref?: string;
 }
@@ -20,7 +23,14 @@ interface PatientProfileHeaderProps {
  * Full-width patient profile header: avatar, name, inline contact chips,
  * an at-a-glance KPI strip and the primary actions (Ring pasient / Rediger).
  */
-const PatientProfileHeader: React.FC<PatientProfileHeaderProps> = ({ patient, onCall, onEdit, ongoingVisitHref }) => {
+const PatientProfileHeader: React.FC<PatientProfileHeaderProps> = ({
+  patient,
+  onAudioCall,
+  onVideoCall,
+  onEdit,
+  ongoingVisitHref,
+}) => {
+  const { t } = useTranslation();
   const contactChips = [
     { icon: 'envelope', value: patient.email },
     { icon: 'telephone', value: patient.phoneNumber },
@@ -33,7 +43,7 @@ const PatientProfileHeader: React.FC<PatientProfileHeaderProps> = ({ patient, on
         <div className="vk-profile-identity">
           <Avatar name={patient.fullName} size="lg" />
           <div className="vk-profile-identity-text">
-            <p className="vk-profile-eyebrow">Profil</p>
+            <p className="vk-profile-eyebrow">{t('Profil')}</p>
             <h1 className="vk-profile-name">{patient.fullName}</h1>
             <div className="vk-profile-chips">
               {/* <Badge bg="secondary">Pasient</Badge> */}
@@ -49,7 +59,7 @@ const PatientProfileHeader: React.FC<PatientProfileHeaderProps> = ({ patient, on
                 bg={patient.supabaseProfileId ? 'connected' : 'light'}
                 bordered={!patient.supabaseProfileId}
               >
-                {patient.supabaseProfileId ? 'TV tilkoblet' : 'Ingen TV-kobling'}
+                {patient.supabaseProfileId ? t('TV tilkoblet') : t('Ingen TV-kobling')}
               </Badge>
             </div>
           </div>
@@ -59,22 +69,36 @@ const PatientProfileHeader: React.FC<PatientProfileHeaderProps> = ({ patient, on
           {ongoingVisitHref && (
             <Link to={ongoingVisitHref} className="btn btn-success">
               <i className="bi bi-box-arrow-in-right me-2" aria-hidden="true"></i>
-              Fortsett besøk
+              {t('Fortsett besøk')}
             </Link>
           )}
-          <Button variant="primary" onClick={onCall}>
+          <Button
+            variant="primary"
+            onClick={onAudioCall}
+            disabled={!patient.supabaseProfileId}
+            title={!patient.supabaseProfileId ? t('Pasienten har ingen TV-profil koblet til seg') : undefined}
+          >
             <i className="bi bi-telephone-outbound me-2" aria-hidden="true"></i>
-            Ring pasient
+            {t('Ring')}
           </Button>
-          <IconButton icon="pencil" title="Rediger" onClick={onEdit} />
+          <Button
+            variant="outline-primary"
+            onClick={onVideoCall}
+            disabled={!patient.supabaseProfileId}
+            title={!patient.supabaseProfileId ? t('Pasienten har ingen TV-profil koblet til seg') : undefined}
+          >
+            <i className="bi bi-camera-video me-2" aria-hidden="true"></i>
+            {t('Videoanrop')}
+          </Button>
+          {onEdit && <IconButton icon="pencil" title={t('Rediger')} onClick={onEdit} />}
         </div>
       </div>
 
       <div className="vk-profile-stats">
-        <StatTile icon="calendar2-week" label="Totalt antall avtaler" value={patient.totalAppointments} />
-        <StatTile icon="calendar-event" label="Kommende avtaler" value={patient.upcomingAppointments.length} />
-        <StatTile icon="clock-history" label="Tidligere avtaler" value={patient.pastAppointments.length} />
-        <StatTile icon="calendar-check" label="Siste avtale" value={patient.lastAppointmentDate || 'Aldri'} />
+        <StatTile icon="calendar2-week" label={t('Totalt antall avtaler')} value={patient.totalAppointments} />
+        <StatTile icon="calendar-event" label={t('Kommende avtaler')} value={patient.upcomingAppointments.length} />
+        <StatTile icon="clock-history" label={t('Tidligere avtaler')} value={patient.pastAppointments.length} />
+        <StatTile icon="calendar-check" label={t('Siste avtale')} value={patient.lastAppointmentDate || t('Aldri')} />
       </div>
     </div>
   );

@@ -1,5 +1,6 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
 import './Breadcrumb.css';
 
 export interface BreadcrumbItem {
@@ -18,8 +19,9 @@ interface BreadcrumbProps {
  * Linked crumbs navigate; the trailing crumb is muted.
  */
 const Breadcrumb: React.FC<BreadcrumbProps> = ({ items, className = '' }) => {
+  const { t } = useTranslation();
   return (
-    <nav className={`vk-breadcrumb ${className}`.trim()} aria-label="Brødsmulesti">
+    <nav className={`vk-breadcrumb ${className}`.trim()} aria-label={t('Brødsmulesti')}>
       {items.map((item, index) => {
         const isFirst = index === 0;
         return (

@@ -3,6 +3,7 @@ import { Outlet, useLocation } from 'react-router-dom';
 import NavBar from './NavBar';
 import Sidebar from './Sidebar';
 import * as AuthService from '../auth/AuthService';
+import AppointmentStaffNotification from '../appointments/components/AppointmentStaffNotification';
 import './Layout.css';
 
 /**
@@ -32,6 +33,7 @@ const Layout: React.FC = () => {
     <>
       {/* conditionally renders navbar based on current route */}
       {showNavBar && <NavBar />}
+      {isAuthenticated && <AppointmentStaffNotification />}
       
       {/* renders sidebar with content or content alone based on authentication and route */}
       {showSidebar ? (

@@ -1,0 +1,38 @@
+.daily-check-in-alerts-page { padding: var(--space-4); }
+.check-in-alert-grid { display: grid; gap: var(--space-3); }
+.check-in-alert-card {
+  display: flex;
+  gap: var(--space-3);
+  padding: var(--space-4);
+  background: var(--bs-white);
+  border: 1px solid #f2b8bd;
+  border-left: 6px solid var(--bs-danger);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-sm);
+}
+.check-in-alert-icon {
+  display: grid;
+  place-items: center;
+  flex: 0 0 48px;
+  width: 48px;
+  height: 48px;
+  color: var(--bs-danger);
+  background: #fff0f1;
+  border-radius: 50%;
+  font-size: 1.35rem;
+}
+.check-in-alert-content { flex: 1; min-width: 0; }
+.check-in-alert-content h2 { margin: 0; font-size: var(--fs-lg); }
+.check-in-alert-days { margin: .25rem 0 0; color: var(--bs-danger); font-weight: 650; }
+.check-in-alert-content dl { display: grid; gap: .35rem; margin: var(--space-3) 0; }
+.check-in-alert-content dl div { display: grid; grid-template-columns: minmax(8rem, 11rem) 1fr; gap: var(--space-2); }
+.check-in-alert-content dt { color: var(--bs-secondary-color); font-weight: 600; }
+.check-in-alert-content dd { margin: 0; }
+.check-in-alert-actions { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: var(--space-2); }
+@media (max-width: 575.98px) {
+  .daily-check-in-alerts-page { padding: var(--space-3); }
+  .check-in-alert-card { padding: var(--space-3); }
+  .check-in-alert-icon { display: none; }
+  .check-in-alert-content dl div { grid-template-columns: 1fr; gap: 0; }
+  .check-in-alert-actions .btn { width: 100%; }
+}

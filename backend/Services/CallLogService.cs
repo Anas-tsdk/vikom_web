@@ -38,12 +38,19 @@ namespace backend.Services
             return MapToDto(result!);
         }
 
-        public async Task<bool> UpdateStatusAsync(string patientId, int callId, string status)
+        public async Task<bool> UpdateStatusAsync(
+            string patientId,
+            int callId,
+            string status,
+            string personnelId)
         {
             var existing = await _callLogRepository.GetByIdAsync(callId);
-            // Scope the update to the patient named in the route so one patient's
-            // call log can't be mutated via another patient's endpoint.
-            if (existing == null || existing.PatientId != patientId)
+            // Scope the update to both route patient and caller. A nurse who can
+            // access the same patient must not be able to rewrite somebody
+            // else's call result by guessing a log id.
+            if (existing == null ||
+                existing.PatientId != patientId ||
+                existing.PersonnelId != personnelId)
             {
                 return false;
             }
@@ -53,9 +60,12 @@ namespace backend.Services
             return true;
         }
 
-        public async Task<IEnumerable<CallLogDto>> GetRecentByPatientAsync(string patientId, int count)
+        public async Task<IEnumerable<CallLogDto>> GetRecentByPatientAsync(
+            string patientId,
+            int count,
+            string? personnelId = null)
         {
-            var calls = await _callLogRepository.GetByPatientIdAsync(patientId, count);
+            var calls = await _callLogRepository.GetByPatientIdAsync(patientId, count, personnelId);
             return calls.Select(MapToDto).ToList();
         }
 

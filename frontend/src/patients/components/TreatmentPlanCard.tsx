@@ -1,6 +1,7 @@
 import React from 'react';
 import SectionCard from '../../components/common/SectionCard';
 import Badge from '../../components/common/Badge';
+import { useTranslation } from 'react-i18next';
 
 interface TreatmentPlanCardProps {
   treatmentPlan?: string | null;
@@ -8,18 +9,19 @@ interface TreatmentPlanCardProps {
   className?: string;
 }
 
-/** "Behandlingsplan" — free-text plan plus condition-flag tags. */
+/** Patient-facing daily tasks plus condition-flag tags. */
 const TreatmentPlanCard: React.FC<TreatmentPlanCardProps> = ({
   treatmentPlan,
   conditionFlags,
   className,
 }) => {
+  const { t } = useTranslation();
   return (
-    <SectionCard title="Behandlingsplan" icon="journal-medical" className={className}>
+    <SectionCard title={t('Daglige gjøremål')} icon="journal-medical" className={className}>
       {treatmentPlan?.trim() ? (
         <p className="mb-0" style={{ whiteSpace: 'pre-wrap' }}>{treatmentPlan}</p>
       ) : (
-        <p className="text-muted mb-0">Ingen behandlingsplan registrert.</p>
+        <p className="text-muted mb-0">{t('Ingen daglige gjøremål registrert.')}</p>
       )}
 
       {conditionFlags.length > 0 && (

@@ -1,5 +1,8 @@
-import React, { useState, useEffect } from 'react';
+import React, { useCallback, useState, useEffect, useRef } from 'react';
+import { useTranslation } from 'react-i18next';
 import { getUserInfo } from '../../auth/AuthService';
+import { isHeadNurseRole } from '../../auth/roles';
+import PersonnelService, { type NurseSummary } from '../../personnel/services/PersonnelService';
 import {
   fetchWeekAvailability,
   fetchDayAvailability,
@@ -10,6 +13,7 @@ import {
 import WeeklyView from '../components/WeeklyView';
 import DailyView from '../components/DailyView';
 import AvailabilityWindowModal from '../components/AvailabilityWindowModal';
+import WeeklyScheduleModal from '../components/WeeklyScheduleModal';
 import PageHeader from '../../components/common/PageHeader';
 import type {
   WeekAvailability,
@@ -32,8 +36,11 @@ import './AvailabilityCalendarPage.css';
 type ViewMode = 'week' | 'day';
 
 const AvailabilityCalendarPage: React.FC = () => {
+  const { t } = useTranslation();
   const userInfo = getUserInfo();
-  const personnelId = userInfo?.userId || '';
+  const isHeadNurse = isHeadNurseRole(userInfo?.role);
+  const [personnelId, setPersonnelId] = useState(userInfo?.userId || '');
+  const [nurses, setNurses] = useState<NurseSummary[]>([]);
 
   // State
   const [viewMode, setViewMode] = useState<ViewMode>('week');
@@ -47,9 +54,28 @@ const AvailabilityCalendarPage: React.FC = () => {
   const [showModal, setShowModal] = useState<boolean>(false);
   const [selectedWindow, setSelectedWindow] = useState<AvailabilityWindow | undefined>();
   const [selectedDate, setSelectedDate] = useState<string>('');
+  const [showWeeklySchedule, setShowWeeklySchedule] = useState(false);
+  const availabilityRequestRef = useRef(0);
+
+  useEffect(() => {
+    if (!isHeadNurse) return;
+    let active = true;
+    void PersonnelService.getAll()
+      .then((staff) => {
+        if (!active) return;
+        const ordered = [...staff].sort((a, b) => a.fullName.localeCompare(b.fullName));
+        setNurses(ordered);
+        setPersonnelId((current) => ordered.some((nurse) => nurse.id === current)
+          ? current
+          : ordered[0]?.id ?? '');
+      })
+      .catch(() => { if (active) setError(t('Kunne ikke laste sykepleiere')); });
+    return () => { active = false; };
+  }, [isHeadNurse, t]);
 
   // Load data based on view mode
-  const loadData = async () => {
+  const loadData = useCallback(async () => {
+    const requestId = ++availabilityRequestRef.current;
     try {
       setLoading(true);
       setError('');
@@ -58,25 +84,27 @@ const AvailabilityCalendarPage: React.FC = () => {
         const monday = getMonday(currentDate);
         const mondayISO = formatDateISO(monday);
         const data = await fetchWeekAvailability(personnelId, mondayISO);
-        setWeekData(data);
+        if (requestId === availabilityRequestRef.current) setWeekData(data);
       } else {
         const dateISO = formatDateISO(currentDate);
         const data = await fetchDayAvailability(personnelId, dateISO);
-        setDayData(data);
+        if (requestId === availabilityRequestRef.current) setDayData(data);
       }
     } catch (err) {
       console.error('Error loading availability:', err);
-      setError('Kunne ikke laste tilgjengelighetsdata');
+      if (requestId === availabilityRequestRef.current) {
+        setError(t('Kunne ikke laste tilgjengelighetsdata'));
+      }
     } finally {
-      setLoading(false);
+      if (requestId === availabilityRequestRef.current) setLoading(false);
     }
-  };
+  }, [currentDate, personnelId, t, viewMode]);
 
   useEffect(() => {
     if (personnelId) {
       loadData();
     }
-  }, [personnelId, viewMode, currentDate]);
+  }, [personnelId, loadData]);
 
   // Navigation
   const handlePrevious = () => {
@@ -110,17 +138,17 @@ const AvailabilityCalendarPage: React.FC = () => {
   const handleCreateOrUpdate = async (data: CreateAvailabilityWindowDto | UpdateAvailabilityWindowDto) => {
     if (selectedWindow?.id) {
       // Update
-      await updateAvailabilityWindow(selectedWindow.id, data as UpdateAvailabilityWindowDto);
+      await updateAvailabilityWindow(selectedWindow.id, data as UpdateAvailabilityWindowDto, personnelId);
     } else {
       // Create
-      await createAvailabilityWindow(data as CreateAvailabilityWindowDto);
+      await createAvailabilityWindow(data as CreateAvailabilityWindowDto, personnelId);
     }
     await loadData();
   };
 
   const handleDelete = async () => {
     if (selectedWindow?.id) {
-      await deleteAvailabilityWindow(selectedWindow.id);
+      await deleteAvailabilityWindow(selectedWindow.id, personnelId);
       await loadData();
     }
   };
@@ -132,15 +160,15 @@ const AvailabilityCalendarPage: React.FC = () => {
   };
 
   const handleDeleteFromDailyView = async (windowId: number) => {
-    if (!window.confirm('Er du sikker på at du vil slette dette tilgjengelighetsvinduet?')) {
+    if (!window.confirm(t('Er du sikker på at du vil slette dette tilgjengelighetsvinduet?'))) {
       return;
     }
 
     try {
-      await deleteAvailabilityWindow(windowId);
+      await deleteAvailabilityWindow(windowId, personnelId);
       await loadData();
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Kunne ikke slette tilgjengelighetsvinduet');
+      setError(t(err instanceof Error ? err.message : 'Kunne ikke slette tilgjengelighetsvinduet'));
     }
   };
 
@@ -161,11 +189,13 @@ const AvailabilityCalendarPage: React.FC = () => {
     }
   };
 
+  const selectedNurse = nurses.find((nurse) => nurse.id === personnelId);
+
   // renders loading state while fetching availability data
   if (loading && !weekData && !dayData) {
     return (
       <div className="availability-calendar-page">
-        <p>Laster tilgjengelighet...</p>
+        <p>{t('Laster tilgjengelighet...')}</p>
       </div>
     );
   }
@@ -183,15 +213,43 @@ const AvailabilityCalendarPage: React.FC = () => {
       )}
 
       <PageHeader
-        title="Kalender"
-        subtitle="Administrer din ukentlige og daglige tilgjengelighetsplan."
+        title={t('Kalender')}
+        subtitle={isHeadNurse && selectedNurse
+          ? t('Administrer kalenderen til {{name}}.', { name: selectedNurse.fullName })
+          : t('Administrer din ukentlige og daglige tilgjengelighetsplan.')}
+        actions={(
+          <>
+            {isHeadNurse && (
+              <select
+                className="form-select calendar-nurse-select"
+                aria-label={t('Velg sykepleier')}
+                value={personnelId}
+                onChange={(event) => {
+                  availabilityRequestRef.current += 1;
+                  setPersonnelId(event.target.value);
+                  setWeekData(null);
+                  setDayData(null);
+                  setSelectedWindow(undefined);
+                  setShowModal(false);
+                  setShowWeeklySchedule(false);
+                  setLoading(true);
+                }}
+              >
+                {nurses.map((nurse) => <option key={nurse.id} value={nurse.id}>{nurse.fullName}</option>)}
+              </select>
+            )}
+            <button className="btn btn-outline-primary" type="button" onClick={() => setShowWeeklySchedule(true)}>
+              <i className="bi bi-calendar-week me-2" aria-hidden="true"></i>{t('Standarduke')}
+            </button>
+          </>
+        )}
       />
 
       {/* provides view mode toggle and navigation controls */}
       <div className="calendar-controls">
         <div className="controls-left">
           {/* allows switching between day and week views */}
-          <div className="btn-group" role="group" aria-label="Visningsmodus">
+          <div className="btn-group" role="group" aria-label={t('Visningsmodus')}>
             <button
               type="button"
               className={`btn btn-sm ${viewMode === 'day' ? 'btn-secondary' : 'btn-outline-secondary'}`}
@@ -200,7 +258,7 @@ const AvailabilityCalendarPage: React.FC = () => {
                 setCurrentDate(new Date());
               }}
             >
-              Dag
+              {t('Dag')}
             </button>
             <button
               type="button"
@@ -210,26 +268,26 @@ const AvailabilityCalendarPage: React.FC = () => {
                 setCurrentDate(new Date());
               }}
             >
-              Uke
+              {t('Uke')}
             </button>
           </div>
 
           {/* navigates to current date */}
           <button type="button" className="btn btn-outline-secondary btn-sm" onClick={handleToday}>
-            I dag
+            {t('I dag')}
           </button>
           <button type="button" className="btn btn-outline-secondary btn-sm" onClick={loadData} disabled={loading}>
-            Oppdater
+            {t('Oppdater')}
           </button>
         </div>
 
         {/* displays current date range and navigation arrows */}
         <div className="controls-right">
-          <button type="button" className="btn btn-outline-secondary btn-sm" onClick={handlePrevious} aria-label="Forrige">
+          <button type="button" className="btn btn-outline-secondary btn-sm" onClick={handlePrevious} aria-label={t('Forrige')}>
             <i className="bi bi-chevron-left"></i>
           </button>
           <h2 className="date-header">{getHeaderText()}</h2>
-          <button type="button" className="btn btn-outline-secondary btn-sm" onClick={handleNext} aria-label="Neste">
+          <button type="button" className="btn btn-outline-secondary btn-sm" onClick={handleNext} aria-label={t('Neste')}>
             <i className="bi bi-chevron-right"></i>
           </button>
         </div>
@@ -261,6 +319,13 @@ const AvailabilityCalendarPage: React.FC = () => {
         selectedDate={selectedDate}
         onSubmit={handleCreateOrUpdate}
         onDelete={selectedWindow ? handleDelete : undefined}
+      />
+      <WeeklyScheduleModal
+        show={showWeeklySchedule}
+        onClose={() => setShowWeeklySchedule(false)}
+        onSaved={loadData}
+        personnelId={personnelId}
+        personnelName={selectedNurse?.fullName}
       />
     </div>
   );

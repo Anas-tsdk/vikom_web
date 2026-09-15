@@ -14,5 +14,14 @@ namespace backend.DTOs
 
         /// <summary>The Supabase handle, e.g. "ingrid.berg". A fallback for display.</summary>
         public string UserName { get; set; } = string.Empty;
+
+        /// <summary>Medicines maintained by the head nurse in the portal.</summary>
+        public List<MedicationDto> Medications { get; set; } = new();
+
+        /// <summary>
+        /// Recurring daily tasks maintained in the portal. This uses the existing
+        /// care-plan storage so current patient records keep their information.
+        /// </summary>
+        public string? DailyTasks { get; set; }
     }
 }

@@ -203,6 +203,7 @@ namespace backend.Services
 
             [JsonPropertyName("is_online")]
             public bool? IsOnline { get; set; }
+
         }
     }
 }

@@ -19,11 +19,15 @@ namespace backend.DAL.Repositories
                 .FirstOrDefaultAsync(c => c.Id == id);
         }
 
-        public async Task<IEnumerable<CallLog>> GetByPatientIdAsync(string patientId, int count)
+        public async Task<IEnumerable<CallLog>> GetByPatientIdAsync(
+            string patientId,
+            int count,
+            string? personnelId = null)
         {
             return await _context.CallLogs
                 .Include(c => c.Personnel)
-                .Where(c => c.PatientId == patientId)
+                .Where(c => c.PatientId == patientId &&
+                    (personnelId == null || c.PersonnelId == personnelId))
                 .OrderByDescending(c => c.StartedAt)
                 .Take(count)
                 .ToListAsync();

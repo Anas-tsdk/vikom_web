@@ -1,6 +1,8 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
 import { Alert, Button, Col, Row, Spinner } from 'react-bootstrap';
+import { useTranslation } from 'react-i18next';
+import type { TFunction } from 'i18next';
 import PatientService from '../services/PatientService';
 import Badge, { type BadgeColor } from '../../components/common/Badge';
 import type { PatientDetailsDto } from '../types/patient';
@@ -22,31 +24,33 @@ import DiagnosesCard from '../components/DiagnosesCard';
 import MedicationsCard from '../components/MedicationsCard';
 import TreatmentPlanCard from '../components/TreatmentPlanCard';
 import * as AuthService from '../../auth/AuthService';
+import { isHeadNurseRole, isPortalRole } from '../../auth/roles';
+import { localeForLanguage } from '../../i18n';
 import './PatientDetailsPage.css';
 
 const PAST_PREVIEW_COUNT = 3;
 
 type RightTab = 'upcoming' | 'past' | 'calls';
 
-const callStatusMeta = (status: string): { label: string; variant: BadgeColor } => {
+const callStatusMeta = (status: string, t: TFunction): { label: string; variant: BadgeColor } => {
   switch (status.toLowerCase()) {
     case 'answered':
-      return { label: 'Besvart', variant: 'success' };
+      return { label: t('Besvart'), variant: 'success' };
     case 'declined':
-      return { label: 'Avvist', variant: 'danger' };
+      return { label: t('Avvist'), variant: 'danger' };
     case 'missed':
-      return { label: 'Tapt', variant: 'warning' };
+      return { label: t('Tapt'), variant: 'warning' };
     case 'ended':
-      return { label: 'Avsluttet', variant: 'neutral' };
+      return { label: t('Avsluttet'), variant: 'neutral' };
     default:
-      return { label: 'Ringte', variant: 'info' };
+      return { label: t('Ringte'), variant: 'info' };
   }
 };
 
-const formatCallTime = (iso: string): string => {
+const formatCallTime = (iso: string, locale: string): string => {
   const d = new Date(iso);
   if (isNaN(d.getTime())) return iso;
-  return d.toLocaleString('nb-NO', {
+  return d.toLocaleString(locale, {
     day: '2-digit',
     month: 'short',
     hour: '2-digit',
@@ -59,12 +63,19 @@ const PatientDetailsPage: React.FC = () => {
   // without one). Child API calls still use the resolved patient.id (GUID).
   const { username: patientKey } = useParams<{ username: string }>();
   const navigate = useNavigate();
+  const { t, i18n } = useTranslation();
+  const locale = localeForLanguage(i18n.resolvedLanguage);
+  const userInfo = AuthService.getUserInfo();
+  const currentPersonnelId = userInfo?.userId;
+  const isPersonnel = isPortalRole(userInfo?.role);
+  const isHeadNurse = isHeadNurseRole(userInfo?.role);
 
   const [patient, setPatient] = useState<PatientDetailsDto | null>(null);
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string>('');
   const [infoMessage, setInfoMessage] = useState<string>('');
   const [showCallModal, setShowCallModal] = useState<boolean>(false);
+  const [callMediaType, setCallMediaType] = useState<'audio' | 'video'>('audio');
   const [showEditModal, setShowEditModal] = useState<boolean>(false);
   const [showAllPast, setShowAllPast] = useState<boolean>(false);
   const [activeTab, setActiveTab] = useState<RightTab>('upcoming');
@@ -73,7 +84,7 @@ const PatientDetailsPage: React.FC = () => {
 
   const loadPatient = useCallback(async () => {
     if (!patientKey) {
-      setError('Mangler pasient-ID.');
+      setError(t('Mangler pasient-ID.'));
       setLoading(false);
       return;
     }
@@ -85,12 +96,12 @@ const PatientDetailsPage: React.FC = () => {
       const data = await PatientService.getById(patientKey);
       setPatient(data);
     } catch (err) {
-      setError('Kunne ikke laste pasientdetaljer.');
+      setError(t('Kunne ikke laste pasientdetaljer.'));
       console.error(err);
     } finally {
       setLoading(false);
     }
-  }, [patientKey]);
+  }, [patientKey, t]);
 
   useEffect(() => {
     loadPatient();
@@ -110,17 +121,18 @@ const PatientDetailsPage: React.FC = () => {
 
   const deviceStatus = useMemo((): { label: string; color: BadgeColor; bordered: boolean } => {
     if (!patient) {
-      return { label: 'Ukjent', color: 'neutral', bordered: false };
+      return { label: t('Ukjent'), color: 'neutral', bordered: false };
     }
 
     if (patient.supabaseProfileId) {
-      return { label: 'Koblet til TV-profil', color: 'connected', bordered: true };
+      return { label: t('Koblet til TV-profil'), color: 'connected', bordered: true };
     }
 
-    return { label: 'Ikke koblet til TV-profil', color: 'warning', bordered: false };
-  }, [patient]);
+    return { label: t('Ikke koblet til TV-profil'), color: 'warning', bordered: false };
+  }, [patient, t]);
 
-  const handleCallClick = () => {
+  const handleCallClick = (mediaType: 'audio' | 'video') => {
+    setCallMediaType(mediaType);
     setShowCallModal(true);
   };
 
@@ -134,7 +146,7 @@ const PatientDetailsPage: React.FC = () => {
       <div className="patient-details-page">
         <div className="d-flex align-items-center gap-2 py-4">
           <Spinner animation="border" size="sm" />
-          <span>Laster pasientdetaljer...</span>
+          <span>{t('Laster pasientdetaljer...')}</span>
         </div>
       </div>
     );
@@ -143,9 +155,9 @@ const PatientDetailsPage: React.FC = () => {
   if (!patient) {
     return (
       <div className="patient-details-page">
-        <Alert variant="danger">Fant ikke pasientdata.</Alert>
+        <Alert variant="danger">{t('Fant ikke pasientdata.')}</Alert>
         <Link to="/patients" className="btn btn-outline-dark">
-          Tilbake til pasientlisten
+          {t('Tilbake til pasientlisten')}
         </Link>
       </div>
     );
@@ -155,11 +167,12 @@ const PatientDetailsPage: React.FC = () => {
   const visiblePast = showAllPast ? pastAppointments : pastAppointments.slice(0, PAST_PREVIEW_COUNT);
   const recentCalls = patient.recentCalls ?? [];
 
-  // The visit-execution page is personnel-only, so the "continue visit"
-  // shortcut is offered only to personnel when a visit is currently Active.
-  const isPersonnel = AuthService.getUserInfo()?.role === 'Personnel';
+  // Clinical execution never implies takeover: even a head nurse may inspect
+  // another nurse's records, but only the assigned nurse gets an execution
+  // shortcut.
   const ongoingVisit = isPersonnel
-    ? [...patient.upcomingAppointments, ...pastAppointments].find((a) => a.visitStatus === 'Active')
+    ? [...patient.upcomingAppointments, ...pastAppointments].find((a) =>
+        a.personnelId === currentPersonnelId && a.visitStatus === 'Active')
     : undefined;
   const ongoingVisitHref = ongoingVisit
     ? `/besok/${ongoingVisit.id}${ongoingVisit.visitType === 'Digital' ? '?type=Digital' : ''}`
@@ -168,7 +181,10 @@ const PatientDetailsPage: React.FC = () => {
   // For personnel, clicking a row whose visit is currently Active (pågår) opens
   // the visit-execution workspace — the same destination as the header shortcut.
   const visitRowOnClick = (appt: AppointmentSummary) =>
-    isPersonnel && appt.visitStatus === 'Active' && appt.id
+    isPersonnel &&
+    appt.personnelId === currentPersonnelId &&
+    appt.visitStatus === 'Active' &&
+    appt.id
       ? () => navigate(`/besok/${appt.id}${appt.visitType === 'Digital' ? '?type=Digital' : ''}`)
       : undefined;
 
@@ -186,7 +202,7 @@ const PatientDetailsPage: React.FC = () => {
       return (
         <IconButton
           icon="journal-text"
-          title="Besøksdetaljer"
+          title={t('Besøksdetaljer')}
           onClick={() => setDetailsVisitId(appt.visitId ?? null)}
         />
       );
@@ -201,7 +217,7 @@ const PatientDetailsPage: React.FC = () => {
     return (
       <IconButton
         icon="clipboard-check"
-        title="Planlagt besøk"
+        title={t('Planlagt besøk')}
         onClick={() =>
           setPlannedVisit({
             patientName: appt.patientName,
@@ -219,14 +235,14 @@ const PatientDetailsPage: React.FC = () => {
   };
 
   const tabs: { key: RightTab; label: string; icon: string; count?: number }[] = [
-    { key: 'upcoming', label: 'Kommende avtaler', icon: 'calendar-event', count: patient.upcomingAppointments.length },
-    { key: 'past', label: 'Tidligere avtaler', icon: 'clock-history', count: pastAppointments.length },
-    { key: 'calls', label: 'Anropslogg', icon: 'telephone', count: recentCalls.length },
+    { key: 'upcoming', label: t('Kommende avtaler'), icon: 'calendar-event', count: patient.upcomingAppointments.length },
+    { key: 'past', label: t('Tidligere avtaler'), icon: 'clock-history', count: pastAppointments.length },
+    { key: 'calls', label: t('Anropslogg'), icon: 'telephone', count: recentCalls.length },
   ];
 
   return (
     <div className="patient-details-page">
-      <Breadcrumb items={[{ label: 'Pasienter', to: '/patients' }, { label: patient.fullName }]} />
+      <Breadcrumb items={[{ label: t('Pasienter'), to: '/patients' }, { label: patient.fullName }]} />
 
       {error && (
         <Alert variant="danger" dismissible onClose={() => setError('')}>
@@ -242,8 +258,9 @@ const PatientDetailsPage: React.FC = () => {
 
       <PatientProfileHeader
         patient={patient}
-        onCall={handleCallClick}
-        onEdit={() => setShowEditModal(true)}
+        onAudioCall={() => handleCallClick('audio')}
+        onVideoCall={() => handleCallClick('video')}
+        onEdit={isHeadNurse ? () => setShowEditModal(true) : undefined}
         ongoingVisitHref={ongoingVisitHref}
       />
 
@@ -251,9 +268,9 @@ const PatientDetailsPage: React.FC = () => {
         <Col lg={4}>
           <div className="vk-card-stack">
 
-            <SectionCard title="TV-profil" icon="tv">
+            <SectionCard title={t('TV-profil')} icon="tv">
               <InfoRow
-                label="Status"
+                label={t('Status')}
                 value={
                   <Badge bg={deviceStatus.color} bordered={deviceStatus.bordered}>
                     {deviceStatus.label}
@@ -261,9 +278,9 @@ const PatientDetailsPage: React.FC = () => {
                 }
               />
               <InfoRow
-                label="Profil-ID"
+                label={t('Profil-ID')}
                 value={patient.supabaseProfileId}
-                emptyText="Ikke koblet"
+                emptyText={t('Ikke koblet')}
               />
             </SectionCard>
 
@@ -311,7 +328,7 @@ const PatientDetailsPage: React.FC = () => {
             <div className="vk-tabs-content">
               {activeTab === 'upcoming' &&
                 (patient.upcomingAppointments.length === 0 ? (
-                  <EmptyState icon="calendar-x" text="Ingen kommende avtaler." />
+                  <EmptyState icon="calendar-x" text={t('Ingen kommende avtaler.')} />
                 ) : (
                   <div className="d-grid gap-3">
                     {patient.upcomingAppointments.map((appointment) => (
@@ -327,7 +344,7 @@ const PatientDetailsPage: React.FC = () => {
 
               {activeTab === 'past' &&
                 (pastAppointments.length === 0 ? (
-                  <EmptyState icon="calendar2-x" text="Ingen tidligere avtaler." />
+                  <EmptyState icon="calendar2-x" text={t('Ingen tidligere avtaler.')} />
                 ) : (
                   <>
                     <div className="d-grid gap-3">
@@ -343,7 +360,7 @@ const PatientDetailsPage: React.FC = () => {
                     {pastAppointments.length > PAST_PREVIEW_COUNT && (
                       <div className="text-center mt-3">
                         <Button variant="link" className="p-0 text-dark" onClick={() => setShowAllPast((v) => !v)}>
-                          {showAllPast ? 'Vis færre' : `Vis alle (${pastAppointments.length})`}
+                          {showAllPast ? t('Vis færre') : t('Vis alle ({{count}})', { count: pastAppointments.length })}
                         </Button>
                       </div>
                     )}
@@ -352,18 +369,18 @@ const PatientDetailsPage: React.FC = () => {
 
               {activeTab === 'calls' &&
                 (recentCalls.length === 0 ? (
-                  <EmptyState icon="telephone-x" text="Ingen registrerte anrop." />
+                  <EmptyState icon="telephone-x" text={t('Ingen registrerte anrop.')} />
                 ) : (
                   <div className="vk-call-log">
                     {recentCalls.map((call) => {
-                      const meta = callStatusMeta(call.status);
+                      const meta = callStatusMeta(call.status, t);
                       return (
                         <div key={call.id} className="vk-call-log-item">
                           <div className="vk-call-log-main">
                             <i className="bi bi-telephone-outbound vk-call-log-icon" aria-hidden="true"></i>
                             <div>
-                              <div className="fw-semibold">{call.personnelName || 'Helsepersonell'}</div>
-                              <div className="text-muted small">{formatCallTime(call.startedAt)}</div>
+                              <div className="fw-semibold">{call.personnelName || t('Helsepersonell')}</div>
+                              <div className="text-muted small">{formatCallTime(call.startedAt, locale)}</div>
                             </div>
                           </div>
                           <Badge bg={meta.variant}>{meta.label}</Badge>
@@ -377,12 +394,14 @@ const PatientDetailsPage: React.FC = () => {
         </Col>
       </Row>
 
-      <EditPatientModal
-        show={showEditModal}
-        onHide={() => setShowEditModal(false)}
-        patient={patient}
-        onSaved={(updated) => setPatient(updated)}
-      />
+      {isHeadNurse && (
+        <EditPatientModal
+          show={showEditModal}
+          onHide={() => setShowEditModal(false)}
+          patient={patient}
+          onSaved={(updated) => setPatient(updated)}
+        />
+      )}
 
       <CallModal
         show={showCallModal}
@@ -390,6 +409,7 @@ const PatientDetailsPage: React.FC = () => {
         targetSupabaseProfileId={patient.supabaseProfileId}
         patientId={patient.id}
         patientName={patient.fullName}
+        mediaType={callMediaType}
       />
 
       <VisitDetailsModal

@@ -5,6 +5,8 @@ namespace backend.Services
     public interface IDashboardService
     {
         Task<PersonnelDashboardDto> GetPersonnelDashboardAsync(string personnelId);
-        Task<PatientDashboardDto> GetPatientDashboardAsync(string patientId);
+        Task<PatientDashboardDto> GetPatientDashboardAsync(
+            string patientId,
+            string? viewerPersonnelId = null);
     }
 }

@@ -7,7 +7,8 @@ import type {
   DayAvailability,
   AvailabilityWindow,
   CreateAvailabilityWindowDto,
-  UpdateAvailabilityWindowDto
+  UpdateAvailabilityWindowDto,
+  WeeklyAvailabilityRule,
 } from '../types/availability';
 
 const headers = {
@@ -17,8 +18,8 @@ const headers = {
 // handles API response
 async function handleResponse(response: Response) {
   if (!response.ok) {
-    const errorData = await response.text();
-    throw new Error(`Network response was not ok: ${response.status} - ${errorData}`);
+    const errorData = (await response.text()).trim();
+    throw new Error(errorData || 'Network response was not ok');
   }
   return response.json();
 }
@@ -126,9 +127,11 @@ export async function fetchDayAvailability(
 
 // creates availability window
 export async function createAvailabilityWindow(
-  window: CreateAvailabilityWindowDto
+  window: CreateAvailabilityWindowDto,
+  personnelId?: string,
 ): Promise<AvailabilityWindow> {
-  const response = await fetch(`${API_URL}/api/availability/window`, {
+  const query = personnelId ? `?personnelId=${encodeURIComponent(personnelId)}` : '';
+  const response = await fetch(`${API_URL}/api/availability/window${query}`, {
     method: 'POST',
     headers: { ...headers, ...getAuthHeader() },
     body: JSON.stringify(window),
@@ -139,9 +142,11 @@ export async function createAvailabilityWindow(
 // updates availability window
 export async function updateAvailabilityWindow(
   id: number,
-  window: UpdateAvailabilityWindowDto
+  window: UpdateAvailabilityWindowDto,
+  personnelId?: string,
 ): Promise<AvailabilityWindow> {
-  const response = await fetch(`${API_URL}/api/availability/window/${id}`, {
+  const query = personnelId ? `?personnelId=${encodeURIComponent(personnelId)}` : '';
+  const response = await fetch(`${API_URL}/api/availability/window/${id}${query}`, {
     method: 'PUT',
     headers: { ...headers, ...getAuthHeader() },
     body: JSON.stringify(window),
@@ -150,8 +155,9 @@ export async function updateAvailabilityWindow(
 }
 
 // deletes availability window
-export async function deleteAvailabilityWindow(id: number): Promise<void> {
-  const response = await fetch(`${API_URL}/api/availability/window/${id}`, {
+export async function deleteAvailabilityWindow(id: number, personnelId?: string): Promise<void> {
+  const query = personnelId ? `?personnelId=${encodeURIComponent(personnelId)}` : '';
+  const response = await fetch(`${API_URL}/api/availability/window/${id}${query}`, {
     method: 'DELETE',
     headers: { ...headers, ...getAuthHeader() },
   });
@@ -159,4 +165,26 @@ export async function deleteAvailabilityWindow(id: number): Promise<void> {
     const errorText = await response.text();
     throw new Error(errorText || 'Failed to delete availability window');
   }
+}
+
+export async function fetchWeeklySchedule(personnelId?: string): Promise<WeeklyAvailabilityRule[]> {
+  const query = personnelId ? `?personnelId=${encodeURIComponent(personnelId)}` : '';
+  const response = await fetch(`${API_URL}/api/availability/weekly-schedule${query}`, {
+    cache: 'no-store',
+    headers: { ...headers, ...getAuthHeader() },
+  });
+  return handleResponse(response);
+}
+
+export async function updateWeeklySchedule(
+  schedule: WeeklyAvailabilityRule[],
+  personnelId?: string,
+): Promise<WeeklyAvailabilityRule[]> {
+  const query = personnelId ? `?personnelId=${encodeURIComponent(personnelId)}` : '';
+  const response = await fetch(`${API_URL}/api/availability/weekly-schedule${query}`, {
+    method: 'PUT',
+    headers: { ...headers, ...getAuthHeader() },
+    body: JSON.stringify(schedule),
+  });
+  return handleResponse(response);
 }

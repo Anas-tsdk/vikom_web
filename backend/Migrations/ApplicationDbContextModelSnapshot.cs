@@ -161,6 +161,22 @@ namespace backend.Migrations
                         .IsRequired()
                         .HasColumnType("TEXT");
 
+                    b.Property<DateTime?>("PatientProposedDate")
+                        .HasColumnType("TEXT");
+
+                    b.Property<TimeSpan?>("PatientProposedEndTime")
+                        .HasColumnType("TEXT");
+
+                    b.Property<TimeSpan?>("PatientProposedStartTime")
+                        .HasColumnType("TEXT");
+
+                    b.Property<DateTime?>("PatientRespondedAt")
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("PatientResponseStatus")
+                        .IsRequired()
+                        .HasColumnType("TEXT");
+
                     b.Property<TimeSpan>("StartTime")
                         .HasColumnType("TEXT");
 
@@ -179,7 +195,7 @@ namespace backend.Migrations
 
                     b.HasIndex("PatientId");
 
-                    b.ToTable("Appointments", (string)null);
+                    b.ToTable("Appointments");
                 });
 
             modelBuilder.Entity("backend.Models.Availability", b =>
@@ -213,7 +229,7 @@ namespace backend.Migrations
 
                     b.HasIndex("PersonnelId");
 
-                    b.ToTable("Availabilities", (string)null);
+                    b.ToTable("Availabilities");
                 });
 
             modelBuilder.Entity("backend.Models.AvailabilityWindow", b =>
@@ -231,6 +247,9 @@ namespace backend.Migrations
                     b.Property<bool>("IsAvailable")
                         .HasColumnType("INTEGER");
 
+                    b.Property<bool>("IsGeneratedFromWeeklySchedule")
+                        .HasColumnType("INTEGER");
+
                     b.Property<string>("Notes")
                         .HasColumnType("TEXT");
 
@@ -243,9 +262,9 @@ namespace backend.Migrations
 
                     b.HasKey("Id");
 
-                    b.HasIndex("PersonnelId");
+                    b.HasIndex("PersonnelId", "Date");
 
-                    b.ToTable("AvailabilityWindows", (string)null);
+                    b.ToTable("AvailabilityWindows");
                 });
 
             modelBuilder.Entity("backend.Models.CallLog", b =>
@@ -295,7 +314,36 @@ namespace backend.Migrations
 
                     b.HasIndex("VisitId");
 
-                    b.ToTable("CallLogs", (string)null);
+                    b.ToTable("CallLogs");
+                });
+
+            modelBuilder.Entity("backend.Models.DeclinedAppointmentSlot", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("INTEGER");
+
+                    b.Property<DateTime>("Date")
+                        .HasColumnType("TEXT");
+
+                    b.Property<TimeSpan>("EndTime")
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("PatientId")
+                        .IsRequired()
+                        .HasColumnType("TEXT");
+
+                    b.Property<DateTime>("RecordedAt")
+                        .HasColumnType("TEXT");
+
+                    b.Property<TimeSpan>("StartTime")
+                        .HasColumnType("TEXT");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("PatientId", "Date");
+
+                    b.ToTable("DeclinedAppointmentSlots");
                 });
 
             modelBuilder.Entity("backend.Models.PatientMedication", b =>
@@ -325,7 +373,7 @@ namespace backend.Migrations
 
                     b.HasIndex("PatientId");
 
-                    b.ToTable("PatientMedications", (string)null);
+                    b.ToTable("PatientMedications");
                 });
 
             modelBuilder.Entity("backend.Models.PatientUserLink", b =>
@@ -352,7 +400,7 @@ namespace backend.Migrations
 
                     b.HasIndex("SecondaryUserId");
 
-                    b.ToTable("PatientUserLinks", (string)null);
+                    b.ToTable("PatientUserLinks");
                 });
 
             modelBuilder.Entity("backend.Models.User", b =>
@@ -382,6 +430,12 @@ namespace backend.Migrations
                     b.Property<string>("Diagnoses")
                         .HasColumnType("TEXT");
 
+                    b.Property<bool>("DailyCheckInEnabled")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<DateTime?>("DailyCheckInStartedAt")
+                        .HasColumnType("TEXT");
+
                     b.Property<string>("Email")
                         .HasMaxLength(256)
                         .HasColumnType("TEXT");
@@ -396,10 +450,25 @@ namespace backend.Migrations
                     b.Property<string>("GeneralPractitioner")
                         .HasColumnType("TEXT");
 
+                    b.Property<double?>("Latitude")
+                        .HasColumnType("REAL");
+
                     b.Property<bool>("LockoutEnabled")
                         .HasColumnType("INTEGER");
 
                     b.Property<DateTimeOffset?>("LockoutEnd")
+                        .HasColumnType("TEXT");
+
+                    b.Property<double?>("Longitude")
+                        .HasColumnType("REAL");
+
+                    b.Property<DateTime?>("LastDailyCheckInAt")
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("LastDailyCheckInConfirmedByUserId")
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("LastDailyCheckInSource")
                         .HasColumnType("TEXT");
 
                     b.Property<string>("NextOfKinName")
@@ -524,7 +593,7 @@ namespace backend.Migrations
 
                     b.HasIndex("ResponsibleUserId");
 
-                    b.ToTable("Visits", (string)null);
+                    b.ToTable("Visits");
                 });
 
             modelBuilder.Entity("backend.Models.VisitTask", b =>
@@ -557,7 +626,40 @@ namespace backend.Migrations
 
                     b.HasIndex("VisitId");
 
-                    b.ToTable("VisitTasks", (string)null);
+                    b.ToTable("VisitTasks");
+                });
+
+            modelBuilder.Entity("backend.Models.WeeklyAvailabilityRule", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("INTEGER");
+
+                    b.Property<int>("DayOfWeek")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<TimeSpan>("EndTime")
+                        .HasColumnType("TEXT");
+
+                    b.Property<bool>("IsAvailable")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<string>("Notes")
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("PersonnelId")
+                        .IsRequired()
+                        .HasColumnType("TEXT");
+
+                    b.Property<TimeSpan>("StartTime")
+                        .HasColumnType("TEXT");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("PersonnelId", "DayOfWeek")
+                        .IsUnique();
+
+                    b.ToTable("WeeklyAvailabilityRules");
                 });
 
             modelBuilder.Entity("Microsoft.AspNetCore.Identity.IdentityRoleClaim<string>", b =>
@@ -685,6 +787,17 @@ namespace backend.Migrations
                     b.Navigation("Visit");
                 });
 
+            modelBuilder.Entity("backend.Models.DeclinedAppointmentSlot", b =>
+                {
+                    b.HasOne("backend.Models.User", "Patient")
+                        .WithMany()
+                        .HasForeignKey("PatientId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Patient");
+                });
+
             modelBuilder.Entity("backend.Models.PatientMedication", b =>
                 {
                     b.HasOne("backend.Models.User", "Patient")
@@ -751,6 +864,17 @@ namespace backend.Migrations
                         .IsRequired();
 
                     b.Navigation("Visit");
+                });
+
+            modelBuilder.Entity("backend.Models.WeeklyAvailabilityRule", b =>
+                {
+                    b.HasOne("backend.Models.User", "Personnel")
+                        .WithMany()
+                        .HasForeignKey("PersonnelId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Personnel");
                 });
 
             modelBuilder.Entity("backend.Models.Appointment", b =>

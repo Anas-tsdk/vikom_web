@@ -6,17 +6,25 @@ using System.Security.Claims;
 
 namespace backend.Controllers
 {
-    [Authorize(Roles = "Personnel")]
+    [Authorize(Policy = AuthorizationPolicies.PortalStaff)]
     [ApiController]
     [Route("api/[controller]")]
     public class VisitsController : ControllerBase
     {
         private readonly IVisitService _visitService;
+        private readonly IAppointmentService _appointmentService;
+        private readonly IPortalAccessService _access;
         private readonly ILogger<VisitsController> _logger;
 
-        public VisitsController(IVisitService visitService, ILogger<VisitsController> logger)
+        public VisitsController(
+            IVisitService visitService,
+            IAppointmentService appointmentService,
+            IPortalAccessService access,
+            ILogger<VisitsController> logger)
         {
             _visitService = visitService;
+            _appointmentService = appointmentService;
+            _access = access;
             _logger = logger;
         }
 
@@ -32,6 +40,15 @@ namespace backend.Controllers
                 var nurseId = User.FindFirstValue(ClaimTypes.NameIdentifier);
                 if (string.IsNullOrEmpty(nurseId))
                     return Unauthorized();
+
+                var appointment = await _appointmentService.GetByIdAsync(request.AppointmentId);
+                if (appointment == null) return NotFound();
+                // Viewing/planning can be head-nurse-wide, but clinical execution
+                // is never an implicit takeover. Only the assigned nurse starts it.
+                if (!IsCaller(appointment.PersonnelId)) return Forbid();
+
+                var existingVisit = await _visitService.GetByAppointmentIdAsync(request.AppointmentId);
+                if (existingVisit != null && !IsCaller(existingVisit.ResponsibleUserId)) return Forbid();
 
                 var visit = await _visitService.StartOrGetForAppointmentAsync(request.AppointmentId, nurseId, request.VisitType);
                 return Ok(visit);
@@ -56,6 +73,7 @@ namespace backend.Controllers
             {
                 var visit = await _visitService.GetByIdAsync(id);
                 if (visit == null) return NotFound();
+                if (!await _access.CanManagePersonnelAsync(User, visit.ResponsibleUserId)) return Forbid();
                 return Ok(visit);
             }
             catch (Exception ex)
@@ -71,6 +89,11 @@ namespace backend.Controllers
         {
             try
             {
+                var appointment = await _appointmentService.GetByIdAsync(appointmentId);
+                if (appointment == null) return NotFound();
+                if (!await _access.CanManagePersonnelAsync(User, appointment.PersonnelId ?? string.Empty))
+                    return Forbid();
+
                 var visit = await _visitService.GetByAppointmentIdAsync(appointmentId);
                 if (visit == null) return NotFound();
                 return Ok(visit);
@@ -88,7 +111,13 @@ namespace backend.Controllers
         {
             try
             {
+                if (!await _access.CanAccessPatientAsync(User, patientId)) return Forbid();
                 var visits = await _visitService.GetByPatientIdAsync(patientId);
+                if (!await _access.IsHeadNurseAsync(User))
+                {
+                    var nurseId = _access.GetUserId(User);
+                    visits = visits.Where(visit => visit.ResponsibleUserId == nurseId);
+                }
                 return Ok(visits);
             }
             catch (Exception ex)
@@ -124,6 +153,10 @@ namespace backend.Controllers
         {
             try
             {
+                var existing = await _visitService.GetByIdAsync(id);
+                if (existing == null) return NotFound();
+                if (!IsCaller(existing.ResponsibleUserId)) return Forbid();
+
                 var visit = await _visitService.UpdateNotesAsync(id, request.Notes);
                 if (visit == null) return NotFound();
                 return Ok(visit);
@@ -143,6 +176,10 @@ namespace backend.Controllers
             {
                 if (!ModelState.IsValid)
                     return BadRequest(ModelState);
+
+                var existing = await _visitService.GetByIdAsync(id);
+                if (existing == null) return NotFound();
+                if (!IsCaller(existing.ResponsibleUserId)) return Forbid();
 
                 var task = await _visitService.AddTaskAsync(id, request.Title);
                 if (task == null) return NotFound();
@@ -164,6 +201,10 @@ namespace backend.Controllers
                 if (!ModelState.IsValid)
                     return BadRequest(ModelState);
 
+                var existing = await _visitService.GetByIdAsync(id);
+                if (existing == null) return NotFound();
+                if (!IsCaller(existing.ResponsibleUserId)) return Forbid();
+
                 var task = await _visitService.UpdateTaskAsync(id, taskId, request.Status, request.SkippedReason);
                 if (task == null) return NotFound();
                 return Ok(task);
@@ -181,6 +222,10 @@ namespace backend.Controllers
         {
             try
             {
+                var existing = await _visitService.GetByIdAsync(id);
+                if (existing == null) return NotFound();
+                if (!IsCaller(existing.ResponsibleUserId)) return Forbid();
+
                 var visit = await _visitService.CompleteAsync(id, request.Notes, request.FollowUpRequired);
                 if (visit == null) return NotFound();
                 return Ok(visit);
@@ -200,6 +245,10 @@ namespace backend.Controllers
             {
                 if (!ModelState.IsValid)
                     return BadRequest(ModelState);
+
+                var existing = await _visitService.GetByIdAsync(id);
+                if (existing == null) return NotFound();
+                if (!IsCaller(existing.ResponsibleUserId)) return Forbid();
 
                 var visit = await _visitService.CancelAsync(id, request.Reason, request.Notes);
                 if (visit == null) return NotFound();
@@ -221,6 +270,10 @@ namespace backend.Controllers
                 if (!ModelState.IsValid)
                     return BadRequest(ModelState);
 
+                var existing = await _visitService.GetByIdAsync(id);
+                if (existing == null) return NotFound();
+                if (!IsCaller(existing.ResponsibleUserId)) return Forbid();
+
                 var attempt = await _visitService.LogCallAttemptAsync(id, request);
                 if (attempt == null) return NotFound();
                 return Ok(attempt);
@@ -230,6 +283,13 @@ namespace backend.Controllers
                 _logger.LogError(ex, "Error logging call attempt for visit {Id}", id);
                 return StatusCode(500, "An error occurred while logging the call attempt");
             }
+        }
+
+        private bool IsCaller(string? assignedUserId)
+        {
+            var callerId = _access.GetUserId(User);
+            return !string.IsNullOrWhiteSpace(callerId) &&
+                   string.Equals(callerId, assignedUserId, StringComparison.Ordinal);
         }
     }
 }

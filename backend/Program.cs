@@ -19,6 +19,9 @@ builder.Services.AddControllers()
     });
 
 // Configure CORS - allows frontend to communicate with backend
+var configuredFrontendOrigins = builder.Configuration
+    .GetSection("Cors:AllowedOrigins")
+    .Get<string[]>() ?? Array.Empty<string>();
 builder.Services.AddCors(options =>
 {
     options.AddPolicy("AllowFrontend", policy =>
@@ -32,7 +35,9 @@ builder.Services.AddCors(options =>
         }
         else
         {
-            policy.WithOrigins("http://localhost:5173"); // Vite default port
+            policy.WithOrigins(configuredFrontendOrigins.Length > 0
+                ? configuredFrontendOrigins
+                : new[] { "http://localhost:5173" });
         }
 
         policy.AllowAnyHeader()
@@ -98,7 +103,13 @@ builder.Services.AddAuthentication(options =>
     options.TokenValidationParameters = supabaseTokenValidation;
 });
 
-builder.Services.AddAuthorization();
+builder.Services.AddAuthorization(options =>
+{
+    options.AddPolicy(backend.Services.AuthorizationPolicies.PortalStaff, policy =>
+        policy.RequireRole(backend.Models.UserRoles.PortalStaff));
+    options.AddPolicy(backend.Services.AuthorizationPolicies.HeadNurse, policy =>
+        policy.RequireRole(backend.Models.UserRoles.HeadNurse));
+});
 
 // Register repositories
 builder.Services.AddHttpClient();
@@ -119,6 +130,11 @@ builder.Services.AddScoped<backend.Services.IPatientUserLinkService, backend.Ser
 builder.Services.AddScoped<backend.Services.ICallLogService, backend.Services.CallLogService>();
 builder.Services.AddScoped<backend.Services.IVisitService, backend.Services.VisitService>();
 builder.Services.AddScoped<backend.Services.ISupabaseProfileDirectory, backend.Services.SupabaseProfileDirectory>();
+builder.Services.AddScoped<backend.Services.ISupabaseDailyCheckInStore, backend.Services.SupabaseDailyCheckInStore>();
+builder.Services.AddHostedService<backend.Services.DailyCheckInEligibilitySyncWorker>();
+builder.Services.AddScoped<backend.Services.IPortalAccessService, backend.Services.PortalAccessService>();
+builder.Services.AddSingleton<backend.Services.ICheckInClock, backend.Services.SystemCheckInClock>();
+builder.Services.AddScoped<backend.Services.IDailyCheckInService, backend.Services.DailyCheckInService>();
 
 // Configure Swagger with JWT support
 builder.Services.AddEndpointsApiExplorer();

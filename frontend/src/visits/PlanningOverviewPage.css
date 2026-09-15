@@ -1,267 +1,216 @@
-/* ===== PLANNING OVERVIEW PAGE =====
-   Header uses PageHeader; the visits and map cards use the shared SectionCard;
-   empty/error blocks use EmptyState / Bootstrap Alert. Remaining styles are
-   scoped to the page root and tokenized. */
-.planning-overview-page {
-  padding: var(--space-6);
-}
+.planning-overview-page { padding: var(--space-6); }
 
-/* ===== FILTERS ===== */
-.planning-overview-page .filters-bar {
-  margin-bottom: var(--space-6);
-}
-
-.planning-overview-page .controls-bar {
+.planning-overview-page .planning-nurse-selector {
   display: grid;
-  grid-template-columns: minmax(220px, 1.5fr) repeat(3, minmax(140px, auto));
+  grid-template-columns: auto minmax(14rem, 20rem);
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.planning-overview-page .planning-nurse-selector .form-label {
+  margin: 0;
+  color: var(--bs-dark);
+  font-weight: 650;
+}
+
+.planning-overview-page .planning-toolbar {
+  display: grid;
+  grid-template-columns: auto minmax(260px, 1fr) auto auto;
+  gap: var(--space-2);
+  align-items: center;
+  margin-bottom: var(--space-3);
+  padding: var(--space-3);
+  border: 1px solid var(--bs-dark);
+  border-radius: var(--radius-default);
+  background: var(--bs-light);
+}
+
+.planning-overview-page .day-select { min-height: 2.75rem; border-color: var(--bs-dark); }
+.planning-overview-page .route-alert { margin-bottom: var(--space-3); }
+
+.planning-overview-page .route-summary {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(110px, 1fr)) auto;
   gap: var(--space-3);
   align-items: center;
-  border: 1px solid var(--bs-dark);
+  margin-bottom: var(--space-5);
+  padding: var(--space-3) var(--space-4);
+  border: 1px solid var(--border-color);
   border-radius: var(--radius-default);
-  background-color: var(--bs-light);
-  padding: var(--space-3);
-  overflow: hidden;
+  background: var(--bs-white);
 }
 
-.planning-overview-page .search-control,
-.planning-overview-page .compact-select {
-  height: 3rem;
-  border-radius: var(--radius-default);
-  border: 1px solid var(--bs-dark);
-  background-color: var(--bs-white);
-  color: var(--bs-dark);
-  font-weight: 500;
-}
+.planning-overview-page .route-summary > div { display: flex; flex-direction: column; }
+.planning-overview-page .route-summary strong { color: var(--bs-dark); font-size: var(--fs-lg); }
+.planning-overview-page .route-summary span { color: var(--text-muted); font-size: var(--fs-sm); }
 
-.planning-overview-page .search-control {
-  padding: var(--space-2) var(--space-4);
-}
-
-.planning-overview-page .compact-select {
-  padding: 0.5rem 2.25rem 0.5rem 0.9rem;
-  background-position: right 0.8rem center;
-}
-
-.planning-overview-page .search-control:focus,
-.planning-overview-page .compact-select:focus {
-  border-color: var(--bs-primary);
-  box-shadow: var(--focus-ring);
-}
-
-/* ===== CONTENT GRID ===== */
 .planning-overview-page .planning-content {
   display: grid;
-  grid-template-columns: 3fr 7fr;
+  grid-template-columns: minmax(340px, 4fr) minmax(480px, 6fr);
   gap: var(--space-5);
   align-items: stretch;
 }
 
 .planning-overview-page .visits-section,
-.planning-overview-page .map-section {
-  display: flex;
-}
-
+.planning-overview-page .map-section { display: flex; min-width: 0; }
 .planning-overview-page .visits-card,
-.planning-overview-page .map-card {
-  width: 100%;
-}
-
-/* ===== VISITS LIST ===== */
-.planning-overview-page .visits-list {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-4);
-}
+.planning-overview-page .map-card { width: 100%; }
+.planning-overview-page .visits-list { display: flex; flex-direction: column; gap: var(--space-3); }
 
 .planning-overview-page .visit-item {
+  display: grid;
+  grid-template-columns: 2rem minmax(0, 1fr);
+  gap: var(--space-3);
+  width: 100%;
+  padding: var(--space-4);
   border: 1px solid var(--border-color);
   border-radius: var(--radius-default);
-  padding: var(--space-4);
-  background-color: var(--bs-white);
-}
-
-.planning-overview-page .visit-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: flex-start;
-  margin-bottom: var(--space-3);
-}
-
-.planning-overview-page .visit-main {
-  flex: 1;
+  background: var(--bs-white);
+  color: inherit;
   text-align: left;
+  cursor: pointer;
 }
 
-.planning-overview-page .patient-name {
-  font-size: var(--fs-md);
-  font-weight: 600;
+.planning-overview-page .visit-item:hover,
+.planning-overview-page .visit-item.selected { border-color: var(--bs-primary); }
+.planning-overview-page .visit-item.selected { box-shadow: var(--focus-ring); }
+
+.planning-overview-page .stop-number {
+  display: grid;
+  place-items: center;
+  width: 2rem;
+  height: 2rem;
+  border-radius: 50%;
+  background: var(--bs-primary);
+  color: var(--bs-white);
+  font-weight: 700;
+  border: 0;
+  cursor: pointer;
+}
+
+.planning-overview-page .stop-number:focus-visible { box-shadow: var(--focus-ring); outline: 0; }
+
+.planning-overview-page .visit-body { display: flex; flex-direction: column; gap: var(--space-2); min-width: 0; }
+.planning-overview-page .visit-header { display: flex; justify-content: space-between; gap: var(--space-2); align-items: flex-start; }
+.planning-overview-page .visit-time,
+.planning-overview-page .patient-name { display: block; }
+.planning-overview-page .visit-time { color: var(--bs-primary); font-size: var(--fs-sm); font-weight: 700; }
+.planning-overview-page .patient-name { color: var(--bs-dark); font-size: var(--fs-md); font-weight: 650; }
+
+.planning-overview-page .visit-address,
+.planning-overview-page .drive-leg {
+  display: flex;
+  gap: var(--space-2);
+  align-items: center;
   color: var(--bs-dark);
-  margin-bottom: var(--space-1);
-  text-align: left;
-}
-
-.planning-overview-page .visit-address {
   font-size: var(--fs-sm);
-  color: var(--bs-dark);
-  margin-bottom: 0;
-  display: flex;
-  align-items: center;
-  gap: var(--space-2);
 }
 
-.planning-overview-page .visit-meta {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-1);
-  align-items: flex-end;
-}
+.planning-overview-page .drive-leg { color: var(--text-muted); }
+.planning-overview-page .visit-tasks { display: block; }
+.planning-overview-page .visit-actions { display: flex; flex-wrap: wrap; gap: var(--space-2); padding-top: var(--space-1); }
+.planning-overview-page .map-body { flex: 1; }
+.planning-overview-page .planning-map-shell,
+.planning-overview-page .planning-map { min-height: 620px; height: 100%; }
+.planning-overview-page .planning-map-shell { position: relative; }
+.planning-overview-page .planning-map { width: 100%; border-radius: 0 0 var(--radius-default) var(--radius-default); }
 
-.planning-overview-page .visit-details {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: var(--space-3);
-}
-
-.planning-overview-page .visit-datetime {
-  font-size: var(--fs-sm);
-  color: var(--bs-dark);
-  display: flex;
-  align-items: center;
-  gap: var(--space-2);
-}
-
-.planning-overview-page .visit-tasks {
-  margin-bottom: var(--space-3);
-}
-
-.planning-overview-page .visit-actions {
-  display: flex;
-  gap: var(--space-2);
-}
-
-/* ===== MAP ===== */
-.planning-overview-page .map-body {
-  flex: 1;
-}
-
-.planning-overview-page .map-placeholder {
-  height: 100%;
-  background: linear-gradient(135deg, var(--gray-100) 0%, var(--gray-200) 100%);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  min-height: 280px;
-}
-
-.planning-overview-page .map-content {
-  text-align: center;
-  color: var(--bs-dark);
-}
-
-.planning-overview-page .map-icon {
-  font-size: 3rem;
-  margin-bottom: var(--space-4);
-  opacity: 0.7;
-}
-
-.planning-overview-page .map-title {
-  font-size: var(--fs-lg);
-  font-weight: 600;
-  margin-bottom: var(--space-2);
-}
-
-.planning-overview-page .map-text {
-  font-size: var(--fs-sm);
-  margin-bottom: var(--space-5);
-  max-width: 200px;
-  line-height: 1.4;
-}
-
-.planning-overview-page .map-areas {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-2);
-  max-width: 180px;
-}
-
-.planning-overview-page .map-area {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding: var(--space-2);
+.planning-overview-page .planning-map-empty {
+  position: absolute;
+  z-index: 500;
+  inset: 50% auto auto 50%;
+  transform: translate(-50%, -50%);
+  max-width: 24rem;
+  padding: var(--space-3) var(--space-4);
   border-radius: var(--radius-default);
-  font-size: var(--fs-xs);
-  font-weight: 500;
+  background: rgba(255, 255, 255, .94);
+  box-shadow: var(--shadow-md);
+  text-align: center;
 }
 
-.planning-overview-page .map-area.downtown {
-  background-color: rgba(var(--bs-primary-rgb), 0.1);
-  color: var(--bs-primary);
+.planning-map-marker-wrapper { background: transparent; border: 0; }
+.planning-map-marker {
+  display: grid;
+  place-items: center;
+  width: 34px;
+  height: 34px;
+  border: 3px solid var(--bs-white);
+  border-radius: 50%;
+  background: var(--bs-primary);
+  color: var(--bs-white);
+  box-shadow: var(--shadow-md);
+  font-weight: 700;
 }
 
-.planning-overview-page .map-area.suburb {
-  background-color: rgba(var(--bs-success-rgb), 0.1);
-  color: var(--bs-success);
+/* Keep the complete work area inside a desktop monitor. The visit list scrolls
+   independently while the map stays visible instead of forcing the whole page
+   past a fixed 620px map. */
+@media (min-width: 993px) {
+  .planning-overview-page {
+    display: flex;
+    flex-direction: column;
+    height: calc(100dvh - 4.25rem);
+    min-height: 35rem;
+    overflow: hidden;
+  }
+
+  .planning-overview-page .planning-header,
+  .planning-overview-page .planning-toolbar,
+  .planning-overview-page .route-alert,
+  .planning-overview-page .route-summary { flex: 0 0 auto; }
+
+  .planning-overview-page .planning-content,
+  .planning-overview-page .visits-section,
+  .planning-overview-page .map-section,
+  .planning-overview-page .visits-card,
+  .planning-overview-page .map-card,
+  .planning-overview-page .map-body,
+  .planning-overview-page .planning-map-shell,
+  .planning-overview-page .planning-map { min-height: 0; }
+
+  .planning-overview-page .planning-content { flex: 1 1 auto; }
+  .planning-overview-page .visits-card,
+  .planning-overview-page .map-card { display: flex; flex-direction: column; }
+  .planning-overview-page .visits-card > .card-body {
+    min-height: 0;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+  }
+  .planning-overview-page .map-card > .card-body { flex: 1 1 auto; }
+  .planning-overview-page .planning-map-shell,
+  .planning-overview-page .planning-map { height: 100%; }
 }
 
-.planning-overview-page .map-area.rural {
-  background-color: rgba(var(--bs-warning-rgb), 0.1);
-  color: var(--bs-warning);
+@media (min-width: 993px) and (max-height: 850px) {
+  .planning-overview-page { padding: var(--space-4); }
+  .planning-overview-page .planning-header { margin-bottom: var(--space-3) !important; }
+  .planning-overview-page .planning-toolbar,
+  .planning-overview-page .route-summary { padding-block: var(--space-2); }
+  .planning-overview-page .route-summary { margin-bottom: var(--space-3); }
+  .planning-overview-page .visit-item { padding: var(--space-3); }
 }
 
-.planning-overview-page .area-label {
-  font-weight: 600;
+@media (max-width: 1200px) {
+  .planning-overview-page .planning-toolbar { grid-template-columns: auto minmax(240px, 1fr) auto; }
+  .planning-overview-page .planning-location-button { grid-column: 1 / -1; }
 }
 
-.planning-overview-page .area-count {
-  opacity: 0.8;
-}
-
-/* ===== RESPONSIVE ===== */
 @media (max-width: 992px) {
-  .planning-overview-page .controls-bar {
-    grid-template-columns: 1fr 1fr;
-  }
-
-  .planning-overview-page .planning-content {
-    grid-template-columns: 1fr;
-  }
-
-  .planning-overview-page .map-placeholder {
-    height: 300px;
-  }
+  .planning-overview-page .planning-content { grid-template-columns: 1fr; }
+  .planning-overview-page .route-summary { grid-template-columns: repeat(2, 1fr); }
+  .planning-overview-page .route-summary > .btn { grid-column: 1 / -1; }
+  .planning-overview-page .planning-map-shell,
+  .planning-overview-page .planning-map { min-height: 420px; }
 }
 
 @media (max-width: 768px) {
-  .planning-overview-page {
-    padding: var(--space-4);
-  }
-
-  .planning-overview-page .controls-bar {
+  .planning-overview-page { padding: var(--space-4); }
+  .planning-overview-page .planning-toolbar { grid-template-columns: auto 1fr auto; }
+  .planning-overview-page .planning-location-button { grid-column: 1 / -1; }
+  .planning-overview-page .visit-actions { flex-direction: column; }
+  .planning-overview-page .visit-actions .btn { width: 100%; }
+  .planning-overview-page .planning-nurse-selector {
     grid-template-columns: 1fr;
-  }
-
-  .planning-overview-page .visit-header {
-    flex-direction: column;
-    gap: var(--space-2);
-  }
-
-  .planning-overview-page .visit-meta {
-    align-items: flex-start;
-  }
-
-  .planning-overview-page .visit-details {
-    flex-direction: column;
-    align-items: flex-start;
-    gap: var(--space-2);
-  }
-
-  .planning-overview-page .visit-actions {
-    flex-direction: column;
-  }
-
-  .planning-overview-page .visit-actions .btn {
     width: 100%;
   }
 }

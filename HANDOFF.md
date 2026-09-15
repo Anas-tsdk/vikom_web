@@ -1,6 +1,6 @@
 # ViKom Handoff
 
-**Date:** August 2026
+**Date:** September 2026
 
 **For:** Student development team taking over ViKom
 
@@ -45,13 +45,15 @@ One architecture decision runs through everything: the .NET backend is the singl
 
 ### Current Scope (Prototype)
 
-- 🟢 Web portal for personnel (appointment management, patient profiles, visit execution, dashboard)
+- 🟢 Web portal for Head Nurses and Nurses (cross-nurse planning, appointment management, patient profiles, visit execution, dashboard)
+- 🟢 Responsive day-route planning with an interactive map, driving legs, and per-nurse selection for Head Nurses
+- 🟢 Norwegian, English, German, Finnish, and Swedish web UI
 - 🟢 TV app with login, appointment display, care-team view, and contacts
 - 🟢 Backend API and SQLite database (system of record for clinical data)
 - 🟢 Call signaling round-trip web ↔ TV via Supabase Realtime, verified end-to-end
-- 🟡 Call media (actual audio): the TV app has a real WebRTC stack, but the web side still sends a placeholder offer, so no audio flows yet
+- 🟡 Call media (audio/video): both clients now create real WebRTC peers and exchange SDP/ICE, but a real-device regression test and production TURN service are still required
 - 🟡 Realtime appointment push to the TV: sender and receiver both exist, delivery is unverified (details in Section 5)
-- 🚧 Analytics for leadership, route optimization
+- 🚧 Leadership analytics and automatic route optimisation (the current map follows appointment time order)
 
 ## 2. System Architecture
 
@@ -61,7 +63,7 @@ One architecture decision runs through everything: the .NET backend is the singl
 ┌─────────────────────────────────────────────────────────────────┐
 │ HEALTHCARE PERSONNEL                                            │
 │ Web Portal (React 19 + TypeScript + Vite)                       │
-│ - Login/register (backend-issued JWT, personnel only)           │
+│ - Login/register (backend-issued JWT; HeadNurse/Nurse roles)    │
 │ - Dashboard, appointments, availability, patient profiles       │
 │ - Visit execution workspace (_Besøk_)                           │
 │ - "Ring pasient" (call signaling to the TV)                     │
@@ -114,7 +116,7 @@ One architecture decision runs through everything: the .NET backend is the singl
 | Database | SQLite (HomeCareDatabase.db) | Clinical data, appointments, visits | Application source of truth |
 | Patient Identity | Supabase Auth (GoTrue) | Sign-in for TV app patients | TV app only |
 | Realtime Bus | Supabase Realtime | Call signaling + appointment events | TV app ↔ Web app |
-| Call Media | WebRTC | Audio peer-to-peer (TV side ready, web side not implemented) | TV app ↔ Browser |
+| Call Media | WebRTC | Browser-to-TV audio/video (prototype; production TURN still needed) | TV app ↔ Browser |
 | Push Notifications | Firebase FCM | Incoming call alerts when app is closed | TV app (unverified) |
 
 ### Data at Rest vs. In-Flight
@@ -422,6 +424,8 @@ public class Appointment
     public TimeSpan StartTime { get; set; }  // Copied from the Availability slot
     public TimeSpan EndTime { get; set; }
     public string Status { get; set; }       // See below
+    public string PatientResponseStatus { get; set; } // Pending | Accepted | Declined
+    public DateTime? PatientRespondedAt { get; set; }
     public Visit? Visit { get; set; }        // One-to-one execution record (null until started)
 }
 ```
@@ -437,22 +441,31 @@ The allowed transitions are enforced in [backend/Services/AppointmentService.cs]
 
 1. Personnel picks a patient, a free nurse time slot (from the availability endpoints), and a task list
 2. Frontend POSTs to `/api/appointments`
-3. `AppointmentsController` → `AppointmentService.CreateAsync()`: validates the slot isn't already booked, creates the appointment with `Status = "Booked"`
+3. `AppointmentsController` → `AppointmentService.CreateAsync()`: validates the slot isn't already booked, creates the appointment with `Status = "Booked"` and `PatientResponseStatus = "Pending"`
 4. The service then tries to emit a realtime event (next subsection)
 
-### 2. Realtime appointment events 🟡 (wired on both ends, delivery unverified)
+### 2. Realtime appointment invitations
 
 This is the part of the system most likely to confuse you, so here is the current state.
 
 The backend emits. `AppointmentService.EmitAppointmentRealtimeEventAsync` ([backend/Services/AppointmentService.cs](backend/Services/AppointmentService.cs)) runs on create, update, and cancel. It skips silently if the patient has no `SupabaseProfileId`. Otherwise it builds a payload via the static [backend/Services/AppointmentRealtimeEventService.cs](backend/Services/AppointmentRealtimeEventService.cs) (wrapper `{ targetUserId, type: "appointment_event", payload: <JSON string> }`) and POSTs it to Supabase over HTTP.
 
-The TV app listens. `SignalingManager.kt` handles `appointment_event` on the shared `webrtc-signaling` channel, `CallViewModel.handleAppointmentEvent()` invalidates the appointment cache, and `SignalingForegroundService` launches a full-screen `AppointmentActivity` to inform the patient (deferred if a call is in progress). The payload field names match the backend.
+The single-message REST endpoint used by the backend is valid: `POST /realtime/v1/api/broadcast/webrtc-signaling/events/message`. The older batch endpoint (`POST /realtime/v1/api/broadcast` with a `messages` array) is also supported by Supabase, but is not required here. Any delivery failure is logged while the appointment remains durable in SQLite; an app that was offline can therefore discover pending invitations through `GET /api/tv/appointments/mine`.
 
-The suspected break is the transport. The backend POSTs to `{supabaseUrl}/realtime/v1/api/broadcast/webrtc-signaling/events/message`, while Supabase's REST broadcast endpoint is `POST /realtime/v1/api/broadcast` with a `{"messages":[{"topic","event","payload"}]}` body. Any failure is caught and only logged as a warning, so appointment writes always succeed even when the broadcast doesn't go out. We have not observed an event arriving on a TV. Fixing and verifying this is the top candidate task for your team (Section 15).
+The current web/backend contract for the TV app is:
+
+- realtime wrapper: `{ targetUserId, type: "appointment_event", payload: <JSON string> }`
+- payload includes `appointmentId`, `action`, date/times, personnel, workflow `status`, `patientResponseStatus`, and `shortMessage`
+- a created or rescheduled appointment has `patientResponseStatus = "Pending"`
+- the signed-in patient answers with `POST /api/tv/appointments/{id}/response` and `{ "response": "Accepted" }` or `{ "response": "Declined" }`
+- acceptance retains `Status = "Booked"`; declining records the response and moves the appointment to `Status = "Cancelled"`
+- the endpoint resolves the Supabase token and refuses to mutate another patient's appointment
+
+The Android app must subscribe to `appointment_event`, show the choice, and call the response endpoint. That app-side UI is intentionally outside this repository.
 
 Because of this, the TV app's appointment list doesn't depend on realtime. `AppointmentListFragment` force-refreshes from the backend every time it resumes, and the repository's 5-minute cache only serves data when the network fails. Once verified, the realtime path adds an instant full-screen notification on top of that.
 
-Test coverage: [backend.Tests/AppointmentRealtimePayloadTests.cs](backend.Tests/AppointmentRealtimePayloadTests.cs) pins the payload and wrapper shape, so the TV contract can't drift silently. Nothing tests the HTTP send itself.
+Test coverage: [backend.Tests/AppointmentRealtimePayloadTests.cs](backend.Tests/AppointmentRealtimePayloadTests.cs) pins the payload and wrapper shape. Appointment response tests pin acceptance, decline/cancellation, reschedule-to-pending, and patient ownership.
 
 ### 3. TV App: Fetch Appointments
 
@@ -741,18 +754,19 @@ Heads-up: the Supabase `profiles` table also has an `fcm_token` column that `FCM
 
 **Public:** `/` (landing), `/login`, `/register` (login and register redirect to `/dashboard` if already signed in)
 
-**Personnel-only (wrapped in `PersonnelOnlyRoute`):**
-- `/dashboard`: the nurse's homepage
-- `/appointments`: appointment list, create/edit/cancel
+**Staff-only (wrapped in `PersonnelOnlyRoute`):**
+- `/dashboard`: the signed-in nurse's homepage
+- `/appointments`: a Nurse sees their own work list; a Head Nurse selects a nurse and creates, reschedules, or cancels assignments
 - `/appointments/archive`: historical visits (reached from buttons on the appointments page; there is no sidebar link)
-- `/availability`: availability calendar (weekly/daily views, slots + recurring windows)
+- `/availability`: availability calendar (weekly/daily views, recurring standard week, manual day/week overrides, and Head-Nurse staff selection)
 - `/patients` and `/patients/:username`: roster and clinical profile (the URL uses the patient's profile username, falling back to their GUID)
 - `/besok/:appointmentId`: the Besøk visit workspace (append `?type=Digital` to start a digital visit)
-- `/planning`: planning overview (early page, includes an area-map placeholder)
+- `/planning`: responsive daily itinerary and interactive driving map; Head Nurses select whose route to inspect
+- `/nurses`: Head-Nurse-only staff list and Nurse/Head-Nurse account registration
 
 ### Key Components
 
-- **Dashboard**: [frontend/src/dashboard/components/PersonnelDashboard.tsx](frontend/src/dashboard/components/PersonnelDashboard.tsx), fed by `GET /api/dashboard/personnel`. Welcome header, four stat tiles (patients / this week / planned / cancelled), a month calendar, today's timeline, upcoming availability, and recent appointments. This page exists and works; older docs listed the dashboard as planned.
+- **Dashboard**: [frontend/src/dashboard/components/PersonnelDashboard.tsx](frontend/src/dashboard/components/PersonnelDashboard.tsx), fed by `GET /api/dashboard/personnel`. Welcome header, four stat tiles, month calendar, today's timeline, upcoming availability, and actual recently concluded appointments with links to their visit records.
 - **Appointments**: [frontend/src/appointments/pages/AppointmentListPage.tsx](frontend/src/appointments/pages/AppointmentListPage.tsx) with form/modal components for create, edit, and delete.
 - **Visits**: [frontend/src/visits/VisitExecutionPage.tsx](frontend/src/visits/VisitExecutionPage.tsx) (Section 5), plus `VisitArchivePage` (filter tabs) and modals for planned-visit preview and post-visit details.
 - **Patients**: roster and clinical profile assembled from cards (`ClinicalOverviewCard`, `DiagnosesCard`, `MedicationsCard`, `TreatmentPlanCard`, `PatientNotesCard`, `EditPatientModal`). The profile header hosts the "Ring pasient" button and a badge showing whether the patient is TV-linked. `CreatePatientModal` (from "Ny pasient" on the roster) registers a patient, and both modals embed `SupabaseProfileField`, which searches Supabase `profiles` via `GET /api/patients/supabase-profiles` so the TV link is picked from real accounts. That search goes through the backend on purpose — portal users hold a backend JWT and have no Supabase session, so a browser-side query would run as `anon` and force `profiles` to allow anonymous SELECT. Linking writes **only** `SupabaseProfileId`; the patient's `ProfileUsername` (their `/patients/{username}` URL handle) is a separate local value that the portal never touches.
@@ -768,22 +782,22 @@ Heads-up: the Supabase `profiles` table also has an `fcm_token` column that `FCM
 
 ### Configuration
 
-[frontend/src/config/config.ts](frontend/src/config/config.ts) hardcodes the backend URL:
+[frontend/src/config/config.ts](frontend/src/config/config.ts) reads an optional backend URL and falls back to local development:
 
 ```typescript
-export const API_URL = 'http://localhost:5084';
+export const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5084';
 ```
 
-There is no env override for it, so change the file if your backend runs elsewhere. Worth improving.
-
-Supabase (needed only for "Ring pasient") comes from `.env.local`, copied from [frontend/.env.example](frontend/.env.example):
+Configuration comes from `.env.local`, copied from [frontend/.env.example](frontend/.env.example):
 
 ```
+VITE_API_URL=http://localhost:5084
 VITE_SUPABASE_URL=https://your-project.supabase.co
 VITE_SUPABASE_ANON_KEY=your-anon-key-here
+VITE_ROUTING_API_URL=https://router.project-osrm.org
 ```
 
-Every feature has its own small service module (`AppointmentService.ts`, `VisitService.ts`, and so on) that wraps `fetch` with the auth header. There is no shared HTTP client or global 401 handling yet; that's a known cleanup opportunity.
+Every feature has its own small service module (`AppointmentService.ts`, `VisitService.ts`, and so on) that wraps `fetch` with the auth header. Expired/malformed stored JWTs are cleared by the route guard; response handling is still duplicated between service modules.
 
 ## 10. Setup Instructions
 
@@ -971,7 +985,7 @@ Start the backend (5084), the frontend (5173), and the TV app.
 - On the portal, open Ingrid's patient page → "Ring pasient"
 - The TV shows the incoming-call screen; Accept
 - The portal's call modal leaves "Ringer…", which confirms the signaling round-trip
-- Don't expect audio; media is not implemented on the web side (Section 6)
+- Exercise both audio and video on a real device; WebRTC media is implemented, but the prototype still depends on non-production STUN/TURN configuration (Section 6)
 
 **4. Visit flow:**
 - On the portal, start the visit (Besøk) for the appointment: check the timer, complete a task, skip one with a reason, type notes (autosaves), log a call attempt, then Complete
@@ -981,13 +995,13 @@ Start the backend (5084), the frontend (5173), and the TV app.
 Backend (the only automated tests in the project):
 
 ```bash
-dotnet test
+dotnet test backend.Tests/backend.Tests.csproj
 ```
 
-- `AppointmentRealtimePayloadTests`: pins the realtime payload/wrapper shape (the TV contract)
-- `AppointmentStatusResolverTests`: the display-status rule
-- `SupabaseAuthenticationTests`: Supabase JWT validation rules
-- `UserRepositorySupabaseLookupTests`: patient lookup by Supabase UUID
+- The suite covers authentication/authorization, staff roles, patient access,
+  appointment and invitation rules, availability recurrence/overrides, dashboard
+  metrics, visit execution, Supabase authentication/directory behavior, and
+  realtime payload contracts.
 
 Frontend: none (no test runner configured). TV app: none (`app/src` has no `test/` or `androidTest/` directories, although the test dependencies are declared). Adding tests in both is on the task list (Section 15).
 
@@ -997,23 +1011,25 @@ Statuses below were verified against the code. See the intro for what 🟢 🟡 
 
 | Feature | Status | Notes |
 |---------|--------|-------|
-| Web portal login/register | 🟢 | ASP.NET Identity + JWT; portal is personnel-only (patients get 403) |
-| Appointment CRUD (web) | 🟢 | Create/update/soft-cancel, slot validation, status transitions |
-| Availability slots + recurring windows | 🟢 | Calendar with weekly and daily views |
+| Web portal login/register | 🟢 | ASP.NET Identity + JWT; public registration creates Nurse; Head Nurses provision either staff role; patients get 403 |
+| Appointment CRUD (web) | 🟢 | Head Nurses assign across staff; Nurses receive a scoped work list; patient acceptance/decline remains on the TV app |
+| Availability slots + recurring windows | 🟢 | 09:00–17:00 defaults, recurring standard week, manual overrides, Head-Nurse staff selection |
 | Patient roster & clinical profiles | 🟢 | Diagnoses, medications, treatment plan, notes, next-of-kin, GP |
 | Visit execution (_Besøk_) | 🟢 | Timer, task checklist, autosaving notes, call attempts, outcomes |
-| Personnel dashboard | 🟢 | Stat tiles, month calendar, today's timeline (listed as planned in older docs) |
+| Personnel dashboard | 🟢 | Planned count excludes completed work; recent list contains concluded appointments and opens visit details |
+| Daily route planning | 🟢 | Responsive map and time-ordered driving route; Head Nurses select a nurse; automatic stop optimisation is not implemented |
+| Web translations | 🟢 | Norwegian, English, German, Finnish, Swedish; selected in the profile menu |
 | TV app login | 🟢 | Supabase Auth, email verification, encrypted session, auto-refresh |
 | TV appointment fetching + display | 🟢 | `/api/tv/appointments/mine`, day-grouped list, home hero card |
 | TV patient name + care team | 🟢 | `/api/tv/me`, `/api/tv/careteam/mine` (new since the previous handoff) |
 | Call signaling round-trip | 🟢 | Verified end-to-end web ↔ TV (offer → incoming screen → answer) |
-| Call media (real audio) | 🚧 | TV WebRTC stack ready; web side sends dummy SDP, no audio yet |
+| Call media (audio/video) | 🟡 | Real WebRTC on both sides; needs real-device regression coverage and production TURN |
 | Realtime appointment push to TV | 🟡 | Emitter + listener + matching contract exist; delivery unverified, transport URL suspect (Section 5) |
 | Incoming-call push (FCM, app closed) | 🟡 | Code wired on TV; needs google-services.json + end-to-end verification |
 | Presence (online/offline) | 🟡 | 30s heartbeat + contact-detail indicator; contains a hardcoded demo allowlist (Section 13) |
 | Patient contacts on TV | 🟢 | From Supabase; quick-dial folded into the contacts screen |
-| Leadership analytics, route optimization | 🚧 | Not started |
-| Automated tests | 🟡 | Backend only (4 test classes); zero frontend/TV tests |
+| Leadership analytics, automatic route optimisation | 🚧 | Not started |
+| Automated tests | 🟡 | Backend xUnit suite; frontend is type-checked/linted but has no component-test runner; zero TV tests |
 
 ## 13. Known Risks and Important Notes
 
@@ -1030,7 +1046,7 @@ Statuses below were verified against the code. See the intro for what 🟢 🟡 
 2. **Suspect realtime broadcast URL, swallowed errors.** See Section 5. The backend's broadcast POST likely targets a non-existent Supabase route, and all failures are reduced to a log warning. Check the backend logs and the Supabase dashboard before trusting any assumption that an event was sent.
 3. **Public TURN relay with hardcoded credentials** (`openrelay.metered.ca` in `WebRTCConfig.kt`). Free community infrastructure, unsuitable for production and for patient traffic.
 4. **Hardcoded "always online" allowlist.** `PresenceRepository.kt` contains `ALWAYS_ONLINE_CONTACT_IDS`, three contact ids forced to display as online for demos. Remove before trusting presence.
-5. **Hardcoded frontend `API_URL`** and no global 401 handling (Section 9).
+5. **Fragmented frontend HTTP handling.** The backend URL is environment-configurable and expired stored tokens are cleared, but individual service modules still format API errors independently.
 6. **Release-readiness gaps in the TV app:** application id is still `com.example.tv_caller_app`, minification is disabled for release, and the encrypted-storage library is an alpha version.
 7. **Availability week/day endpoints return exception stack traces in 500 responses.** Don't let those leak beyond dev.
 8. **Duplicate availability slots are swept up at startup instead of prevented.** `AvailabilityService.CreateAsync` inserts a slot without checking whether one already exists at that personnel/date/start time, and `UpdateWindowAsync` only compares new slots against *booked* ones, so re-saving a window can add a second free slot. `DBInit.RemoveDuplicateSlotDataAsync` cleans up on every boot — and it can delete an appointment while doing so. The fix is a uniqueness rule on (`PersonnelId`, `Date`, `StartTime`) plus a service that respects it; then the startup sweep can go.
@@ -1114,10 +1130,10 @@ Only the backend has automated tests, and only for four focused areas. Everythin
 ### Candidate first tasks (roughly in value order)
 
 1. **Verify/fix the realtime appointment broadcast.** Correct the backend's Supabase broadcast request (Section 5), then prove an event arrives on the TV and launches `AppointmentActivity`. Small, well-scoped, touches both repos, and unlocks the instant TV notification.
-2. **Implement real web-side call media.** Add `RTCPeerConnection` + `getUserMedia` in the frontend, replace the dummy SDP, and exchange ICE candidates over the existing channel. The TV side is already waiting. This completes the calling feature.
+2. **Verify real browser-to-device audio/video** across different networks and replace public demo relays with a production TURN service.
 3. **Verify FCM closed-app call delivery** with a real `google-services.json` and the `send-call-notification` Edge Function.
 4. **Add tests** where you work: frontend (Vitest + Testing Library) and TV (JUnit against the ViewModels via the datasource interfaces; they were designed for faking).
-5. **Quality-of-life cleanups:** env-configurable `API_URL`, global 401 → login redirect, remove the presence allowlist, per-user signaling channels.
+5. **Quality-of-life cleanups:** centralise frontend HTTP/401 handling, remove the presence allowlist, use authorised per-user signaling channels, and prevent availability duplicates at the database layer.
 
 ### Working agreements (what the previous team followed)
 
@@ -1145,7 +1161,7 @@ Only the backend has automated tests, and only for four focused areas. Everythin
 | Backend Supabase service-role key | .NET user-secrets | `Supabase:ServiceRoleKey` |
 | Backend portal JWT | `backend/appsettings.json` | `Jwt:Key`, `Jwt:Issuer`, `Jwt:Audience` |
 | Frontend Supabase | `frontend/.env.local` | `VITE_SUPABASE_URL`, `VITE_SUPABASE_ANON_KEY` |
-| Frontend backend URL | `frontend/src/config/config.ts` | `API_URL` (hardcoded) |
+| Frontend backend URL | `frontend/.env.local` | `VITE_API_URL` (optional; local default is port 5084) |
 | TV app | `local.properties` | `supabase.url`, `supabase.key`, `backend.base.url` |
 
 ### Common Ports
@@ -1180,7 +1196,7 @@ Only the backend has automated tests, and only for four focused areas. Everythin
 dotnet run --project backend
 dotnet run --project backend --launch-profile http-lan
 dotnet user-secrets set "Supabase:JwtSecret" "..." --project backend
-dotnet test
+dotnet test backend.Tests/backend.Tests.csproj
 
 # Frontend
 npm run dev

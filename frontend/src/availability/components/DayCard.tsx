@@ -1,5 +1,6 @@
 import React from 'react';
 import Badge, { type BadgeColor } from '../../components/common/Badge';
+import { useTranslation } from 'react-i18next';
 import type { DayAvailability, AvailabilityWindow } from '../types/availability';
 import { formatTime12Hour } from '../../utils/dateUtils';
 
@@ -18,6 +19,7 @@ const DayCard: React.FC<DayCardProps> = ({
   isToday, 
   onClick 
 }) => {
+  const { t } = useTranslation();
   const statusColor = (status: string): BadgeColor => {
     switch (status) {
       case 'Available':
@@ -55,7 +57,7 @@ const DayCard: React.FC<DayCardProps> = ({
 
       <div className="day-card-body">
         <Badge bg={statusColor(dayData.status)} className="status-badge">
-          {dayData.status}
+          {t(dayData.status)}
         </Badge>
 
         {/* Show appointment previews */}
@@ -77,19 +79,19 @@ const DayCard: React.FC<DayCardProps> = ({
                 </div>
                 {appointment.status === 'Completed' && (
                   <div className="completed-text">
-                    <i className="bi bi-check-lg me-1"></i>Completed
+                    <i className="bi bi-check-lg me-1"></i>{t('Completed')}
                   </div>
                 )}
                 {appointment.status === 'Cancelled' && (
                   <div className="cancelled-text">
-                    ✗ Cancelled
+                    ✗ {t('Cancelled')}
                   </div>
                 )}
               </div>
             ))}
             {dayData.appointments.length > 2 && (
               <div className="text-muted small">
-                +{dayData.appointments.length - 2} more
+                {t('+{{count}} more', { count: dayData.appointments.length - 2 })}
               </div>
             )}
           </div>

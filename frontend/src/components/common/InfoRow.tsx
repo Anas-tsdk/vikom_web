@@ -1,4 +1,5 @@
 import React from 'react';
+import { useTranslation } from 'react-i18next';
 import './InfoRow.css';
 
 interface InfoRowProps {
@@ -18,9 +19,10 @@ const InfoRow: React.FC<InfoRowProps> = ({
   label,
   value,
   icon,
-  emptyText = 'Ikke oppgitt',
+  emptyText,
   className = '',
 }) => {
+  const { t } = useTranslation();
   const isEmpty = value === null || value === undefined || value === '';
 
   return (
@@ -30,7 +32,7 @@ const InfoRow: React.FC<InfoRowProps> = ({
         {label}
       </span>
       <span className={`vk-info-row-value ${isEmpty ? 'text-muted' : ''}`}>
-        {isEmpty ? emptyText : value}
+        {isEmpty ? (emptyText ?? t('Ikke oppgitt')) : value}
       </span>
     </div>
   );

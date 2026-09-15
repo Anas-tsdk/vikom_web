@@ -12,7 +12,12 @@ namespace backend.Services
             string endTime,
             string personnelName,
             string status,
-            string shortMessage)
+            string patientResponseStatus,
+            string shortMessage,
+            string? patientName = null,
+            string? patientProposedDate = null,
+            string? patientProposedStartTime = null,
+            string? patientProposedEndTime = null)
         {
             return new Dictionary<string, object?>
             {
@@ -23,16 +28,24 @@ namespace backend.Services
                 ["endTime"] = endTime,
                 ["personnelName"] = personnelName,
                 ["status"] = status,
-                ["shortMessage"] = shortMessage
+                ["patientResponseStatus"] = patientResponseStatus,
+                ["shortMessage"] = shortMessage,
+                ["patientName"] = patientName,
+                ["patientProposedDate"] = patientProposedDate,
+                ["patientProposedStartTime"] = patientProposedStartTime,
+                ["patientProposedEndTime"] = patientProposedEndTime
             };
         }
 
-        public static Dictionary<string, object?> BuildWrapper(string targetUserId, Dictionary<string, object?> payload)
+        public static Dictionary<string, object?> BuildWrapper(
+            string targetUserId,
+            Dictionary<string, object?> payload,
+            string eventType = "appointment_event")
         {
             return new Dictionary<string, object?>
             {
                 ["targetUserId"] = targetUserId,
-                ["type"] = "appointment_event",
+                ["type"] = eventType,
                 ["payload"] = JsonSerializer.Serialize(payload)
             };
         }

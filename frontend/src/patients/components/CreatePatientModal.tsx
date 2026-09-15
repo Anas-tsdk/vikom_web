@@ -1,8 +1,11 @@
 import React, { useEffect, useState } from 'react';
 import { Alert, Button, Form, Modal, Spinner } from 'react-bootstrap';
+import { useTranslation } from 'react-i18next';
+import { translateApiMessage } from '../../i18n';
 import type { PatientDetailsDto } from '../types/patient';
 import PatientService from '../services/PatientService';
 import SupabaseProfileField, { type SupabaseLinkValue } from './SupabaseProfileField';
+import AddressAutocomplete from './AddressAutocomplete';
 
 interface CreatePatientModalProps {
   show: boolean;
@@ -16,10 +19,13 @@ interface CreatePatientModalProps {
  * the logged-in nurse's patient list by the backend.
  */
 const CreatePatientModal: React.FC<CreatePatientModalProps> = ({ show, onHide, onCreated }) => {
+  const { t } = useTranslation();
   const [fullName, setFullName] = useState<string>('');
   const [email, setEmail] = useState<string>('');
   const [phoneNumber, setPhoneNumber] = useState<string>('');
   const [address, setAddress] = useState<string>('');
+  const [latitude, setLatitude] = useState<number | null>(null);
+  const [longitude, setLongitude] = useState<number | null>(null);
   const [supabaseLink, setSupabaseLink] = useState<SupabaseLinkValue | null>(null);
   const [saving, setSaving] = useState<boolean>(false);
   const [error, setError] = useState<string>('');
@@ -31,6 +37,8 @@ const CreatePatientModal: React.FC<CreatePatientModalProps> = ({ show, onHide, o
       setEmail('');
       setPhoneNumber('');
       setAddress('');
+      setLatitude(null);
+      setLongitude(null);
       setSupabaseLink(null);
       setError('');
     }
@@ -40,7 +48,7 @@ const CreatePatientModal: React.FC<CreatePatientModalProps> = ({ show, onHide, o
     e.preventDefault();
 
     if (!fullName.trim() || !email.trim()) {
-      setError('Navn og e-post er påkrevd.');
+      setError(t('Navn og e-post er påkrevd.'));
       return;
     }
 
@@ -52,12 +60,14 @@ const CreatePatientModal: React.FC<CreatePatientModalProps> = ({ show, onHide, o
         email: email.trim(),
         phoneNumber: phoneNumber.trim() || null,
         address: address.trim(),
+        latitude,
+        longitude,
         supabaseProfileId: supabaseLink?.supabaseProfileId ?? null,
       });
       onCreated(created);
       onHide();
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Kunne ikke opprette pasienten. Prøv igjen.');
+      setError(translateApiMessage(t, err instanceof Error ? err.message : 'Kunne ikke opprette pasienten. Prøv igjen.'));
       console.error(err);
     } finally {
       setSaving(false);
@@ -68,13 +78,13 @@ const CreatePatientModal: React.FC<CreatePatientModalProps> = ({ show, onHide, o
     <Modal show={show} onHide={onHide} centered>
       <Form onSubmit={handleSubmit}>
         <Modal.Header closeButton>
-          <Modal.Title>Ny pasient</Modal.Title>
+          <Modal.Title>{t('Ny pasient')}</Modal.Title>
         </Modal.Header>
         <Modal.Body>
           {error && <Alert variant="danger">{error}</Alert>}
 
           <Form.Group className="mb-3" controlId="createPatientName">
-            <Form.Label>Fullt navn</Form.Label>
+            <Form.Label>{t('Fullt navn')}</Form.Label>
             <Form.Control
               type="text"
               value={fullName}
@@ -84,7 +94,7 @@ const CreatePatientModal: React.FC<CreatePatientModalProps> = ({ show, onHide, o
           </Form.Group>
 
           <Form.Group className="mb-3" controlId="createPatientEmail">
-            <Form.Label>E-post</Form.Label>
+            <Form.Label>{t('E-post')}</Form.Label>
             <Form.Control
               type="email"
               value={email}
@@ -94,7 +104,7 @@ const CreatePatientModal: React.FC<CreatePatientModalProps> = ({ show, onHide, o
           </Form.Group>
 
           <Form.Group className="mb-3" controlId="createPatientPhone">
-            <Form.Label>Telefon</Form.Label>
+            <Form.Label>{t('Telefon')}</Form.Label>
             <Form.Control
               type="tel"
               value={phoneNumber}
@@ -102,29 +112,30 @@ const CreatePatientModal: React.FC<CreatePatientModalProps> = ({ show, onHide, o
             />
           </Form.Group>
 
-          <Form.Group className="mb-3" controlId="createPatientAddress">
-            <Form.Label>Adresse</Form.Label>
-            <Form.Control
-              type="text"
-              value={address}
-              onChange={(e) => setAddress(e.target.value)}
-            />
-          </Form.Group>
+          <AddressAutocomplete
+            idPrefix="createPatient"
+            value={address}
+            onChange={(nextAddress, nextLatitude, nextLongitude) => {
+              setAddress(nextAddress);
+              setLatitude(nextLatitude);
+              setLongitude(nextLongitude);
+            }}
+          />
 
           <SupabaseProfileField value={supabaseLink} onChange={setSupabaseLink} />
         </Modal.Body>
         <Modal.Footer>
           <Button variant="outline-secondary" onClick={onHide} disabled={saving}>
-            Avbryt
+            {t('Avbryt')}
           </Button>
           <Button variant="primary" type="submit" disabled={saving}>
             {saving ? (
               <>
                 <Spinner animation="border" size="sm" className="me-2" />
-                Oppretter...
+                {t('Oppretter...')}
               </>
             ) : (
-              'Opprett pasient'
+              t('Opprett pasient')
             )}
           </Button>
         </Modal.Footer>

@@ -37,7 +37,8 @@ dotnet restore
 dotnet run --project backend
 ```
 
-The API starts at **http://localhost:5084**, with Swagger at **http://localhost:5084/swagger**.
+The API starts on port **5084** and listens for both laptop and LAN clients. On
+the laptop, Swagger is available at **http://localhost:5084/swagger**.
 
 The SQLite database is created and seeded automatically on first run in Development.
 
@@ -63,10 +64,13 @@ adb reverse tcp:5084 tcp:5084
 
 The device can then reach the backend on `127.0.0.1:5084` regardless of which network it is on, with no firewall changes. See the TV app's `local.properties.example`.
 
-Over the LAN instead, the default profiles bind to `localhost`, which a physical tablet cannot reach. The `http-lan` profile binds all interfaces:
+For cable-free use, put the laptop and tablet on a network where they can reach
+each other and set the Android app's `backend.base.url` to the laptop address,
+for example `http://192.168.1.25:5084/`. The normal `http` profile and the
+explicit `http-lan` profile both listen for LAN clients:
 
 ```bash
-dotnet run --project backend --launch-profile http-lan
+dotnet run --project backend --launch-profile http
 ```
 
 You will also need an inbound firewall rule for TCP 5084 on your private network (Windows requires an administrator terminal for this):
@@ -75,7 +79,12 @@ You will also need an inbound firewall rule for TCP 5084 on your private network
 New-NetFirewallRule -DisplayName "ViKom backend dev 5084" -Direction Inbound -Protocol TCP -LocalPort 5084 -Action Allow -Profile Private
 ```
 
-To check it works, open `http://<your-lan-ip>:5084/swagger` in the tablet's own browser. HTTPS redirection is disabled in Development so the device can use plain HTTP; production re-enables it automatically.
+To check it works, open `http://<your-laptop-ip>:5084/swagger` in the tablet's
+own browser. HTTPS redirection is disabled in Development so the device can use
+plain HTTP. This is a development-only setup: do not expose port 5084 to the
+public Internet or use real medical data over plain HTTP. For use across
+different Wi-Fi networks, deploy the backend behind HTTPS or use a private VPN
+such as Tailscale.
 
 ### 3. Frontend setup
 
@@ -97,6 +106,8 @@ npm run dev
 ```
 
 The frontend starts at **http://localhost:5173**. In Development the backend accepts any loopback origin, so Vite picking a different port when 5173 is taken will not break CORS.
+
+Public registration creates a normal **Nurse** account. A signed-in **Head Nurse** can register either Nurses or other Head Nurses from the **Nurses** page. The seeded `nurse@homecare.local` (Nurse Nora) account is the initial Head Nurse.
 
 ## Running the Application
 
@@ -352,7 +363,7 @@ The profile search runs through the backend, not the browser, so it needs one ex
 dotnet user-secrets set "Supabase:ServiceRoleKey" "<service-role-key>" --project backend
 ```
 
-Without it the portal still works — the Supabase field just degrades to manual UUID entry and tells you why. Keep that key server-side: it bypasses Supabase row-level security, so it must never end up in `.env.local` or a commit.
+Without it the portal still works, but linking an app account to a patient is disabled and the form tells you why. Keep that key server-side: it bypasses Supabase row-level security, so it must never end up in `.env.local` or a commit.
 
 Linking changes only the patient's Supabase profile ID. It never touches their URL handle, so `/patients/ingrid.berg` keeps working across linking, relinking and unlinking. Patients registered in the portal have no handle and are addressed as `/patients/<guid>`.
 
@@ -361,6 +372,34 @@ Linking changes only the patient's Supabase profile ID. It never touches their U
 ```bash
 dotnet test backend.Tests/backend.Tests.csproj
 ```
+
+## Hosting and production safety
+
+The Vite frontend is a static site and can be hosted on Cloudflare Pages. Use build command `npm run build`, root directory `frontend`, and output directory `dist`. Set these build-time variables in Pages rather than committing a `.env.local` file:
+
+```text
+VITE_API_URL=https://api.your-domain.example
+VITE_SUPABASE_URL=https://YOUR_PROJECT.supabase.co
+VITE_SUPABASE_ANON_KEY=YOUR_PUBLISHABLE_KEY
+```
+
+The Supabase publishable/anon key is intentionally a client-side value; it is safe only when every exposed table has correct Row-Level Security. Never put a Supabase service-role/secret key, the portal JWT signing key, a Firebase private key, or a TURN API token into a `VITE_*` variable because Vite embeds it in public JavaScript.
+
+Cloudflare Pages cannot run this ASP.NET Core + SQLite backend. Choose one of these architectures:
+
+1. **Keep it local for now:** run the backend and frontend as documented above. No cloud deployment is necessary.
+2. **Private remote staff access:** keep both on a controlled computer/server and publish them through Cloudflare Tunnel protected with Cloudflare Access. This avoids opening an inbound router port, but the Android API routes also need a deliberate machine-to-machine access design; do not simply place an interactive Access login page in front of tablet API calls.
+3. **Production Internet deployment:** host the frontend on Pages and the .NET 8 API on a .NET-capable service, with a managed production database. Point `VITE_API_URL` at that HTTPS API and restrict CORS to the exact Pages/custom-domain origin.
+
+Before any production or health-data deployment:
+
+- Replace the committed development JWT key and set `Jwt__Key`, `Jwt__Issuer`, and `Jwt__Audience` as server secrets; configure the same values in the private Supabase calling function.
+- Move away from a single local SQLite file to a backed-up managed database suitable for concurrent users.
+- Set exact `Cors__AllowedOrigins` and `AllowedHosts`; enforce HTTPS and do not expose Swagger publicly.
+- Keep `Supabase:JwtSecret` and `Supabase:ServiceRoleKey` in a secret store, review all Supabase RLS policies, and rotate anything previously shared or committed.
+- Add backup/restore tests, audit logging, monitoring, patching, least-privilege staff access, and the GDPR/health-data agreements and risk assessment appropriate to the deployment country.
+
+The durable call/missed-call/TURN deployment is maintained in `vikom_app-main/supabase`; follow that repository's README. It is independent of whether the local Vite and ASP.NET processes are running.
 
 ## Technology Stack
 
@@ -385,7 +424,7 @@ dotnet test backend.Tests/backend.Tests.csproj
 - Personnel availability management with weekly and daily calendar views
 - Appointment booking and scheduling
 - Visit ("Besøk") execution workspace with task tracking and visit records
-- Call signaling from the portal to a patient's TV app (ring → incoming-call screen → answer/reject; verified end-to-end, though real audio/video media is not implemented yet)
+- WebRTC audio and video calling from the portal to a patient's TV app, including answer/reject, an accepted in-call audio-to-video upgrade, managed TURN support, and durable missed-call recovery
 - Realtime appointment events emitted toward the patient's TV app on create, update and cancel (both ends are wired, but delivery is not yet verified; see the hand-off guide)
 - User-specific dashboards
 - Responsive design for mobile and desktop

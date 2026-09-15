@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { Button, Form, InputGroup, ListGroup, Spinner } from 'react-bootstrap';
+import { useTranslation } from 'react-i18next';
 import Avatar from '../../components/common/Avatar';
 import Badge from '../../components/common/Badge';
 import SupabaseProfileService, {
@@ -33,6 +34,7 @@ interface SupabaseProfileFieldProps {
  * the field degrades to a plain UUID input rather than blocking the form.
  */
 const SupabaseProfileField: React.FC<SupabaseProfileFieldProps> = ({ value, onChange }) => {
+  const { t } = useTranslation();
   const [query, setQuery] = useState<string>('');
   const [results, setResults] = useState<SupabaseProfile[]>([]);
   const [searching, setSearching] = useState<boolean>(false);
@@ -91,7 +93,7 @@ const SupabaseProfileField: React.FC<SupabaseProfileFieldProps> = ({ value, onCh
       if (err instanceof SupabaseLookupError && err.notConfigured) {
         setNotConfigured(true);
       } else {
-        setError(err instanceof Error ? err.message : 'Kunne ikke søke i Supabase-profiler.');
+        setError(t(err instanceof Error ? err.message : 'Kunne ikke søke i Supabase-profiler.'));
       }
       console.error(err);
     } finally {
@@ -124,24 +126,15 @@ const SupabaseProfileField: React.FC<SupabaseProfileFieldProps> = ({ value, onCh
   if (notConfigured) {
     return (
       <Form.Group controlId="patientSupabaseId">
-        <Form.Label>Supabase-profil (TV-app)</Form.Label>
+        <Form.Label>{t('Supabase-profil (TV-app)')}</Form.Label>
         <Form.Control
           type="text"
           value={value?.supabaseProfileId ?? ''}
-          placeholder="UUID fra Supabase"
-          onChange={(e) =>
-            onChange(
-              // A hand-typed id means we no longer know whose account it is, so
-              // the previous display name must not be carried over.
-              e.target.value.trim()
-                ? { supabaseProfileId: e.target.value.trim(), username: null }
-                : null
-            )
-          }
+          placeholder={t('Supabase-oppslag er ikke tilgjengelig')}
+          disabled
         />
-        <Form.Text className="text-muted">
-          Supabase-oppslag er ikke satt opp på serveren, så profilen kan ikke slås opp. Lim inn
-          UUID-en manuelt.
+        <Form.Text className="text-danger">
+          {t('Supabase-oppslag må konfigureres før en TV-konto kan kobles til en pasient.')}
         </Form.Text>
       </Form.Group>
     );
@@ -151,22 +144,22 @@ const SupabaseProfileField: React.FC<SupabaseProfileFieldProps> = ({ value, onCh
 
   return (
     <Form.Group controlId="patientSupabaseProfile">
-      <Form.Label>Supabase-profil (TV-app)</Form.Label>
+      <Form.Label>{t('Supabase-profil (TV-app)')}</Form.Label>
 
       {value ? (
         <div className="d-flex align-items-center justify-content-between gap-2 border rounded p-2">
           <div className="d-flex align-items-center gap-2 text-truncate">
             <Avatar name={displayName ?? '?'} size="sm" />
             <div className="text-truncate">
-              <div className="fw-semibold text-truncate">{displayName ?? 'Ukjent brukernavn'}</div>
+              <div className="fw-semibold text-truncate">{displayName ?? t('Ukjent brukernavn')}</div>
               <div className="small text-muted text-truncate">{value.supabaseProfileId}</div>
             </div>
             <Badge bg="connected" icon="check-circle">
-              Koblet
+              {t('Koblet')}
             </Badge>
           </div>
           <Button variant="outline-secondary" size="sm" type="button" onClick={handleClear}>
-            Fjern kobling
+            {t('Fjern kobling')}
           </Button>
         </div>
       ) : (
@@ -175,7 +168,7 @@ const SupabaseProfileField: React.FC<SupabaseProfileFieldProps> = ({ value, onCh
             <Form.Control
               type="text"
               value={query}
-              placeholder="Søk på brukernavn, eller lim inn UUID"
+              placeholder={t('Søk på brukernavn, eller lim inn UUID')}
               onChange={(e) => setQuery(e.target.value)}
               onKeyDown={handleKeyDown}
             />
@@ -205,12 +198,12 @@ const SupabaseProfileField: React.FC<SupabaseProfileFieldProps> = ({ value, onCh
                 >
                   <Avatar name={profile.username ?? '?'} size="sm" imageUrl={profile.avatarUrl} />
                   <span className="fw-semibold text-truncate">
-                    {profile.username ?? 'Uten brukernavn'}
+                    {profile.username ?? t('Uten brukernavn')}
                   </span>
                   {profile.deviceType && <Badge bg="light" bordered>{profile.deviceType}</Badge>}
                   {profile.isOnline && (
                     <Badge bg="success" icon="broadcast">
-                      Pålogget
+                      {t('Pålogget')}
                     </Badge>
                   )}
                 </ListGroup.Item>
@@ -220,7 +213,7 @@ const SupabaseProfileField: React.FC<SupabaseProfileFieldProps> = ({ value, onCh
 
           {searched && !searching && results.length === 0 && !error && (
             <Form.Text className="text-muted">
-              Fant ingen Supabase-profil. Kontoen må først opprettes i TV-appen.
+              {t('Fant ingen Supabase-profil. Kontoen må først opprettes i TV-appen.')}
             </Form.Text>
           )}
 
@@ -228,7 +221,7 @@ const SupabaseProfileField: React.FC<SupabaseProfileFieldProps> = ({ value, onCh
 
           {!searched && !error && (
             <Form.Text className="text-muted">
-              Kobler pasienten til TV-appen. Kan legges til senere.
+              {t('Kobler pasienten til TV-appen. Kan legges til senere.')}
             </Form.Text>
           )}
         </>

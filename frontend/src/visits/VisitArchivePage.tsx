@@ -1,5 +1,7 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
+import type { TFunction } from 'i18next';
 import VisitService from './services/VisitService';
 import type { VisitSummary, VisitStatus } from './types/visit';
 import PageHeader from '../components/common/PageHeader';
@@ -9,31 +11,34 @@ import StatusBadge from '../components/common/StatusBadge';
 import Badge from '../components/common/Badge';
 import IconButton from '../components/common/IconButton';
 import VisitDetailsModal from './components/VisitDetailsModal';
+import { localeForLanguage } from '../i18n';
 import './VisitArchivePage.css';
 
 // Archive tabs map onto the terminal visit statuses already in use; 'all' keeps
 // everything. No new statuses are introduced here.
 type ArchiveFilter = 'all' | 'Completed' | 'Incomplete' | 'Cancelled';
 
-const formatDate = (date?: string | null): string => {
+const formatDate = (date: string | null | undefined, locale: string): string => {
   if (!date) return '–';
   const d = new Date(date);
   if (isNaN(d.getTime())) return date;
-  return d.toLocaleDateString('nb-NO', { day: 'numeric', month: 'long', year: 'numeric' });
+  return d.toLocaleDateString(locale, { day: 'numeric', month: 'long', year: 'numeric' });
 };
 
 // "Resultat" column: cancelled/incomplete carry a reason; digital visits without
 // one fall back to the number of call attempts logged.
-const outcomeText = (visit: VisitSummary): string => {
-  if (visit.outcomeReason?.trim()) return visit.outcomeReason;
+const outcomeText = (visit: VisitSummary, t: TFunction): string => {
+  if (visit.outcomeReason?.trim()) return t(visit.outcomeReason);
   if (visit.visitType === 'Digital' && visit.callAttemptCount > 0) {
-    return `${visit.callAttemptCount} samtaleforsøk`;
+    return t('{{count}} samtaleforsøk', { count: visit.callAttemptCount });
   }
   return '–';
 };
 
 const VisitArchivePage: React.FC = () => {
   const navigate = useNavigate();
+  const { t, i18n } = useTranslation();
+  const locale = localeForLanguage(i18n.resolvedLanguage);
 
   const [visits, setVisits] = useState<VisitSummary[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
@@ -51,7 +56,7 @@ const VisitArchivePage: React.FC = () => {
         const data = await VisitService.getMine();
         if (!cancelled) setVisits(data);
       } catch {
-        if (!cancelled) setError('Kunne ikke laste besøksarkivet.');
+        if (!cancelled) setError(t('Kunne ikke laste besøksarkivet.'));
       } finally {
         if (!cancelled) setLoading(false);
       }
@@ -60,15 +65,15 @@ const VisitArchivePage: React.FC = () => {
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [t]);
 
   const countFor = (status: VisitStatus) => visits.filter((v) => v.status === status).length;
 
   const tabs = [
-    { key: 'all', label: 'Alle', count: visits.length },
-    { key: 'Completed', label: 'Fullført', count: countFor('Completed') },
-    { key: 'Incomplete', label: 'Ikke fullført', count: countFor('Incomplete') },
-    { key: 'Cancelled', label: 'Avlyst', count: countFor('Cancelled') },
+    { key: 'all', label: t('Alle'), count: visits.length },
+    { key: 'Completed', label: t('Fullført'), count: countFor('Completed') },
+    { key: 'Incomplete', label: t('Ikke fullført'), count: countFor('Incomplete') },
+    { key: 'Cancelled', label: t('Avlyst'), count: countFor('Cancelled') },
   ];
 
   // Newest first by scheduled date, falling back to when the visit started.
@@ -86,7 +91,7 @@ const VisitArchivePage: React.FC = () => {
 
   const renderBody = () => {
     if (loading) {
-      return <EmptyState icon="hourglass-split" text="Laster besøksarkiv..." />;
+      return <EmptyState icon="hourglass-split" text={t('Laster besøksarkiv...')} />;
     }
     if (filtered.length === 0) {
       return (
@@ -94,8 +99,8 @@ const VisitArchivePage: React.FC = () => {
           icon="archive"
           text={
             search.trim() || filter !== 'all'
-              ? 'Ingen besøk matcher dette filteret.'
-              : 'Ingen dokumenterte besøk ennå.'
+              ? t('Ingen besøk matcher dette filteret.')
+              : t('Ingen dokumenterte besøk ennå.')
           }
         />
       );
@@ -106,39 +111,39 @@ const VisitArchivePage: React.FC = () => {
         <table className="table vk-archive-table align-middle mb-0">
           <thead>
             <tr>
-              <th scope="col">Dato</th>
-              <th scope="col">Tid</th>
-              <th scope="col">Pasient</th>
-              <th scope="col">Type</th>
-              <th scope="col">Status</th>
-              <th scope="col">Resultat</th>
+              <th scope="col">{t('Dato')}</th>
+              <th scope="col">{t('Tid')}</th>
+              <th scope="col">{t('Pasient')}</th>
+              <th scope="col">{t('Type')}</th>
+              <th scope="col">{t('Status')}</th>
+              <th scope="col">{t('Resultat')}</th>
               <th scope="col" className="text-end">
-                Detaljer
+                {t('Detaljer')}
               </th>
             </tr>
           </thead>
           <tbody>
             {filtered.map((visit) => (
               <tr key={visit.id}>
-                <td>{formatDate(visit.date)}</td>
+                <td>{formatDate(visit.date, locale)}</td>
                 <td>{visit.startTime ?? '–'}</td>
-                <td className="fw-semibold">{visit.patientName || 'Ukjent pasient'}</td>
+                <td className="fw-semibold">{visit.patientName || t('Ukjent pasient')}</td>
                 <td>
                   <Badge
                     bg={visit.visitType === 'Digital' ? 'info' : 'neutral'}
                     icon={visit.visitType === 'Digital' ? 'camera-video' : 'house-door'}
                   >
-                    {visit.visitType === 'Digital' ? 'Digitalt' : 'Fysisk'}
+                    {visit.visitType === 'Digital' ? t('Digitalt') : t('Fysisk')}
                   </Badge>
                 </td>
                 <td>
                   <StatusBadge status={visit.status} />
                 </td>
-                <td className="text-muted">{outcomeText(visit)}</td>
+                <td className="text-muted">{outcomeText(visit, t)}</td>
                 <td className="text-end">
                   <IconButton
                     icon="journal-text"
-                    title="Besøksdetaljer"
+                    title={t('Besøksdetaljer')}
                     onClick={() => setDetailsVisitId(visit.id)}
                   />
                 </td>
@@ -162,11 +167,11 @@ const VisitArchivePage: React.FC = () => {
       )}
 
       <PageHeader
-        title="Besøksarkiv"
-        subtitle="Fullstendig historikk over dokumenterte besøk."
+        title={t('Besøksarkiv')}
+        subtitle={t('Fullstendig historikk over dokumenterte besøk.')}
         actions={
           <button className="btn btn-outline-secondary" onClick={() => navigate('/appointments')}>
-            <i className="bi bi-arrow-left me-2" aria-hidden="true"></i>Tilbake til avtaler
+            <i className="bi bi-arrow-left me-2" aria-hidden="true"></i>{t('Tilbake til avtaler')}
           </button>
         }
       />
@@ -178,10 +183,10 @@ const VisitArchivePage: React.FC = () => {
             <input
               type="text"
               className="form-control"
-              placeholder="Søk etter pasient..."
+              placeholder={t('Søk etter pasient...')}
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              aria-label="Søk etter pasient"
+              aria-label={t('Søk etter pasient')}
             />
           </div>
         </div>

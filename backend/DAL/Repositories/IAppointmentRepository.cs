@@ -19,6 +19,8 @@ namespace backend.DAL.Repositories
         Task<int> GetCancelledCountAsync(string personnelId);
         Task<int> GetTotalByPatientIdAsync(string patientId);
         Task<int> GetCompletedByPatientIdAsync(string patientId);
+        Task<bool> HasDeclinedSlotOverlapAsync(string patientId, DateTime date, TimeSpan startTime, TimeSpan endTime);
+        Task RecordDeclinedSlotAsync(DeclinedAppointmentSlot slot);
         Task<Appointment> CreateAsync(Appointment appointment);
         Task<Appointment> UpdateAsync(Appointment appointment);
         Task<bool> DeleteAsync(int id);

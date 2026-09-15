@@ -1,5 +1,6 @@
 import React from 'react';
 import { Modal } from 'react-bootstrap';
+import { useTranslation } from 'react-i18next';
 import AvailabilityWindowForm from './AvailabilityWindowForm';
 import type { AvailabilityWindow, CreateAvailabilityWindowDto, UpdateAvailabilityWindowDto } from '../types/availability';
 
@@ -20,6 +21,7 @@ const AvailabilityWindowModal: React.FC<AvailabilityWindowModalProps> = ({
   onSubmit,
   onDelete,
 }) => {
+  const { t } = useTranslation();
   const [submitError, setSubmitError] = React.useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = React.useState(false);
 
@@ -29,9 +31,9 @@ const AvailabilityWindowModal: React.FC<AvailabilityWindowModalProps> = ({
       setIsSubmitting(true);
       await onSubmit(data);
       onClose();
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Error submitting availability window:', error);
-      setSubmitError(error.message || 'Kunne ikke sende inn. Vennligst prøv igjen.');
+      setSubmitError(t(error instanceof Error ? error.message : 'Kunne ikke sende inn. Vennligst prøv igjen.'));
     } finally {
       setIsSubmitting(false);
     }
@@ -40,7 +42,7 @@ const AvailabilityWindowModal: React.FC<AvailabilityWindowModalProps> = ({
   const handleDelete = async () => {
     if (!onDelete) return;
 
-    if (!window.confirm('Er du sikker på at du vil slette dette tilgjengelighetsvinduet?')) {
+    if (!window.confirm(t('Er du sikker på at du vil slette dette tilgjengelighetsvinduet?'))) {
       return;
     }
 
@@ -49,9 +51,9 @@ const AvailabilityWindowModal: React.FC<AvailabilityWindowModalProps> = ({
       setIsSubmitting(true);
       await onDelete();
       onClose();
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Error deleting availability window:', error);
-      setSubmitError(error.message || 'Kunne ikke slette. Vennligst prøv igjen.');
+      setSubmitError(t(error instanceof Error ? error.message : 'Kunne ikke slette. Vennligst prøv igjen.'));
     } finally {
       setIsSubmitting(false);
     }
@@ -66,7 +68,7 @@ const AvailabilityWindowModal: React.FC<AvailabilityWindowModalProps> = ({
     <Modal show={show} onHide={handleClose} size="lg">
       <Modal.Header closeButton>
         <Modal.Title>
-          {initialData ? 'Rediger tilgjengelighet' : 'Opprett tilgjengelighet'}
+          {initialData ? t('Rediger tilgjengelighet') : t('Opprett tilgjengelighet')}
         </Modal.Title>
       </Modal.Header>
       <Modal.Body>

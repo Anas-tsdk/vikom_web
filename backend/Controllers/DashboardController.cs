@@ -8,29 +8,32 @@ namespace backend.Controllers
 {
     // The portal is personnel-only; patients reach their data through the TV app's
     // Supabase-authenticated endpoints instead.
-    [Authorize(Roles = "Personnel")]
+    [Authorize(Policy = AuthorizationPolicies.PortalStaff)]
     [ApiController]
     [Route("api/[controller]")]
     public class DashboardController : ControllerBase
     {
         private readonly IDashboardService _dashboardService;
+        private readonly IPortalAccessService _access;
         private readonly ILogger<DashboardController> _logger;
 
         public DashboardController(
             IDashboardService dashboardService,
+            IPortalAccessService access,
             ILogger<DashboardController> logger)
         {
             _dashboardService = dashboardService;
+            _access = access;
             _logger = logger;
         }
 
         // GET: api/dashboard/personnel/{personnelId}
-        [Authorize(Roles = "Personnel")]
         [HttpGet("personnel/{personnelId}")]
         public async Task<ActionResult<PersonnelDashboardDto>> GetPersonnelDashboard(string personnelId)
         {
             try
             {
+                if (!await _access.CanManagePersonnelAsync(User, personnelId)) return Forbid();
                 var dashboard = await _dashboardService.GetPersonnelDashboardAsync(personnelId);
                 return Ok(dashboard);
             }
@@ -42,7 +45,6 @@ namespace backend.Controllers
         }
 
         // GET: api/dashboard/personnel (uses logged-in user ID)
-        [Authorize(Roles = "Personnel")]
         [HttpGet("personnel")]
         public async Task<ActionResult<PersonnelDashboardDto>> GetMyPersonnelDashboard()
         {
@@ -68,7 +70,15 @@ namespace backend.Controllers
         {
             try
             {
-                var dashboard = await _dashboardService.GetPatientDashboardAsync(patientId);
+                if (!await _access.CanAccessPatientAsync(User, patientId)) return Forbid();
+                var isHeadNurse = await _access.IsHeadNurseAsync(User);
+                var viewerPersonnelId = isHeadNurse ? null : _access.GetUserId(User);
+                if (!isHeadNurse && string.IsNullOrWhiteSpace(viewerPersonnelId))
+                    return Unauthorized();
+
+                var dashboard = await _dashboardService.GetPatientDashboardAsync(
+                    patientId,
+                    viewerPersonnelId);
                 return Ok(dashboard);
             }
             catch (Exception ex)

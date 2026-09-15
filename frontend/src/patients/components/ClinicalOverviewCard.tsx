@@ -1,6 +1,8 @@
 import React from 'react';
 import SectionCard from '../../components/common/SectionCard';
 import InfoRow from '../../components/common/InfoRow';
+import { useTranslation } from 'react-i18next';
+import { localeForLanguage } from '../../i18n';
 import type { PatientClinical } from '../types/patient';
 
 interface ClinicalOverviewCardProps {
@@ -8,11 +10,11 @@ interface ClinicalOverviewCardProps {
   className?: string;
 }
 
-const formatDob = (iso?: string | null): string => {
+const formatDob = (iso: string | null | undefined, locale: string): string => {
   if (!iso) return '';
   const d = new Date(iso);
   if (isNaN(d.getTime())) return '';
-  return d.toLocaleDateString('nb-NO', { day: '2-digit', month: '2-digit', year: 'numeric' });
+  return d.toLocaleDateString(locale, { day: '2-digit', month: '2-digit', year: 'numeric' });
 };
 
 const calcAge = (iso?: string | null): number | null => {
@@ -28,19 +30,20 @@ const calcAge = (iso?: string | null): number | null => {
 
 /** "Pasientoversikt" — DOB + age, next of kin, GP, allergies. */
 const ClinicalOverviewCard: React.FC<ClinicalOverviewCardProps> = ({ clinical, className }) => {
-  const dob = formatDob(clinical.dateOfBirth);
+  const { t, i18n } = useTranslation();
+  const dob = formatDob(clinical.dateOfBirth, localeForLanguage(i18n.resolvedLanguage));
   const age = calcAge(clinical.dateOfBirth);
-  const dobValue = dob ? (age != null ? `${dob} (${age} år)` : dob) : undefined;
+  const dobValue = dob ? (age != null ? t('{{date}} ({{age}} år)', { date: dob, age }) : dob) : undefined;
   const kin = clinical.nextOfKinName
     ? `${clinical.nextOfKinName}${clinical.nextOfKinRelation ? ` (${clinical.nextOfKinRelation})` : ''}`
     : undefined;
 
   return (
-    <SectionCard title="Pasientoversikt" icon="person" className={className}>
-      <InfoRow icon="calendar-heart" label="Født" value={dobValue} />
-      <InfoRow icon="people" label="Pårørende" value={kin} />
-      <InfoRow icon="hospital" label="Fastlege" value={clinical.generalPractitioner} />
-      <InfoRow icon="exclamation-triangle" label="Allergier" value={clinical.allergies} />
+    <SectionCard title={t('Pasientoversikt')} icon="person" className={className}>
+      <InfoRow icon="calendar-heart" label={t('Født')} value={dobValue} />
+      <InfoRow icon="people" label={t('Pårørende')} value={kin} />
+      <InfoRow icon="hospital" label={t('Fastlege')} value={clinical.generalPractitioner} />
+      <InfoRow icon="exclamation-triangle" label={t('Allergier')} value={clinical.allergies} />
     </SectionCard>
   );
 };

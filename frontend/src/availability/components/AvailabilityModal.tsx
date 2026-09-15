@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { Modal } from 'react-bootstrap';
+import { useTranslation } from 'react-i18next';
 import AvailabilityForm from './AvailabilityForm';
 import type { Availability } from '../types/availability';
 
@@ -11,6 +12,7 @@ interface AvailabilityModalProps {
 }
 
 const AvailabilityModal: React.FC<AvailabilityModalProps> = ({ show, onClose, initialData, onSubmit }) => {
+  const { t } = useTranslation();
   const [submitError, setSubmitError] = useState<string | null>(null);
   
   const handleSubmit = async (data: Availability) => {
@@ -20,14 +22,14 @@ const AvailabilityModal: React.FC<AvailabilityModalProps> = ({ show, onClose, in
       onClose();
     } catch (error) {
       console.error('Error submitting availability:', error);
-      setSubmitError('Kunne ikke sende inn tilgjengelighet. Vennligst prøv igjen.');
+      setSubmitError(t('Kunne ikke sende inn tilgjengelighet. Vennligst prøv igjen.'));
     }
   };
 
   return (
     <Modal show={show} onHide={onClose} size="lg">
       <Modal.Header closeButton>
-        <Modal.Title>{initialData ? 'Rediger tilgjengelighetsluke' : 'Legg til tilgjengelighetsluke'}</Modal.Title>
+        <Modal.Title>{initialData ? t('Rediger tilgjengelighetsluke') : t('Legg til tilgjengelighetsluke')}</Modal.Title>
       </Modal.Header>
       <Modal.Body>
         {submitError && (

@@ -93,7 +93,13 @@ namespace backend.DAL.Repositories
 
         public async Task<IEnumerable<User>> GetPersonnelAsync()
         {
-            return await _context.Users.Where(u => u.Role == "Personnel").ToListAsync();
+            return await _context.Users
+                .Where(user =>
+                    user.Role == UserRoles.Nurse ||
+                    user.Role == UserRoles.HeadNurse ||
+                    user.Role == UserRoles.LegacyPersonnel)
+                .OrderBy(user => user.FullName)
+                .ToListAsync();
         }
 
         public async Task<string> GetFullNameAsync(string userId)

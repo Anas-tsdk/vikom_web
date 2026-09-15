@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Dropdown } from 'react-bootstrap';
+import { useTranslation } from 'react-i18next';
 import { Link, useNavigate } from 'react-router-dom';
 import { fetchPersonnelDashboard } from '../services/DashboardService';
 import TaskBadges from '../../components/common/TaskBadges';
@@ -8,8 +9,13 @@ import SectionCard from '../../components/common/SectionCard';
 import StatTile from '../../components/common/StatTile';
 import AppointmentCard from '../../appointments/components/AppointmentCard';
 import EmptyState from '../../components/common/EmptyState';
+import IconButton from '../../components/common/IconButton';
+import VisitDetailsModal from '../../visits/components/VisitDetailsModal';
 import type { PersonnelViewModel } from '../types/dashboard';
 import type { AppointmentSummary } from '../../appointments/types/appointment';
+import { localeForLanguage } from '../../i18n';
+import { getUserInfo } from '../../auth/AuthService';
+import { isHeadNurseRole } from '../../auth/roles';
 import './PersonnelDashboard.css';
 
 // Visible labels for the timeline visit-type filter dropdown.
@@ -20,9 +26,9 @@ const TIMELINE_FILTER_LABELS: Record<'alle' | 'fysisk' | 'digitalt', string> = {
 };
 
 // "<weekday> <month> <day> • <start> - <end>" line for the recent appointments list.
-const formatRecentDateTime = (appointment: AppointmentSummary) => {
+const formatRecentDateTime = (appointment: AppointmentSummary, locale: string) => {
   const datePart = appointment.date
-    ? new Date(appointment.date).toLocaleDateString('nb-NO', { weekday: 'long', month: 'short', day: 'numeric' })
+    ? new Date(appointment.date).toLocaleDateString(locale, { weekday: 'long', month: 'short', day: 'numeric' })
     : '';
   return `${datePart} • ${appointment.startTime} - ${appointment.endTime}`;
 };
@@ -30,11 +36,15 @@ const formatRecentDateTime = (appointment: AppointmentSummary) => {
 // personnel dashboard component
 const PersonnelDashboard: React.FC = () => {
   const navigate = useNavigate();
+  const { t, i18n } = useTranslation();
+  const locale = localeForLanguage(i18n.resolvedLanguage);
+  const isHeadNurse = isHeadNurseRole(getUserInfo()?.role);
   const [dashboard, setDashboard] = useState<PersonnelViewModel | null>(null);
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
   const [selectedAvailabilityDateKey, setSelectedAvailabilityDateKey] = useState<string>('');
   const [timelineFilter, setTimelineFilter] = useState<'alle' | 'fysisk' | 'digitalt'>('alle');
+  const [detailsVisitId, setDetailsVisitId] = useState<number | null>(null);
   const [displayedMonthDate, setDisplayedMonthDate] = useState<Date>(() => {
     const now = new Date();
     return new Date(now.getFullYear(), now.getMonth(), 1);
@@ -48,20 +58,20 @@ const PersonnelDashboard: React.FC = () => {
         const data = await fetchPersonnelDashboard();
         setDashboard(data);
       } catch {
-        setError('Kunne ikke laste dashboarddata');
+        setError(t('Kunne ikke laste dashboarddata'));
       } finally {
         setLoading(false);
       }
     };
 
     loadDashboard();
-  }, []);
+  }, [t]);
 
   // renders loading state while fetching data
   if (loading) {
     return (
       <div className="personnel-dashboard">
-        <p>Laster dashboard...</p>
+        <p>{t('Laster dashboard...')}</p>
       </div>
     );
   }
@@ -70,7 +80,7 @@ const PersonnelDashboard: React.FC = () => {
   if (error || !dashboard) {
     return (
       <div className="personnel-dashboard">
-        <p className="error-text">{error || 'Kunne ikke laste dashboard'}</p>
+        <p className="error-text">{error || t('Kunne ikke laste dashboard')}</p>
       </div>
     );
   }
@@ -84,12 +94,14 @@ const PersonnelDashboard: React.FC = () => {
   const firstDayWeekIndex = (firstDayOfMonth.getDay() + 6) % 7;
   const totalCalendarCells = 42;
 
-  const monthLabel = firstDayOfMonth.toLocaleDateString('en-US', {
+  const monthLabel = firstDayOfMonth.toLocaleDateString(locale, {
     month: 'long',
     year: 'numeric',
   });
 
-  const weekDayLabels = ['M', 'T', 'W', 'T', 'F', 'S', 'S'];
+  const weekDayLabels = Array.from({ length: 7 }, (_, index) =>
+    new Date(2024, 0, 1 + index).toLocaleDateString(locale, { weekday: 'narrow' }),
+  );
 
   const currentWeekStart = new Date(today);
   currentWeekStart.setHours(0, 0, 0, 0);
@@ -143,12 +155,12 @@ const PersonnelDashboard: React.FC = () => {
     };
   });
 
-  const dayTimelineDateLabel = today.toLocaleDateString('nb-NO', {
+  const dayTimelineDateLabel = today.toLocaleDateString(locale, {
     day: 'numeric',
     month: 'long',
   });
 
-  const nowTimeLabel = today.toLocaleTimeString('nb-NO', {
+  const nowTimeLabel = today.toLocaleTimeString(locale, {
     hour: '2-digit',
     minute: '2-digit',
     hour12: false,
@@ -266,12 +278,12 @@ const PersonnelDashboard: React.FC = () => {
     const date = new Date(baseWindowDate);
     date.setDate(baseWindowDate.getDate() + index);
     const dateKey = toDateKey(date);
-    const dayName = date.toLocaleDateString('nb-NO', { weekday: 'short' });
+    const dayName = date.toLocaleDateString(locale, { weekday: 'short' });
 
     return {
       date,
       dateKey,
-      label: index === 0 && dateKey === todayDateKey ? 'I dag' : `${dayName.charAt(0).toUpperCase()}${dayName.slice(1)}`,
+      label: index === 0 && dateKey === todayDateKey ? t('I dag') : `${dayName.charAt(0).toUpperCase()}${dayName.slice(1)}`,
     };
   });
 
@@ -285,7 +297,7 @@ const PersonnelDashboard: React.FC = () => {
   const activeAvailabilityDate = parseDateKey(activeAvailabilityDateKey);
   const activeAvailabilityDateLabel = Number.isNaN(activeAvailabilityDate.getTime())
     ? ''
-    : activeAvailabilityDate.toLocaleDateString('nb-NO', { day: 'numeric', month: 'long' });
+    : activeAvailabilityDate.toLocaleDateString(locale, { day: 'numeric', month: 'long' });
 
   const currentMinutes = toMinutes(nowTimeLabel);
 
@@ -324,27 +336,27 @@ const PersonnelDashboard: React.FC = () => {
   return (
     <div className="personnel-dashboard">
       <PageHeader
-        title={`Velkommen tilbake, ${dashboard.personnelName}!`}
-        subtitle="Her er en oversikt over timeplanen og pasientene dine"
+        title={t('Velkommen tilbake, {{name}}!', { name: dashboard.personnelName })}
+        subtitle={t('Her er en oversikt over timeplanen og pasientene dine')}
       />
 
       {/* displays quick stats overview with key metrics */}
       <div className="stats-grid">
-        <StatTile icon="people" label="Pasienter" value={dashboard.totalPatients} />
-        <StatTile icon="calendar-check" label="Denne uken" value={dashboard.appointmentsThisWeek} />
-        <StatTile icon="clock" label="Planlagte" value={dashboard.pendingAppointments} />
-        <StatTile icon="x-circle" label="Avlyste" value={dashboard.cancelledAppointments} />
+        <StatTile icon="people" label={t('Pasienter')} value={dashboard.totalPatients} />
+        <StatTile icon="calendar-check" label={t('Denne uken')} value={dashboard.appointmentsThisWeek} />
+        <StatTile icon="clock" label={t('Planlagte')} value={dashboard.pendingAppointments} />
+        <StatTile icon="x-circle" label={t('Avlyste')} value={dashboard.cancelledAppointments} />
       </div>
 
       <div className="top-content">
         <div className="mini-column">
           {/* Calendar overview section */}
-          <SectionCard title="Kalenderoversikt" icon="calendar3" className="calendar-overview">
+          <SectionCard title={t('Kalenderoversikt')} icon="calendar3" className="calendar-overview">
             <div className="calendar-header-row">
               <button
                 type="button"
                 className="calendar-nav-btn"
-                aria-label="Forrige måned"
+                aria-label={t('Forrige måned')}
                 onClick={() => setDisplayedMonthDate(new Date(displayedYear, displayedMonth - 1, 1))}
               >
                 <i className="bi bi-chevron-left"></i>
@@ -353,7 +365,7 @@ const PersonnelDashboard: React.FC = () => {
               <button
                 type="button"
                 className="calendar-nav-btn"
-                aria-label="Neste måned"
+                aria-label={t('Neste måned')}
                 onClick={() => setDisplayedMonthDate(new Date(displayedYear, displayedMonth + 1, 1))}
               >
                 <i className="bi bi-chevron-right"></i>
@@ -393,7 +405,7 @@ const PersonnelDashboard: React.FC = () => {
           </SectionCard>
 
           <SectionCard
-            title="Dagens tidslinje"
+            title={t('Dagens tidslinje')}
             icon="clock"
             className="timeline-overview"
             action={
@@ -404,9 +416,9 @@ const PersonnelDashboard: React.FC = () => {
                 <Dropdown.Toggle
                   variant="secondary"
                   className="timeline-filter-toggle"
-                  aria-label="Filtrer tidslinje"
+                  aria-label={t('Filtrer tidslinje')}
                 >
-                  {TIMELINE_FILTER_LABELS[timelineFilter]}
+                  {t(TIMELINE_FILTER_LABELS[timelineFilter])}
                   <i className="bi bi-chevron-down" aria-hidden="true"></i>
                 </Dropdown.Toggle>
                 <Dropdown.Menu
@@ -416,7 +428,7 @@ const PersonnelDashboard: React.FC = () => {
                 >
                   {(Object.keys(TIMELINE_FILTER_LABELS) as Array<'alle' | 'fysisk' | 'digitalt'>).map((key) => (
                     <Dropdown.Item key={key} eventKey={key} active={timelineFilter === key}>
-                      {TIMELINE_FILTER_LABELS[key]}
+                      {t(TIMELINE_FILTER_LABELS[key])}
                     </Dropdown.Item>
                   ))}
                 </Dropdown.Menu>
@@ -443,9 +455,9 @@ const PersonnelDashboard: React.FC = () => {
                             <p className="timeline-patient-name">{item.patientName}</p>
                             <TaskBadges tasks={item.tasks} variant="secondary" className="timeline-task-badges" />
                             {item.visitType === 'Fysisk' ? (
-                              <p className="timeline-address">{item.zone && item.address ? `${item.zone}, ${item.address}` : (item.address || item.zone || 'Adresse ikke oppgitt')}</p>
+                              <p className="timeline-address">{item.zone && item.address ? `${item.zone}, ${item.address}` : (item.address || item.zone || t('Adresse ikke oppgitt'))}</p>
                             ) : (
-                              <p className="timeline-visit-type">Digitalt besøk</p>
+                              <p className="timeline-visit-type">{t('Digitalt besøk')}</p>
                             )}
                           </div>
                         </div>
@@ -461,25 +473,27 @@ const PersonnelDashboard: React.FC = () => {
                   )}
                 </div>
               ) : (
-                <EmptyState icon="calendar-x" text="Ingen planlagte avtaler i dag." />
+                <EmptyState icon="calendar-x" text={t('Ingen planlagte avtaler i dag.')} />
               )}
 
               <Link to="/availability" className="btn btn-secondary btn-sm w-100 mt-3">
-                Vis mer
+                {t('Vis mer')}
               </Link>
           </SectionCard>
         </div>
 
         <div className="availability-column">
-          <div className="availability-quick-actions" role="group" aria-label="Hurtighandlinger">
-            <button
-              type="button"
-              className="quick-action-btn"
-              onClick={() => navigate('/appointments?ny=1')}
-            >
-              <i className="bi bi-calendar-plus"></i>
-              <span>Legg til nytt besøk</span>
-            </button>
+          <div className="availability-quick-actions" role="group" aria-label={t('Hurtighandlinger')}>
+            {isHeadNurse && (
+              <button
+                type="button"
+                className="quick-action-btn"
+                onClick={() => navigate('/appointments?ny=1')}
+              >
+                <i className="bi bi-calendar-plus"></i>
+                <span>{t('Legg til nytt besøk')}</span>
+              </button>
+            )}
 
             <button
               type="button"
@@ -487,7 +501,7 @@ const PersonnelDashboard: React.FC = () => {
               onClick={() => navigate('/availability')}
             >
               <i className="bi bi-arrow-repeat"></i>
-              <span>Oppdater tilgjengelighet</span>
+              <span>{t('Oppdater tilgjengelighet')}</span>
             </button>
 
             <button
@@ -496,16 +510,16 @@ const PersonnelDashboard: React.FC = () => {
               onClick={() => navigate('/planning')}
             >
               <i className="bi bi-geo-alt"></i>
-              <span>Vis kart</span>
+              <span>{t('Vis kart')}</span>
             </button>
           </div>
 
           <SectionCard
-            title="Kommende tilgjengelighet"
+            title={t('Kommende tilgjengelighet')}
             icon="calendar-week"
             className="availability-overview"
             action={
-              <Link to="/availability" className="btn btn-secondary btn-sm" aria-label="Se tilgjengelighet">
+              <Link to="/availability" className="btn btn-secondary btn-sm" aria-label={t('Se tilgjengelighet')}>
                 <i className="bi bi-plus-lg"></i>
               </Link>
             }
@@ -528,7 +542,7 @@ const PersonnelDashboard: React.FC = () => {
                             <span className="availability-day-chip-label">{day.label}</span>
                             <span className="availability-day-chip-number">{day.date.getDate()}</span>
                             <span className="availability-day-chip-month">
-                              {day.date.toLocaleDateString('nb-NO', { month: 'short' })}
+                              {day.date.toLocaleDateString(locale, { month: 'short' })}
                             </span>
                             {hasSlots && <span className="availability-day-dot"></span>}
                           </button>
@@ -553,28 +567,45 @@ const PersonnelDashboard: React.FC = () => {
                       ))}
                     </div>
                   ) : (
-                    <EmptyState icon="calendar-x" text="Ingen tilgjengelige tider for valgt dag." />
+                    <EmptyState icon="calendar-x" text={t('Ingen tilgjengelige tider for valgt dag.')} />
                   )}
                 </div>
               ) : (
-                <EmptyState icon="calendar-x" text="Ingen planlagt tilgjengelighet." />
+                <EmptyState icon="calendar-x" text={t('Ingen planlagt tilgjengelighet.')} />
               )}
           </SectionCard>
 
-          <SectionCard title="Siste avtaler" icon="clock-history">
+          <SectionCard
+            title={t('Siste avtaler')}
+            icon="clock-history"
+            action={
+              <Link to="/appointments/archive" className="btn btn-secondary btn-sm">
+                {t('Besøksarkiv')}
+              </Link>
+            }
+          >
               {dashboard.recentAppointments.length > 0 ? (
                 <div className="d-flex flex-column gap-3">
                   {dashboard.recentAppointments.map((appointment) => (
                     <AppointmentCard
                       key={appointment.id}
                       appointment={appointment}
-                      dateTimeText={formatRecentDateTime(appointment)}
-                      subject={appointment.patientName ? `Pasient: ${appointment.patientName}` : null}
+                      dateTimeText={formatRecentDateTime(appointment, locale)}
+                      subject={appointment.patientName ? t('Pasient: {{name}}', { name: appointment.patientName }) : null}
+                      actions={
+                        appointment.visitId ? (
+                          <IconButton
+                            icon="journal-text"
+                            title={t('Besøksdetaljer')}
+                            onClick={() => setDetailsVisitId(appointment.visitId ?? null)}
+                          />
+                        ) : undefined
+                      }
                     />
                   ))}
                 </div>
               ) : (
-                <EmptyState icon="calendar-x" text="Ingen nylige avtaler å vise." />
+                <EmptyState icon="calendar-x" text={t('Ingen nylige avtaler å vise.')} />
               )}
           </SectionCard>
         </div>
@@ -583,6 +614,12 @@ const PersonnelDashboard: React.FC = () => {
       {/*
         Kommende avtaler er midlertidig kommentert ut etter ønske.
       */}
+
+      <VisitDetailsModal
+        show={detailsVisitId !== null}
+        onClose={() => setDetailsVisitId(null)}
+        visitId={detailsVisitId}
+      />
 
     </div>
   );

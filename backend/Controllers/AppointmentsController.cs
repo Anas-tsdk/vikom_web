@@ -7,19 +7,25 @@ namespace backend.Controllers
 {
     // The portal is personnel-only; patients reach their data through the TV app's
     // Supabase-authenticated endpoints instead.
-    [Authorize(Roles = "Personnel")]
+    [Authorize(Policy = AuthorizationPolicies.PortalStaff)]
     [ApiController]
     [Route("api/[controller]")]
     public class AppointmentsController : ControllerBase
     {
         private readonly IAppointmentService _appointmentService;
+        private readonly IAvailabilityService _availabilityService;
+        private readonly IPortalAccessService _access;
         private readonly ILogger<AppointmentsController> _logger;
 
         public AppointmentsController(
             IAppointmentService appointmentService,
+            IAvailabilityService availabilityService,
+            IPortalAccessService access,
             ILogger<AppointmentsController> logger)
         {
             _appointmentService = appointmentService;
+            _availabilityService = availabilityService;
+            _access = access;
             _logger = logger;
         }
 
@@ -29,7 +35,9 @@ namespace backend.Controllers
         {
             try
             {
-                var appointments = await _appointmentService.GetAllAsync();
+                var appointments = await _access.IsHeadNurseAsync(User)
+                    ? await _appointmentService.GetAllAsync()
+                    : await _appointmentService.GetByPersonnelIdAsync(_access.GetUserId(User)!);
                 return Ok(appointments);
             }
             catch (Exception ex)
@@ -48,6 +56,8 @@ namespace backend.Controllers
                 var appointment = await _appointmentService.GetByIdAsync(id);
                 if (appointment == null)
                     return NotFound();
+                if (!await _access.CanManagePersonnelAsync(User, appointment.PersonnelId ?? string.Empty))
+                    return Forbid();
 
                 return Ok(appointment);
             }
@@ -64,7 +74,15 @@ namespace backend.Controllers
         {
             try
             {
+                if (!await _access.CanAccessPatientAsync(User, patientId)) return Forbid();
+
                 var appointments = await _appointmentService.GetByPatientIdAsync(patientId);
+                if (!await _access.IsHeadNurseAsync(User))
+                {
+                    var callerId = _access.GetUserId(User);
+                    appointments = appointments.Where(appointment =>
+                        appointment.PersonnelId == callerId);
+                }
                 return Ok(appointments);
             }
             catch (Exception ex)
@@ -80,6 +98,8 @@ namespace backend.Controllers
         {
             try
             {
+                if (!await _access.CanManagePersonnelAsync(User, personnelId)) return Forbid();
+
                 var appointments = await _appointmentService.GetByPersonnelIdAsync(personnelId);
                 return Ok(appointments);
             }
@@ -98,6 +118,12 @@ namespace backend.Controllers
             {
                 if (!ModelState.IsValid)
                     return BadRequest(ModelState);
+                if (!await _access.IsHeadNurseAsync(User)) return Forbid();
+
+                var availability = await _availabilityService.GetByIdAsync(appointmentDto.AvailabilityId);
+                if (availability == null) return BadRequest("Availability not found");
+                if (!await _access.CanManagePersonnelAsync(User, availability.PersonnelId)) return Forbid();
+                if (!await _access.CanAccessPatientAsync(User, appointmentDto.PatientId)) return Forbid();
 
                 var created = await _appointmentService.CreateAsync(appointmentDto);
                 return CreatedAtAction(nameof(GetAppointment), new { id = created.Id }, created);
@@ -125,10 +151,22 @@ namespace backend.Controllers
 
                 if (!ModelState.IsValid)
                     return BadRequest(ModelState);
+                if (!await _access.IsHeadNurseAsync(User)) return Forbid();
 
                 var existing = await _appointmentService.GetByIdAsync(id);
                 if (existing == null)
                     return NotFound();
+                if (!await _access.CanManagePersonnelAsync(User, existing.PersonnelId ?? string.Empty))
+                    return Forbid();
+
+                if (appointmentDto.AvailabilityId != 0 &&
+                    appointmentDto.AvailabilityId != existing.AvailabilityId)
+                {
+                    var newAvailability = await _availabilityService.GetByIdAsync(appointmentDto.AvailabilityId);
+                    if (newAvailability == null) return BadRequest("Availability not found");
+                    if (!await _access.CanManagePersonnelAsync(User, newAvailability.PersonnelId))
+                        return Forbid();
+                }
 
                 await _appointmentService.UpdateAsync(id, appointmentDto);
                 return NoContent();
@@ -151,9 +189,12 @@ namespace backend.Controllers
         {
             try
             {
+                if (!await _access.IsHeadNurseAsync(User)) return Forbid();
                 var existing = await _appointmentService.GetByIdAsync(id);
                 if (existing == null)
                     return NotFound();
+                if (!await _access.CanManagePersonnelAsync(User, existing.PersonnelId ?? string.Empty))
+                    return Forbid();
 
                 var result = await _appointmentService.DeleteAsync(id);
                 if (!result)

@@ -1,8 +1,11 @@
 import React from 'react';
 import { Card } from 'react-bootstrap';
+import { useTranslation } from 'react-i18next';
+import { localeForLanguage } from '../../i18n';
 import StatusBadge from '../../components/common/StatusBadge';
 import TaskBadges from '../../components/common/TaskBadges';
 import type { BadgeColor } from '../../components/common/Badge';
+import Badge from '../../components/common/Badge';
 
 /** Minimal shape the card needs — satisfied by both Appointment and AppointmentSummary. */
 interface AppointmentCardData {
@@ -10,6 +13,10 @@ interface AppointmentCardData {
   formattedDateTime?: string;
   personnelName?: string;
   status: string;
+  patientResponseStatus?: 'Pending' | 'Accepted' | 'Declined';
+  patientProposedDate?: string | null;
+  patientProposedStartTime?: string | null;
+  patientProposedEndTime?: string | null;
   tasks: string;
 }
 
@@ -44,14 +51,37 @@ const AppointmentCard: React.FC<AppointmentCardProps> = ({
   actions,
   onClick,
 }) => {
+  const { t, i18n } = useTranslation();
   const subjectNode =
     subject !== undefined
       ? subject
       : appointment.personnelName
-      ? `Ansvarlig: ${appointment.personnelName}`
-      : 'Ansvarlig ikke oppgitt';
+      ? t('Ansvarlig: {{name}}', { name: appointment.personnelName })
+      : t('Ansvarlig ikke oppgitt');
 
   const clickable = !!onClick;
+  const responseBadge = (() => {
+    if (appointment.patientResponseStatus === 'Pending' && appointment.status === 'Booked') {
+      return <Badge bg="warning">{t('Venter på pasientens svar')}</Badge>;
+    }
+    if (appointment.patientResponseStatus === 'Accepted' && appointment.status === 'Booked') {
+      return <Badge bg="success">{t('Bekreftet av pasient')}</Badge>;
+    }
+    if (appointment.patientResponseStatus === 'Declined') {
+      return <Badge bg="danger">{t('Avvist av pasient')}</Badge>;
+    }
+    return null;
+  })();
+  const hasProposal = appointment.patientResponseStatus === 'Declined' &&
+    !!appointment.patientProposedDate &&
+    !!appointment.patientProposedStartTime &&
+    !!appointment.patientProposedEndTime;
+  const proposedDate = hasProposal
+    ? new Date(`${appointment.patientProposedDate}T12:00:00`).toLocaleDateString(
+        localeForLanguage(i18n.resolvedLanguage),
+        { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' },
+      )
+    : '';
 
   return (
     <Card
@@ -78,10 +108,25 @@ const AppointmentCard: React.FC<AppointmentCardProps> = ({
             </div>
             {subjectNode && <div className="text-muted small">{subjectNode}</div>}
           </div>
-          <StatusBadge status={appointment.status} className="align-self-start" />
+          <div className="d-flex flex-wrap gap-2 align-self-start">
+            <StatusBadge status={appointment.status} />
+            {responseBadge}
+          </div>
         </div>
 
         <TaskBadges tasks={appointment.tasks} variant={taskVariant} />
+
+        {hasProposal && (
+          <div className="alert alert-warning mt-3 mb-0" role="status">
+            <div className="fw-semibold">
+              <i className="bi bi-calendar2-week me-2" aria-hidden="true"></i>
+              {t('Pasienten foreslår et annet tidspunkt')}
+            </div>
+            <div className="mt-1">
+              {proposedDate} · {appointment.patientProposedStartTime}–{appointment.patientProposedEndTime}
+            </div>
+          </div>
+        )}
 
         {footerNote && <div className="mt-3">{footerNote}</div>}
         {/* Stop action clicks from also triggering the row's onClick. */}

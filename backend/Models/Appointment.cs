@@ -32,6 +32,21 @@ namespace backend.Models
         [RegularExpression(@"^(Booked|InProgress|Completed|NotCompleted|Cancelled)$", ErrorMessage = "Invalid status value.")]
         public string Status { get; set; } = "Booked";
 
+        // A newly proposed time waits for the patient to answer in the TV app.
+        // Appointment workflow remains separate: declining also cancels the slot,
+        // while accepting keeps the appointment Booked.
+        [RegularExpression(@"^(Pending|Accepted|Declined)$", ErrorMessage = "Invalid patient response status value.")]
+        public string PatientResponseStatus { get; set; } = "Pending";
+
+        public DateTime? PatientRespondedAt { get; set; }
+
+        // Optional alternative supplied by the patient while declining. These
+        // values are a planning request, not a booked slot; only staff can move
+        // the appointment to a real Availability record.
+        public DateTime? PatientProposedDate { get; set; }
+        public TimeSpan? PatientProposedStartTime { get; set; }
+        public TimeSpan? PatientProposedEndTime { get; set; }
+
         // The actual execution of this appointment (one-to-one). Null until a
         // nurse starts the visit.
         public Visit? Visit { get; set; }

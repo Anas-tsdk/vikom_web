@@ -10,6 +10,13 @@ namespace backend.Services
         Task<IEnumerable<AppointmentDto>> GetByPersonnelIdAsync(string personnelId);
         Task<AppointmentDto> CreateAsync(AppointmentDto appointmentDto);
         Task<AppointmentDto> UpdateAsync(int id, AppointmentDto appointmentDto);
+        Task<AppointmentDto?> RespondToInvitationAsync(
+            int id,
+            string patientId,
+            string response,
+            string? proposedDate = null,
+            string? proposedStartTime = null,
+            string? proposedEndTime = null);
         Task<bool> DeleteAsync(int id);
     }
 }

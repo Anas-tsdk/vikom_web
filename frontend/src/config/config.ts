@@ -1,3 +1,4 @@
-// API configuration
-// Update this URL to match your backend API endpoint
-export const API_URL = 'http://localhost:5084';
+// Local development works without configuration. Deployments can point the
+// same build at their API through VITE_API_URL instead of changing source code.
+const configuredApiUrl = import.meta.env.VITE_API_URL?.trim();
+export const API_URL = (configuredApiUrl || 'http://localhost:5084').replace(/\/+$/, '');

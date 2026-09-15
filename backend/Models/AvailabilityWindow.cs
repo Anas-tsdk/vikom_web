@@ -30,6 +30,12 @@ namespace backend.Models
         [Required]
         public bool IsAvailable { get; set; } = true;
 
+        /// <summary>
+        /// True for a dated window generated from the recurring weekly rule.
+        /// Editing a day turns this off, protecting it as a manual override.
+        /// </summary>
+        public bool IsGeneratedFromWeeklySchedule { get; set; }
+
         // Navigation property to generated slots
         public List<Availability> Slots { get; set; } = new();
     }

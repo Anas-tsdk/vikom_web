@@ -1,5 +1,6 @@
 import React from 'react';
 import { Table } from 'react-bootstrap';
+import { useTranslation } from 'react-i18next';
 import EmptyState from './EmptyState';
 import './DataTable.css';
 
@@ -35,15 +36,17 @@ function DataTable<T>({
   data,
   rowKey,
   onRowClick,
-  emptyText = 'Ingen data å vise.',
+  emptyText,
   emptyIcon = 'inbox',
   hover = true,
   className = '',
 }: DataTableProps<T>) {
+  const { t } = useTranslation();
+  const resolvedEmptyText = emptyText ?? t('Ingen data å vise.');
   if (data.length === 0) {
     return (
       <div className="vk-table-wrap">
-        <EmptyState icon={emptyIcon} text={emptyText} />
+        <EmptyState icon={emptyIcon} text={resolvedEmptyText} />
       </div>
     );
   }

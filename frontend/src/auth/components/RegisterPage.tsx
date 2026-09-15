@@ -1,16 +1,18 @@
 import React, { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { Container, Form, Button, Alert, Card } from 'react-bootstrap';
+import { useTranslation } from 'react-i18next';
 import * as AuthService from '../AuthService';
 import '../../css/Forms.css';
 
 /**
  * Registration page component that allows new users to create an account.
- * Includes form validation and error handling. Accounts are always created as
- * personnel; patients use the TV app and authenticate through Supabase.
+ * Includes form validation and error handling. Public registrations are always
+ * normal nurse accounts; only a signed-in head nurse can grant head-nurse access.
  * Integrates with AuthService for API communication.
  */
 const RegisterPage: React.FC = () => {
+  const { t } = useTranslation();
   // stores all registration form field values in a single state object
   const [formData, setFormData] = useState({
     fullName: '',
@@ -60,20 +62,22 @@ const RegisterPage: React.FC = () => {
 
     // validates that password and confirm password match
     if (formData.password !== formData.confirmPassword) {
-      setError('Passordene stemmer ikke overens');
+      setError(t('Passordene stemmer ikke overens'));
       return;
     }
 
-    // validates password meets minimum length requirement
-    if (formData.password.length < 6) {
-      setError('Passordet må være minst 6 tegn langt');
+    // Mirrors ASP.NET Identity's configured password rules so the form can give
+    // a useful answer before sending an invalid registration request.
+    if (formData.password.length < 8 || !/[a-z]/.test(formData.password)
+      || !/[A-Z]/.test(formData.password) || !/\d/.test(formData.password)) {
+      setError(t('Passordet må ha minst 8 tegn, stor og liten bokstav og ett tall.'));
       return;
     }
 
     // validates email format
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
     if (!emailRegex.test(formData.email)) {
-      setError('Vennligst oppgi en gyldig e-postadresse');
+      setError(t('Vennligst oppgi en gyldig e-postadresse'));
       return;
     }
 
@@ -96,17 +100,17 @@ const RegisterPage: React.FC = () => {
 
       // handles successful registration
       if (result.success) {
-        setSuccess('Registrering fullført! Sender deg til innlogging...');
+        setSuccess(t('Registrering fullført! Sender deg til innlogging...'));
         // redirects to login page after 2 seconds
         setTimeout(() => navigate('/login'), 2000);
       } else {
         // displays error message from backend
-        setError(result.message || 'Registrering mislyktes. Prøv igjen.');
+        setError(t(result.message || 'Registrering mislyktes. Prøv igjen.'));
         setIsLoading(false);
       }
     } catch {
       // handles any unexpected errors during registration process
-      setError('Det oppstod en feil under registrering. Prøv igjen.');
+      setError(t('Det oppstod en feil under registrering. Prøv igjen.'));
       setIsLoading(false);
     }
   };
@@ -118,8 +122,9 @@ const RegisterPage: React.FC = () => {
         <Card.Body className="auth-card-body">
           {/* Header */}
           <div className="auth-header">
-            <h2 className="auth-title">Opprett konto</h2>
-            <p className="auth-subtitle">Opprett konto for helsepersonell</p>
+            <h2 className="auth-title">{t('Opprett konto')}</h2>
+            <p className="auth-subtitle">{t('Opprett konto for helsepersonell')}</p>
+            <p className="text-muted mb-0">{t('Du registrerer deg som sykepleier.')}</p>
           </div>
           
           {/* conditionally displays error alert if error exists */}
@@ -131,8 +136,8 @@ const RegisterPage: React.FC = () => {
           {/* registration form with submit handler */}
           <Form onSubmit={handleSubmit} className="auth-form">
             {/* full name input field */}
-            <Form.Group className="mb-3">
-              <Form.Label>Fullt navn</Form.Label>
+            <Form.Group className="mb-3" controlId="register-full-name">
+              <Form.Label>{t('Fullt navn')}</Form.Label>
               <Form.Control
                 type="text"
                 name="fullName"
@@ -144,8 +149,8 @@ const RegisterPage: React.FC = () => {
             </Form.Group>
 
             {/* email input field */}
-            <Form.Group className="mb-3">
-              <Form.Label>E-post</Form.Label>
+            <Form.Group className="mb-3" controlId="register-email">
+              <Form.Label>{t('E-post')}</Form.Label>
               <Form.Control
                 type="email"
                 name="email"
@@ -157,8 +162,8 @@ const RegisterPage: React.FC = () => {
             </Form.Group>
 
             {/* phone number input field - optional */}
-            <Form.Group className="mb-3">
-              <Form.Label>Telefonnummer (valgfritt)</Form.Label>
+            <Form.Group className="mb-3" controlId="register-phone">
+              <Form.Label>{t('Telefonnummer (valgfritt)')}</Form.Label>
               <Form.Control
                 type="tel"
                 name="phoneNumber"
@@ -168,8 +173,8 @@ const RegisterPage: React.FC = () => {
               />
             </Form.Group>
 
-            <Form.Group className="mb-3">
-              <Form.Label>Adresse (valgfritt)</Form.Label>
+            <Form.Group className="mb-3" controlId="register-address">
+              <Form.Label>{t('Adresse (valgfritt)')}</Form.Label>
               <Form.Control
                 type="text"
                 name="address"
@@ -180,8 +185,8 @@ const RegisterPage: React.FC = () => {
             </Form.Group>
 
             {/* username input field */}
-            <Form.Group className="mb-3">
-              <Form.Label>Brukernavn</Form.Label>
+            <Form.Group className="mb-3" controlId="register-username">
+              <Form.Label>{t('Brukernavn')}</Form.Label>
               <Form.Control
                 type="text"
                 name="userName"
@@ -193,8 +198,8 @@ const RegisterPage: React.FC = () => {
             </Form.Group>
 
             {/* password input field */}
-            <Form.Group className="mb-3">
-              <Form.Label>Passord</Form.Label>
+            <Form.Group className="mb-3" controlId="register-password">
+              <Form.Label>{t('Passord')}</Form.Label>
               <Form.Control
                 type="password"
                 name="password"
@@ -204,13 +209,13 @@ const RegisterPage: React.FC = () => {
                 disabled={isLoading}
               />
               <Form.Text className="text-muted">
-                Må være minst 6 tegn langt
+                {t('Minst 8 tegn, stor og liten bokstav og ett tall')}
               </Form.Text>
             </Form.Group>
 
             {/* confirm password input field for validation */}
-            <Form.Group className="mb-3">
-              <Form.Label>Bekreft passord</Form.Label>
+            <Form.Group className="mb-3" controlId="register-confirm-password">
+              <Form.Label>{t('Bekreft passord')}</Form.Label>
               <Form.Control
                 type="password"
                 name="confirmPassword"
@@ -223,14 +228,14 @@ const RegisterPage: React.FC = () => {
 
             {/* submit button - disabled during loading with spinner */}
             <Button variant="secondary" type="submit" className="w-100" disabled={isLoading}>
-              {isLoading ? 'Registrerer...' : 'Registrer'}
+              {isLoading ? t('Registrerer...') : t('Registrer')}
             </Button>
           </Form>
 
           {/* Footer */}
           <div className="auth-footer">
             <p className="mb-0">
-              Har du allerede en konto? <Link to="/login">Logg inn her</Link>
+              {t('Har du allerede en konto?')} <Link to="/login">{t('Logg inn her')}</Link>
             </p>
           </div>
         </Card.Body>

@@ -1,5 +1,6 @@
 import React from 'react';
 import { Table, Button } from 'react-bootstrap';
+import { useTranslation } from 'react-i18next';
 import type { DayAvailability, AvailabilityWindow } from '../types/availability';
 import { formatTime12Hour } from '../../utils/dateUtils';
 import TaskBadges from '../../components/common/TaskBadges';
@@ -15,22 +16,23 @@ interface DailyViewProps {
 }
 
 const DailyView: React.FC<DailyViewProps> = ({ dayData, onEdit, onDelete, onCreate }) => {
+  const { t } = useTranslation();
   return (
     <div>
       {/* Availability Windows Section */}
       {dayData.windows.length > 0 && (
         <div className="mb-4">
-          <h3 className="mb-3">Availability</h3>
+          <h3 className="mb-3">{t('Availability')}</h3>
           <div className="card border-1 border-dark bg-white overflow-hidden">
             <div className="card-body p-0">
               <Table hover className="mb-0 availability-detail-table">
                 <thead className="table-light">
                   <tr>
-                    <th className="fw-bold text-dark py-3 px-4 border-bottom border-dark">Time Range</th>
-                    <th className="fw-bold text-dark py-3 px-4 border-bottom border-dark">Status</th>
-                    <th className="fw-bold text-dark py-3 px-4 border-bottom border-dark">Slots</th>
-                    <th className="fw-bold text-dark py-3 px-4 border-bottom border-dark">Notes</th>
-                    <th className="fw-bold text-dark py-3 px-4 border-bottom border-dark">Actions</th>
+                    <th className="fw-bold text-dark py-3 px-4 border-bottom border-dark">{t('Time Range')}</th>
+                    <th className="fw-bold text-dark py-3 px-4 border-bottom border-dark">{t('Status')}</th>
+                    <th className="fw-bold text-dark py-3 px-4 border-bottom border-dark">{t('Slots')}</th>
+                    <th className="fw-bold text-dark py-3 px-4 border-bottom border-dark">{t('Notes')}</th>
+                    <th className="fw-bold text-dark py-3 px-4 border-bottom border-dark">{t('Actions')}</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -42,13 +44,16 @@ const DailyView: React.FC<DailyViewProps> = ({ dayData, onEdit, onDelete, onCrea
                         </td>
                         <td className="py-3 px-4 text-dark">
                           <Badge bg={window.isAvailable ? 'success' : 'danger'}>
-                            {window.isAvailable ? 'Available' : 'Unavailable'}
+                            {window.isAvailable ? t('Available') : t('Unavailable')}
                           </Badge>
                         </td>
                         <td className="py-3 px-4 text-dark">
                           {window.slots && window.slots.length > 0 ? (
                             <div className="small">
-                              {window.slots.filter(s => s.isBooked).length} booked / {window.slots.length} total
+                              {t('{{booked}} booked / {{total}} total', {
+                                booked: window.slots.filter(s => s.isBooked).length,
+                                total: window.slots.length,
+                              })}
                             </div>
                           ) : (
                             <span className="text-muted">-</span>
@@ -64,7 +69,7 @@ const DailyView: React.FC<DailyViewProps> = ({ dayData, onEdit, onDelete, onCrea
                               size="sm"
                               onClick={() => onEdit(window)}
                             >
-                              <i className="bi bi-pencil me-1"></i>Edit
+                              <i className="bi bi-pencil me-1"></i>{t('Edit')}
                             </Button>
                             <Button
                               variant="danger"
@@ -72,7 +77,7 @@ const DailyView: React.FC<DailyViewProps> = ({ dayData, onEdit, onDelete, onCrea
                               onClick={() => window.id && onDelete(window.id)}
                               disabled={window.slots?.some(s => s.isBooked)}
                             >
-                              <i className="bi bi-trash me-1"></i>Delete
+                              <i className="bi bi-trash me-1"></i>{t('Delete')}
                             </Button>
                           </div>
                         </td>
@@ -82,7 +87,7 @@ const DailyView: React.FC<DailyViewProps> = ({ dayData, onEdit, onDelete, onCrea
                         <tr className="bg-light">
                           <td colSpan={5} className="py-2 px-4">
                             <div className="small ps-4">
-                              <strong>Booked Slots:</strong>
+                              <strong>{t('Booked Slots:')}</strong>
                               {window.slots
                                 .filter(s => s.isBooked)
                                 .map((slot, idx) => (
@@ -107,16 +112,16 @@ const DailyView: React.FC<DailyViewProps> = ({ dayData, onEdit, onDelete, onCrea
       {/* Appointments Section */}
       {dayData.appointments.length > 0 && (
         <div className="mb-4">
-          <h3 className="mb-3">Appointments</h3>
+          <h3 className="mb-3">{t('Appointments')}</h3>
           <div className="card border-1 border-dark bg-white overflow-hidden">
             <div className="card-body p-0">
               <Table hover className="mb-0 availability-detail-table">
                 <thead className="table-light">
                   <tr>
-                    <th className="fw-bold text-dark py-3 px-4 border-bottom border-dark">Time</th>
-                    <th className="fw-bold text-dark py-3 px-4 border-bottom border-dark">Patient</th>
-                    <th className="fw-bold text-dark py-3 px-4 border-bottom border-dark">Task(s)</th>
-                    <th className="fw-bold text-dark py-3 px-4 border-bottom border-dark">Status</th>
+                    <th className="fw-bold text-dark py-3 px-4 border-bottom border-dark">{t('Time')}</th>
+                    <th className="fw-bold text-dark py-3 px-4 border-bottom border-dark">{t('Patient')}</th>
+                    <th className="fw-bold text-dark py-3 px-4 border-bottom border-dark">{t('Task(s)')}</th>
+                    <th className="fw-bold text-dark py-3 px-4 border-bottom border-dark">{t('Status')}</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -145,10 +150,10 @@ const DailyView: React.FC<DailyViewProps> = ({ dayData, onEdit, onDelete, onCrea
       {dayData.windows.length === 0 && dayData.appointments.length === 0 && (
         <EmptyState
           icon="calendar-x"
-          text="You have no availability windows or appointments scheduled for this day."
+          text={t('You have no availability windows or appointments scheduled for this day.')}
           action={
             <button className="btn btn-primary" onClick={onCreate}>
-              <i className="bi bi-calendar-plus me-2"></i>Create Availability Window
+              <i className="bi bi-calendar-plus me-2"></i>{t('Create Availability Window')}
             </button>
           }
         />

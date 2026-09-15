@@ -1,6 +1,8 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { useParams, useSearchParams, useNavigate, Link } from 'react-router-dom';
 import { Row, Col, Card, Button, Spinner, Alert, Form, ProgressBar } from 'react-bootstrap';
+import { useTranslation } from 'react-i18next';
+import type { TFunction } from 'i18next';
 import SectionCard from '../components/common/SectionCard';
 import EmptyState from '../components/common/EmptyState';
 import StatusBadge from '../components/common/StatusBadge';
@@ -15,32 +17,33 @@ import MedicationsCard from '../patients/components/MedicationsCard';
 import TreatmentPlanCard from '../patients/components/TreatmentPlanCard';
 import VisitService from './services/VisitService';
 import type { Visit, VisitTask, VisitType } from './types/visit';
+import { localeForLanguage } from '../i18n';
 import './VisitExecutionPage.css';
 
 const MAX_CALL_ATTEMPTS = 3;
 const NOTES_AUTOSAVE_MS = 1500;
 
-const formatTime = (iso?: string | null): string => {
+const formatTime = (iso: string | null | undefined, locale: string): string => {
   if (!iso) return '';
   const d = new Date(iso);
   if (isNaN(d.getTime())) return '';
-  return d.toLocaleTimeString('nb-NO', { hour: '2-digit', minute: '2-digit' });
+  return d.toLocaleTimeString(locale, { hour: '2-digit', minute: '2-digit' });
 };
 
-const attemptLabel = (status: string): string => {
+const attemptLabel = (status: string, t: TFunction): string => {
   switch (status.toLowerCase()) {
     case 'answered':
-      return 'Besvart';
+      return t('Besvart');
     case 'declined':
-      return 'Avvist';
+      return t('Avvist');
     case 'missed':
-      return 'Ingen svar';
+      return t('Ingen svar');
     case 'ended':
-      return 'Avsluttet';
+      return t('Avsluttet');
     case 'failed':
-      return 'Teknisk feil';
+      return t('Teknisk feil');
     default:
-      return 'Ringte';
+      return t('Ringte');
   }
 };
 
@@ -69,6 +72,8 @@ const VisitExecutionPage: React.FC = () => {
   const { appointmentId } = useParams<{ appointmentId: string }>();
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
+  const { t, i18n } = useTranslation();
+  const locale = localeForLanguage(i18n.resolvedLanguage);
   const requestedType: VisitType = searchParams.get('type') === 'Digital' ? 'Digital' : 'Physical';
 
   const [visit, setVisit] = useState<Visit | null>(null);
@@ -84,6 +89,7 @@ const VisitExecutionPage: React.FC = () => {
   const [newTaskTitle, setNewTaskTitle] = useState<string>('');
   const [showCancelModal, setShowCancelModal] = useState<boolean>(false);
   const [showCallModal, setShowCallModal] = useState<boolean>(false);
+  const [callMediaType, setCallMediaType] = useState<'audio' | 'video'>('audio');
   const [completing, setCompleting] = useState<boolean>(false);
 
   const pendingOutcomeRef = useRef<CallOutcome | null>(null);
@@ -97,7 +103,7 @@ const VisitExecutionPage: React.FC = () => {
     let cancelled = false;
     const load = async () => {
       if (!appointmentId) {
-        setError('Mangler avtale-ID.');
+        setError(t('Mangler avtale-ID.'));
         setLoading(false);
         return;
       }
@@ -109,7 +115,7 @@ const VisitExecutionPage: React.FC = () => {
         setVisit(data);
         setNotes(data.notes ?? '');
       } catch (err) {
-        if (!cancelled) setError(err instanceof Error ? err.message : 'Kunne ikke åpne besøket.');
+        if (!cancelled) setError(err instanceof Error ? t(err.message) : t('Kunne ikke åpne besøket.'));
       } finally {
         if (!cancelled) setLoading(false);
       }
@@ -131,11 +137,11 @@ const VisitExecutionPage: React.FC = () => {
       await VisitService.updateNotes(visit.id, notes);
       notesDirtyRef.current = false;
     } catch {
-      setActionError('Kunne ikke lagre notatet automatisk.');
+      setActionError(t('Kunne ikke lagre notatet automatisk.'));
     } finally {
       setNotesSaving(false);
     }
-  }, [visit, notes]);
+  }, [visit, notes, t]);
 
   const saveNotesNow = useCallback(async () => {
     if (!visit) return;
@@ -145,11 +151,11 @@ const VisitExecutionPage: React.FC = () => {
       await VisitService.updateNotes(visit.id, notes);
       notesDirtyRef.current = false;
     } catch {
-      setActionError('Kunne ikke lagre notatet.');
+      setActionError(t('Kunne ikke lagre notatet.'));
     } finally {
       setNotesSaving(false);
     }
-  }, [visit, notes]);
+  }, [visit, notes, t]);
 
   const handleNotesChange = (value: string) => {
     setNotes(value);
@@ -177,7 +183,7 @@ const VisitExecutionPage: React.FC = () => {
       const updated = await VisitService.updateTask(visit.id, task.id, status, skippedReason);
       applyTask(updated);
     } catch {
-      setActionError('Kunne ikke oppdatere oppgaven.');
+      setActionError(t('Kunne ikke oppdatere oppgaven.'));
     }
   };
 
@@ -186,7 +192,7 @@ const VisitExecutionPage: React.FC = () => {
   };
 
   const handleSkip = (task: VisitTask) => {
-    const reason = window.prompt('Årsak til at oppgaven hoppes over (valgfritt):', '');
+    const reason = window.prompt(t('Årsak til at oppgaven hoppes over (valgfritt):'), '');
     if (reason === null) return;
     updateTask(task, 'Skipped', reason.trim() || null);
   };
@@ -199,7 +205,7 @@ const VisitExecutionPage: React.FC = () => {
       setVisit((prev) => (prev ? { ...prev, tasks: [...prev.tasks, created] } : prev));
       setNewTaskTitle('');
     } catch {
-      setActionError('Kunne ikke legge til oppgaven.');
+      setActionError(t('Kunne ikke legge til oppgaven.'));
     }
   };
 
@@ -223,7 +229,7 @@ const VisitExecutionPage: React.FC = () => {
       await VisitService.complete(visit.id, { notes, followUpRequired: false });
       navigate('/appointments');
     } catch {
-      setActionError('Kunne ikke fullføre besøket.');
+      setActionError(t('Kunne ikke fullføre besøket.'));
       setCompleting(false);
     }
   };
@@ -240,9 +246,10 @@ const VisitExecutionPage: React.FC = () => {
   };
 
   // --- Digital call flow ----------------------------------------------------
-  const openCall = () => {
+  const openCall = (mediaType: 'audio' | 'video' = 'audio') => {
     setCallPrompt(null);
     setCallSuccess(false);
+    setCallMediaType(mediaType);
     setShowCallModal(true);
   };
 
@@ -279,7 +286,7 @@ const VisitExecutionPage: React.FC = () => {
       <div className="visit-execution-page">
         <div className="d-flex align-items-center gap-2 py-4">
           <Spinner animation="border" size="sm" />
-          <span>Åpner besøk...</span>
+          <span>{t('Åpner besøk...')}</span>
         </div>
       </div>
     );
@@ -288,9 +295,9 @@ const VisitExecutionPage: React.FC = () => {
   if (error || !visit) {
     return (
       <div className="visit-execution-page">
-        <Alert variant="danger">{error || 'Fant ikke besøket.'}</Alert>
+        <Alert variant="danger">{error || t('Fant ikke besøket.')}</Alert>
         <Link to="/appointments" className="btn btn-outline-dark">
-          Tilbake til avtaler
+          {t('Tilbake til avtaler')}
         </Link>
       </div>
     );
@@ -302,7 +309,7 @@ const VisitExecutionPage: React.FC = () => {
   // only requires a linked TV profile.
   const canCall = !!visit.supabaseProfileId;
   const hasCallAttempts = visit.callAttempts.length > 0;
-  const callLabel = hasCallAttempts ? 'Ring igjen' : 'Ring pasient';
+  const callLabel = hasCallAttempts ? t('Ring igjen') : t('Ring pasient');
   const completedCount = visit.tasks.filter((t) => t.status === 'Completed').length;
   const totalTasks = visit.tasks.length;
   const progressPct = totalTasks > 0 ? Math.round((completedCount / totalTasks) * 100) : 0;
@@ -311,8 +318,8 @@ const VisitExecutionPage: React.FC = () => {
     <div className="visit-execution-page">
       <Breadcrumb
         items={[
-          { label: 'Avtaler', to: '/appointments' },
-          { label: `Aktivt besøk` },
+          { label: t('Avtaler'), to: '/appointments' },
+          { label: t('Aktivt besøk') },
         ]}
       />
 
@@ -323,7 +330,7 @@ const VisitExecutionPage: React.FC = () => {
       )}
 
       {!isActive && (
-        <Alert variant="info">Dette besøket er avsluttet. Det kan ikke endres.</Alert>
+        <Alert variant="info">{t('Dette besøket er avsluttet. Det kan ikke endres.')}</Alert>
       )}
 
       {/* Header */}
@@ -335,7 +342,7 @@ const VisitExecutionPage: React.FC = () => {
               <div>
                 <div className="d-flex align-items-center gap-2 mb-1">
                   <StatusBadge status={visit.status} />
-                  {isActive && elapsed && <Badge bg="light" bordered>Økt · {elapsed}</Badge>}
+                  {isActive && elapsed && <Badge bg="light" bordered>{t('Økt')} · {elapsed}</Badge>}
                 </div>
                 <h1 className="mb-2">{visit.patientName}</h1>
                 <div className="d-flex flex-wrap gap-2">
@@ -350,19 +357,28 @@ const VisitExecutionPage: React.FC = () => {
               <div className="d-flex flex-wrap align-items-start gap-2">
                 <Button
                   variant="primary"
-                  onClick={openCall}
+                  onClick={() => openCall('audio')}
                   disabled={!canCall || completing}
-                  title={!canCall ? 'Pasienten har ingen TV-profil koblet til seg' : undefined}
+                  title={!canCall ? t('Pasienten har ingen TV-profil koblet til seg') : undefined}
                 >
                   <i className="bi bi-telephone-outbound me-2" aria-hidden="true"></i>
                   {callLabel}
                 </Button>
+                <Button
+                  variant="outline-primary"
+                  onClick={() => openCall('video')}
+                  disabled={!canCall || completing}
+                  title={!canCall ? t('Pasienten har ingen TV-profil koblet til seg') : undefined}
+                >
+                  <i className="bi bi-camera-video me-2" aria-hidden="true"></i>
+                  {t('Videoanrop')}
+                </Button>
                 <Button variant="outline-danger" onClick={() => setShowCancelModal(true)} disabled={completing}>
-                  <i className="bi bi-x-circle me-2" aria-hidden="true"></i>Avbryt besøk
+                  <i className="bi bi-x-circle me-2" aria-hidden="true"></i>{t('Avbryt besøk')}
                 </Button>
                 <Button variant="dark" onClick={handleComplete} disabled={completing}>
                   <i className="bi bi-check-circle me-2" aria-hidden="true"></i>
-                  {completing ? 'Fullfører...' : 'Fullfør besøk'}
+                  {completing ? t('Fullfører...') : t('Fullfør besøk')}
                 </Button>
               </div>
             )}
@@ -374,8 +390,8 @@ const VisitExecutionPage: React.FC = () => {
       <Card className="vk-progress-card mb-4">
         <Card.Body>
           <div className="d-flex justify-content-between align-items-center mb-2">
-            <span className="fw-semibold">Fremgang</span>
-            <span className="text-muted">{completedCount} av {totalTasks} oppgaver fullført</span>
+            <span className="fw-semibold">{t('Fremgang')}</span>
+            <span className="text-muted">{t('{{completed}} av {{total}} oppgaver fullført', { completed: completedCount, total: totalTasks })}</span>
           </div>
           <ProgressBar now={progressPct} variant="success" />
         </Card.Body>
@@ -400,14 +416,14 @@ const VisitExecutionPage: React.FC = () => {
             />
 
             {(isDigital || hasCallAttempts) && (
-              <SectionCard title="Samtaleforsøk" icon="telephone-outbound">
+              <SectionCard title={t('Samtaleforsøk')} icon="telephone-outbound">
                 {visit.callAttempts.length === 0 ? (
-                  <p className="text-muted mb-0">Ingen samtaleforsøk registrert enda.</p>
+                  <p className="text-muted mb-0">{t('Ingen samtaleforsøk registrert enda.')}</p>
                 ) : (
                   <ol className="ps-3 mb-0">
                     {visit.callAttempts.map((a) => (
                       <li key={a.id} className="mb-1">
-                        <span className="text-muted">{formatTime(a.startedAt)}</span> — {attemptLabel(a.status)}
+                        <span className="text-muted">{formatTime(a.startedAt, locale)}</span> — {attemptLabel(a.status, t)}
                       </li>
                     ))}
                   </ol>
@@ -415,7 +431,7 @@ const VisitExecutionPage: React.FC = () => {
 
                 {callSuccess && (
                   <Alert variant="success" className="mt-3 mb-0">
-                    Pasienten svarte. Du kan fullføre besøket når du er ferdig.
+                    {t('Pasienten svarte. Du kan fullføre besøket når du er ferdig.')}
                   </Alert>
                 )}
 
@@ -425,49 +441,49 @@ const VisitExecutionPage: React.FC = () => {
                       <>
                         <p className="fw-semibold mb-1">
                           {callPrompt.outcome === 'Declined'
-                            ? 'Pasienten avviste samtalen.'
+                            ? t('Pasienten avviste samtalen.')
                             : callPrompt.outcome === 'Failed'
-                              ? 'Teknisk problem under anropet.'
-                              : 'Ingen svar fra pasient.'}
+                              ? t('Teknisk problem under anropet.')
+                              : t('Ingen svar fra pasient.')}
                         </p>
                         <p className="text-muted small mb-3">
-                          Besøket fortsetter som normalt. Du kan prøve å ringe igjen senere.
+                          {t('Besøket fortsetter som normalt. Du kan prøve å ringe igjen senere.')}
                         </p>
-                        <Button size="sm" variant="primary" onClick={openCall}>Ring igjen</Button>
+                        <Button size="sm" variant="primary" onClick={() => openCall('audio')}>{t('Ring igjen')}</Button>
                       </>
                     ) : callPrompt.outcome === 'Declined' ? (
                       <>
-                        <p className="fw-semibold mb-1">Pasienten avviste samtalen.</p>
-                        <p className="text-muted small mb-3">Dette kan ha vært et uhell.</p>
+                        <p className="fw-semibold mb-1">{t('Pasienten avviste samtalen.')}</p>
+                        <p className="text-muted small mb-3">{t('Dette kan ha vært et uhell.')}</p>
                         <div className="d-flex flex-wrap gap-2">
-                          <Button size="sm" variant="primary" onClick={openCall}>Ring igjen</Button>
+                          <Button size="sm" variant="primary" onClick={() => openCall('audio')}>{t('Ring igjen')}</Button>
                           <Button size="sm" variant="outline-secondary" onClick={() => navigate('/appointments')}>
-                            Kontakt senere
+                            {t('Kontakt senere')}
                           </Button>
                           <Button size="sm" variant="outline-danger" onClick={() => cancelVisit('Pasienten avviste samtalen', '')}>
-                            Marker som avvist
+                            {t('Marker som avvist')}
                           </Button>
                         </div>
                       </>
                     ) : (
                       <>
                         <p className="fw-semibold mb-1">
-                          {callPrompt.outcome === 'Failed' ? 'Teknisk problem under anropet.' : 'Ingen svar fra pasient.'}
+                          {callPrompt.outcome === 'Failed' ? t('Teknisk problem under anropet.') : t('Ingen svar fra pasient.')}
                         </p>
                         <p className="text-muted small mb-3">
-                          Forsøk {callPrompt.attemptCount} av {MAX_CALL_ATTEMPTS} registrert.
+                          {t('Forsøk {{attempt}} av {{total}} registrert.', { attempt: callPrompt.attemptCount, total: MAX_CALL_ATTEMPTS })}
                         </p>
                         <div className="d-flex flex-wrap gap-2">
-                          <Button size="sm" variant="primary" onClick={openCall}>Ring igjen</Button>
+                          <Button size="sm" variant="primary" onClick={() => openCall('audio')}>{t('Ring igjen')}</Button>
                           <Button
                             size="sm"
                             variant="outline-secondary"
                             onClick={() => cancelVisit('Pasienten var ikke tilgjengelig', '')}
                           >
-                            Marker som ikke tilgjengelig
+                            {t('Marker som ikke tilgjengelig')}
                           </Button>
                           <Button size="sm" variant="outline-danger" onClick={() => setShowCancelModal(true)}>
-                            Avslutt besøk
+                            {t('Avslutt besøk')}
                           </Button>
                         </div>
                       </>
@@ -478,12 +494,12 @@ const VisitExecutionPage: React.FC = () => {
             )}
 
             <SectionCard
-              title="Oppgaver"
+              title={t('Oppgaver')}
               icon="check2-square"
               action={<span className="badge bg-light text-dark border">{completedCount}/{totalTasks}</span>}
             >
               {visit.tasks.length === 0 ? (
-                <EmptyState icon="list-check" text="Ingen planlagte oppgaver for dette besøket." />
+                <EmptyState icon="list-check" text={t('Ingen planlagte oppgaver for dette besøket.')} />
               ) : (
                 <div className="vk-task-list">
                   {visit.tasks.map((task) => {
@@ -496,28 +512,28 @@ const VisitExecutionPage: React.FC = () => {
                           className="vk-task-check"
                           onClick={() => isActive && toggleTask(task)}
                           disabled={!isActive || skipped}
-                          aria-label={done ? 'Marker som ikke fullført' : 'Marker som fullført'}
+                          aria-label={done ? t('Marker som ikke fullført') : t('Marker som fullført')}
                         >
                           <i className={`bi ${done ? 'bi-check-circle-fill text-success' : 'bi-circle'}`} aria-hidden="true"></i>
                         </button>
                         <div className="flex-grow-1">
                           <span className={done ? 'text-decoration-line-through text-muted' : skipped ? 'text-muted' : ''}>
-                            {task.title}
+                            {t(task.title)}
                           </span>
                           {skipped && (
                             <div className="small text-muted">
-                              Hoppet over{task.skippedReason ? `: ${task.skippedReason}` : ''}
+                              {t('Hoppet over')}{task.skippedReason ? `: ${task.skippedReason}` : ''}
                             </div>
                           )}
                         </div>
                         {isActive && task.status === 'Pending' && (
                           <Button variant="link" size="sm" className="text-muted p-0 text-decoration-none" onClick={() => handleSkip(task)}>
-                            Hopp over
+                            {t('Hopp over')}
                           </Button>
                         )}
                         {isActive && task.status === 'Skipped' && (
                           <Button variant="link" size="sm" className="text-muted p-0 text-decoration-none" onClick={() => updateTask(task, 'Pending')}>
-                            Angre
+                            {t('Angre')}
                           </Button>
                         )}
                       </div>
@@ -538,7 +554,7 @@ const VisitExecutionPage: React.FC = () => {
                     size="sm"
                     value={newTaskTitle}
                     onChange={(e) => setNewTaskTitle(e.target.value)}
-                    placeholder="Legg til oppgave..."
+                    placeholder={t('Legg til oppgave...')}
                   />
                   <Button
                     type="submit"
@@ -547,16 +563,16 @@ const VisitExecutionPage: React.FC = () => {
                     className="flex-shrink-0 text-nowrap"
                     disabled={!newTaskTitle.trim()}
                   >
-                    <i className="bi bi-plus-lg me-1" aria-hidden="true"></i>Legg til
+                    <i className="bi bi-plus-lg me-1" aria-hidden="true"></i>{t('Legg til')}
                   </Button>
                 </Form>
               )}
             </SectionCard>
 
             <SectionCard
-              title="Notater fra besøket"
+              title={t('Notater fra besøket')}
               icon="journal-text"
-              action={notesSaving ? <span className="text-muted small">Lagrer...</span> : undefined}
+              action={notesSaving ? <span className="text-muted small">{t('Lagrer...')}</span> : undefined}
             >
               <Form.Control
                 as="textarea"
@@ -565,13 +581,13 @@ const VisitExecutionPage: React.FC = () => {
                 onChange={(e) => handleNotesChange(e.target.value)}
                 onBlur={saveNotes}
                 disabled={!isActive}
-                placeholder="Skriv observasjoner, hendelser eller meldinger til neste vakt…"
+                placeholder={t('Skriv observasjoner, hendelser eller meldinger til neste vakt…')}
               />
               <div className="d-flex justify-content-between align-items-center mt-2">
-                <span className="text-muted small">{notes.length} tegn</span>
+                <span className="text-muted small">{t('{{count}} tegn', { count: notes.length })}</span>
                 {isActive && (
                   <Button size="sm" variant="outline-secondary" onClick={saveNotesNow} disabled={notesSaving}>
-                    Lagre notat
+                    {t('Lagre notat')}
                   </Button>
                 )}
               </div>
@@ -590,6 +606,7 @@ const VisitExecutionPage: React.FC = () => {
         patientName={visit.patientName}
         visitId={visit.id}
         onOutcome={handleCallOutcome}
+        mediaType={callMediaType}
       />
     </div>
   );

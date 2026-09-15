@@ -50,6 +50,7 @@ export interface AvailabilityWindow {
   endTime: string; // HH:mm
   notes?: string;
   isAvailable: boolean;
+  isGeneratedFromWeeklySchedule?: boolean;
   slots?: AvailabilitySlot[];
 }
 
@@ -60,6 +61,7 @@ export interface CreateAvailabilityWindowDto {
   endTime?: string;
   notes?: string;
   isAvailable: boolean;
+  applyToWeek?: boolean;
 }
 
 // Update Availability Window DTO
@@ -69,6 +71,15 @@ export interface UpdateAvailabilityWindowDto {
   endTime?: string;
   notes?: string;
   isAvailable: boolean;
+  applyToWeek?: boolean;
+}
+
+export interface WeeklyAvailabilityRule {
+  dayOfWeek: number;
+  isAvailable: boolean;
+  startTime?: string | null;
+  endTime?: string | null;
+  notes?: string | null;
 }
 
 // Day Availability (single day view)

@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { Form, Button } from 'react-bootstrap';
+import { useTranslation } from 'react-i18next';
 import { getUserInfo } from '../../auth/AuthService';
 import type { Availability } from '../types/availability';
 
@@ -10,6 +11,7 @@ interface AvailabilityFormProps {
 }
 
 const AvailabilityForm: React.FC<AvailabilityFormProps> = ({ initialData, onSubmit, onCancel }) => {
+  const { t } = useTranslation();
   const userInfo = getUserInfo();
 
   // Form state
@@ -45,25 +47,25 @@ const AvailabilityForm: React.FC<AvailabilityFormProps> = ({ initialData, onSubm
     today.setHours(0, 0, 0, 0);
 
     if (!formData.date) {
-      newErrors.date = 'Date is required';
+      newErrors.date = t('Date is required');
     } else {
       const selectedDate = new Date(formData.date);
       selectedDate.setHours(0, 0, 0, 0);
       if (selectedDate < today) {
-        newErrors.date = 'Date cannot be in the past';
+        newErrors.date = t('Date cannot be in the past');
       }
     }
 
     if (!formData.startTime) {
-      newErrors.startTime = 'Start time is required';
+      newErrors.startTime = t('Start time is required');
     }
 
     if (!formData.endTime) {
-      newErrors.endTime = 'End time is required';
+      newErrors.endTime = t('End time is required');
     }
 
     if (formData.startTime && formData.endTime && formData.startTime >= formData.endTime) {
-      newErrors.endTime = 'End time must be after start time';
+      newErrors.endTime = t('End time must be after start time');
     }
 
     setErrors(newErrors);
@@ -85,7 +87,7 @@ const AvailabilityForm: React.FC<AvailabilityFormProps> = ({ initialData, onSubm
     <Form onSubmit={handleSubmit}>
       {/* Date */}
       <Form.Group className="mb-3">
-        <Form.Label>Date</Form.Label>
+        <Form.Label>{t('Date')}</Form.Label>
         <Form.Control
           type="date"
           name="date"
@@ -101,7 +103,7 @@ const AvailabilityForm: React.FC<AvailabilityFormProps> = ({ initialData, onSubm
 
       {/* Start Time */}
       <Form.Group className="mb-3">
-        <Form.Label>Start Time</Form.Label>
+        <Form.Label>{t('Start Time')}</Form.Label>
         <Form.Control
           type="time"
           name="startTime"
@@ -117,7 +119,7 @@ const AvailabilityForm: React.FC<AvailabilityFormProps> = ({ initialData, onSubm
 
       {/* End Time */}
       <Form.Group className="mb-3">
-        <Form.Label>End Time</Form.Label>
+        <Form.Label>{t('End Time')}</Form.Label>
         <Form.Control
           type="time"
           name="endTime"
@@ -133,24 +135,24 @@ const AvailabilityForm: React.FC<AvailabilityFormProps> = ({ initialData, onSubm
 
       {/* Notes */}
       <Form.Group className="mb-3">
-        <Form.Label>Notes (Optional)</Form.Label>
+        <Form.Label>{t('Notes (Optional)')}</Form.Label>
         <Form.Control
           as="textarea"
           rows={3}
           name="notes"
           value={formData.notes || ''}
           onChange={handleChange}
-          placeholder="Add any additional notes or details..."
+          placeholder={t('Add any additional notes or details...')}
         />
       </Form.Group>
 
       {/* Form Actions */}
       <div className="d-flex justify-content-end gap-2">
         <Button variant="secondary" onClick={onCancel} type="button">
-          Cancel
+          {t('Cancel')}
         </Button>
         <Button variant="primary" type="submit">
-          Save
+          {t('Save')}
         </Button>
       </div>
     </Form>

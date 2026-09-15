@@ -12,6 +12,8 @@ namespace backend.DTOs
         public string? PatientName { get; set; }
 
         public string? PatientAddress { get; set; }
+        public double? PatientLatitude { get; set; }
+        public double? PatientLongitude { get; set; }
 
         // Lets the appointment list decide whether to offer a digital visit.
         public string? PatientSupabaseProfileId { get; set; }
@@ -40,6 +42,12 @@ namespace backend.DTOs
         // System-controlled - computed dynamically
         [RegularExpression(@"^(Booked|InProgress|Completed|NotCompleted|Cancelled)$", ErrorMessage = "Invalid status value.")]
         public string Status { get; set; } = "Booked";
+
+        public string PatientResponseStatus { get; set; } = "Pending";
+        public DateTime? PatientRespondedAt { get; set; }
+        public string? PatientProposedDate { get; set; }
+        public string? PatientProposedStartTime { get; set; }
+        public string? PatientProposedEndTime { get; set; }
 
         // Summary of the actual visit for this appointment, if one exists. Lets
         // the appointment list/history show "Fortsett besøk" and the notebook

@@ -1,6 +1,7 @@
 import React, { useEffect } from 'react';
 import { Navigate } from 'react-router-dom';
 import * as AuthService from '../AuthService';
+import { isPortalRole } from '../roles';
 
 interface PersonnelOnlyRouteProps {
   children: React.ReactElement;
@@ -10,7 +11,7 @@ interface PersonnelOnlyRouteProps {
 const PersonnelOnlyRoute: React.FC<PersonnelOnlyRouteProps> = ({ children }) => {
   const isAuthenticated = AuthService.isAuthenticated();
   const userInfo = AuthService.getUserInfo();
-  const isPersonnel = userInfo?.role === 'Personnel';
+  const isPersonnel = isPortalRole(userInfo?.role);
 
   // The backend only issues portal tokens to personnel, so a stored non-personnel
   // session can only be a stale one from before the portal became personnel-only.

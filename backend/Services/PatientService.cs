@@ -13,6 +13,7 @@ namespace backend.Services
         private readonly IPatientUserLinkRepository _linkRepository;
         private readonly ICallLogService _callLogService;
         private readonly UserManager<User> _userManager;
+        private readonly ISupabaseDailyCheckInStore? _dailyCheckIns;
 
         // Only for transactions. Reads and writes still go through the repositories;
         // this is the one instance they and UserManager all share, so it is what a
@@ -25,7 +26,8 @@ namespace backend.Services
             IPatientUserLinkRepository linkRepository,
             ICallLogService callLogService,
             UserManager<User> userManager,
-            ApplicationDbContext context)
+            ApplicationDbContext context,
+            ISupabaseDailyCheckInStore? dailyCheckIns = null)
         {
             _userRepository = userRepository;
             _appointmentRepository = appointmentRepository;
@@ -33,6 +35,7 @@ namespace backend.Services
             _callLogService = callLogService;
             _userManager = userManager;
             _context = context;
+            _dailyCheckIns = dailyCheckIns;
         }
 
         public async Task<IEnumerable<PatientListDto>> GetAllPatientsAsync()
@@ -54,6 +57,8 @@ namespace backend.Services
                     Email = patient.Email ?? string.Empty,
                     PhoneNumber = patient.PhoneNumber ?? string.Empty,
                     Address = patient.Address ?? string.Empty,
+                    Latitude = patient.Latitude,
+                    Longitude = patient.Longitude,
                     SupabaseProfileId = patient.SupabaseProfileId,
                     Username = patient.ProfileUsername,
                     TotalAppointments = appointments.Count(),
@@ -67,22 +72,32 @@ namespace backend.Services
         public async Task<IEnumerable<PatientListDto>> GetLinkedPatientsAsync(string personnelId)
         {
             var links = await _linkRepository.GetBySecondaryUserIdAsync(personnelId);
-            var patientIds = links.Select(l => l.PatientId).Distinct().ToList();
+            // An appointment assignment is itself a care relationship. Always
+            // union it with explicit team links; the previous fallback only did
+            // this when the nurse had zero links, hiding newly assigned patients
+            // from nurses who already had somebody in their list.
+            var appointmentPatientIds = (await _appointmentRepository
+                    .GetByPersonnelIdAsync(personnelId))
+                .Select(appointment => appointment.PatientId);
+            var patientIds = links
+                .Select(link => link.PatientId)
+                .Concat(appointmentPatientIds)
+                .Distinct()
+                .ToHashSet();
 
             var patients = await _userRepository.GetPatientsAsync();
             var filteredPatients = patients.Where(p => patientIds.Contains(p.Id)).ToList();
-
-            // If there are no link records yet, fall back to appointment-based patients.
-            if (!filteredPatients.Any())
-            {
-                filteredPatients = (await _userRepository.GetPatientsByPersonnelAsync(personnelId)).ToList();
-            }
 
             var patientList = new List<PatientListDto>();
 
             foreach (var patient in filteredPatients)
             {
-                var appointments = await _appointmentRepository.GetByPatientIdAsync(patient.Id);
+                // A normal nurse's list statistics describe their own care work,
+                // not appointments assigned to colleagues who happen to share
+                // the patient.
+                var appointments = (await _appointmentRepository.GetByPatientIdAsync(patient.Id))
+                    .Where(appointment => appointment.Availability?.PersonnelId == personnelId)
+                    .ToList();
                 var lastAppointment = appointments
                     .OrderByDescending(a => a.Availability.Date)
                     .FirstOrDefault();
@@ -94,6 +109,8 @@ namespace backend.Services
                     Email = patient.Email ?? string.Empty,
                     PhoneNumber = patient.PhoneNumber ?? string.Empty,
                     Address = patient.Address ?? string.Empty,
+                    Latitude = patient.Latitude,
+                    Longitude = patient.Longitude,
                     SupabaseProfileId = patient.SupabaseProfileId,
                     Username = patient.ProfileUsername,
                     TotalAppointments = appointments.Count(),
@@ -104,7 +121,9 @@ namespace backend.Services
             return patientList;
         }
 
-        public async Task<PatientDetailsDto?> GetPatientByIdAsync(string patientId)
+        public async Task<PatientDetailsDto?> GetPatientByIdAsync(
+            string patientId,
+            string? viewerPersonnelId = null)
         {
             // The route key may be the readable username or the GUID id; resolve
             // username first, then fall back to the id.
@@ -117,10 +136,29 @@ namespace backend.Services
 
             // The route key may be a username, so use the resolved patient's GUID
             // id for the appointment/call lookups (they filter on PatientId).
-            var appointments = (await _appointmentRepository.GetByPatientIdAsync(patient.Id)).ToList();
-            var upcomingAppointments = (await _appointmentRepository.GetUpcomingByPatientIdAsync(patient.Id, 10)).ToList();
-            var pastAppointments = (await _appointmentRepository.GetHistoryByPatientIdAsync(patient.Id)).ToList();
-            var recentCalls = (await _callLogService.GetRecentByPatientAsync(patient.Id, 5)).ToList();
+            var appointments = (await _appointmentRepository.GetByPatientIdAsync(patient.Id))
+                .Where(appointment =>
+                    viewerPersonnelId == null ||
+                    appointment.Availability?.PersonnelId == viewerPersonnelId)
+                .ToList();
+            var today = DateTime.Today;
+            var upcomingAppointments = appointments
+                .Where(appointment =>
+                    appointment.Availability.Date >= today &&
+                    (appointment.Status == "Booked" || appointment.Status == "InProgress"))
+                .OrderBy(appointment => appointment.Availability.Date)
+                .ThenBy(appointment => appointment.StartTime)
+                .Take(10)
+                .ToList();
+            var pastAppointments = appointments
+                .Where(appointment => appointment.Availability.Date < today)
+                .OrderByDescending(appointment => appointment.Availability.Date)
+                .ThenByDescending(appointment => appointment.StartTime)
+                .ToList();
+            var recentCalls = (await _callLogService.GetRecentByPatientAsync(
+                patient.Id,
+                5,
+                viewerPersonnelId)).ToList();
             var lastAppointment = appointments
                 .OrderByDescending(a => a.Availability.Date)
                 .FirstOrDefault();
@@ -132,14 +170,20 @@ namespace backend.Services
                 Email = patient.Email ?? string.Empty,
                 PhoneNumber = patient.PhoneNumber ?? string.Empty,
                 Address = patient.Address ?? string.Empty,
+                Latitude = patient.Latitude,
+                Longitude = patient.Longitude,
                 SupabaseProfileId = patient.SupabaseProfileId,
                 Username = patient.ProfileUsername,
                 TotalAppointments = appointments.Count,
                 LastAppointmentDate = lastAppointment?.Availability.Date.ToString("dd/MM/yyyy") ?? "Never",
                 Notes = patient.Notes,
                 NotesUpdatedAt = patient.NotesUpdatedAt,
-                UpcomingAppointments = upcomingAppointments.Select(MapToAppointmentSummary).ToList(),
-                PastAppointments = pastAppointments.Select(MapToAppointmentSummary).ToList(),
+                UpcomingAppointments = upcomingAppointments
+                    .Select(appointment => MapToAppointmentSummary(appointment, viewerPersonnelId))
+                    .ToList(),
+                PastAppointments = pastAppointments
+                    .Select(appointment => MapToAppointmentSummary(appointment, viewerPersonnelId))
+                    .ToList(),
                 RecentCalls = recentCalls,
                 Clinical = PatientClinicalMapper.ToDto(patient)
             };
@@ -168,8 +212,12 @@ namespace backend.Services
                 Role = "Patient",
                 PhoneNumber = string.IsNullOrWhiteSpace(dto.PhoneNumber) ? null : dto.PhoneNumber.Trim(),
                 Address = string.IsNullOrWhiteSpace(dto.Address) ? null : dto.Address.Trim(),
+                Latitude = dto.Latitude,
+                Longitude = dto.Longitude,
                 EmailConfirmed = true,
-                SupabaseProfileId = supabaseProfileId
+                SupabaseProfileId = supabaseProfileId,
+                DailyCheckInEnabled = supabaseProfileId != null,
+                DailyCheckInStartedAt = supabaseProfileId != null ? DateTime.UtcNow : null
                 // ProfileUsername stays null: the readable URL handle is seeder-owned,
                 // so portal-registered patients are addressed by their GUID. NULLs are
                 // distinct under the unique index, so any number of them coexist.
@@ -210,12 +258,17 @@ namespace backend.Services
 
             await transaction.CommitAsync();
 
+            if (_dailyCheckIns != null)
+            {
+                await _dailyCheckIns.SyncPatientLinkAsync(null, supabaseProfileId);
+            }
+
             return (await GetPatientByIdAsync(patient.Id))!;
         }
 
         public async Task<bool> UpdatePatientNotesAsync(string patientId, string? notes)
         {
-            var patient = await _userRepository.GetByIdAsync(patientId);
+            var patient = await _userRepository.GetByIdWithMedicationsAsync(patientId);
             if (patient == null || !string.Equals(patient.Role, "Patient", StringComparison.OrdinalIgnoreCase))
             {
                 return false;
@@ -229,7 +282,11 @@ namespace backend.Services
 
         public async Task<PatientDetailsDto?> UpdatePatientAsync(string patientId, PatientUpdateDto dto)
         {
-            var patient = await _userRepository.GetByIdAsync(patientId);
+            // Medication updates replace the current list. Load that navigation
+            // explicitly; FindAsync/GetByIdAsync only loads the user row, which
+            // previously left patient.Medications empty and appended a fresh copy
+            // of every submitted medicine on each save.
+            var patient = await _userRepository.GetByIdWithMedicationsAsync(patientId);
             if (patient == null || !string.Equals(patient.Role, "Patient", StringComparison.OrdinalIgnoreCase))
             {
                 return null;
@@ -238,6 +295,16 @@ namespace backend.Services
             patient.FullName = dto.FullName;
             patient.PhoneNumber = dto.PhoneNumber;
             patient.Address = dto.Address;
+            patient.Latitude = dto.Latitude;
+            patient.Longitude = dto.Longitude;
+            patient.DateOfBirth = dto.DateOfBirth?.Date;
+            patient.NextOfKinName = Clean(dto.NextOfKinName);
+            patient.NextOfKinRelation = Clean(dto.NextOfKinRelation);
+            patient.GeneralPractitioner = Clean(dto.GeneralPractitioner);
+            patient.Allergies = Clean(dto.Allergies);
+            patient.Diagnoses = JoinList(dto.Diagnoses);
+            patient.ConditionFlags = JoinList(dto.ConditionFlags);
+            patient.TreatmentPlan = Clean(dto.TreatmentPlan);
 
             // The Supabase link is editable here so a patient created before the
             // portal could link them (or one whose TV account came later) can be
@@ -248,7 +315,20 @@ namespace backend.Services
             // unlinking a TV account must never rename the patient's URL.
             var supabaseProfileId = NormalizeSupabaseProfileId(dto.SupabaseProfileId);
             await EnsureSupabaseLinkIsFreeAsync(supabaseProfileId, patient.Id);
+            var previousSupabaseProfileId = patient.SupabaseProfileId;
+            var linkChanged = !string.Equals(
+                patient.SupabaseProfileId,
+                supabaseProfileId,
+                StringComparison.OrdinalIgnoreCase);
             patient.SupabaseProfileId = supabaseProfileId;
+            patient.DailyCheckInEnabled = supabaseProfileId != null;
+            if (linkChanged)
+            {
+                patient.DailyCheckInStartedAt = supabaseProfileId != null ? DateTime.UtcNow : null;
+                patient.LastDailyCheckInAt = null;
+                patient.LastDailyCheckInSource = null;
+                patient.LastDailyCheckInConfirmedByUserId = null;
+            }
 
             // Email changes go through UserManager so the normalized columns stay
             // consistent. Seeded accounts use the email as their username, so keep
@@ -278,8 +358,49 @@ namespace backend.Services
                 }
             }
 
-            // Persist the non-Identity fields (FullName/PhoneNumber/Address).
-            await _userRepository.UpdateAsync(patient);
+            var submittedMedications = dto.Medications
+                .Where(m => !string.IsNullOrWhiteSpace(m.Name))
+                .Select(m => new
+                {
+                    Name = m.Name.Trim(),
+                    Dosage = Clean(m.Dosage),
+                    Schedule = Clean(m.Schedule),
+                })
+                // Be defensive about an already duplicated form payload. Two
+                // rows with the same normalized name, dose and schedule describe
+                // the same current medicine and must be persisted only once.
+                .GroupBy(m => new
+                {
+                    Name = m.Name.ToUpperInvariant(),
+                    Dosage = (m.Dosage ?? string.Empty).ToUpperInvariant(),
+                    Schedule = (m.Schedule ?? string.Empty).ToUpperInvariant(),
+                })
+                .Select(group => group.First())
+                .ToList();
+
+            _context.PatientMedications.RemoveRange(patient.Medications);
+            patient.Medications.Clear();
+            foreach (var (medication, index) in submittedMedications.Select((medication, index) => (medication, index)))
+            {
+                patient.Medications.Add(new PatientMedication
+                {
+                    PatientId = patient.Id,
+                    Name = medication.Name,
+                    Dosage = medication.Dosage,
+                    Schedule = medication.Schedule,
+                    SortOrder = index,
+                });
+            }
+
+            // Persist contact, clinical and medication fields together.
+            await _context.SaveChangesAsync();
+
+            if (linkChanged && _dailyCheckIns != null)
+            {
+                await _dailyCheckIns.SyncPatientLinkAsync(
+                    previousSupabaseProfileId,
+                    supabaseProfileId);
+            }
 
             // Read back by id rather than by the route key, which may have been
             // the profile username that this update just changed.
@@ -295,6 +416,19 @@ namespace backend.Services
         {
             var trimmed = value?.Trim();
             return string.IsNullOrEmpty(trimmed) ? null : trimmed.ToLowerInvariant();
+        }
+
+        private static string? Clean(string? value) =>
+            string.IsNullOrWhiteSpace(value) ? null : value.Trim();
+
+        private static string? JoinList(IEnumerable<string>? values)
+        {
+            var cleaned = (values ?? Array.Empty<string>())
+                .Select(Clean)
+                .Where(value => value != null)
+                .Distinct(StringComparer.OrdinalIgnoreCase)
+                .ToList();
+            return cleaned.Count == 0 ? null : string.Join(", ", cleaned);
         }
 
         /// <summary>
@@ -325,23 +459,37 @@ namespace backend.Services
             }
         }
 
-        private static AppointmentSummaryDto MapToAppointmentSummary(Appointment appointment)
+        private static AppointmentSummaryDto MapToAppointmentSummary(
+            Appointment appointment,
+            string? viewerPersonnelId = null)
         {
+            // Old/imported records can contain a visit whose responsible user no
+            // longer matches the appointment assignment. Keep that colleague's
+            // visit metadata out of a normal nurse's patient response.
+            var canSeeVisit = viewerPersonnelId == null ||
+                appointment.Visit?.ResponsibleUserId == viewerPersonnelId;
+
             return new AppointmentSummaryDto
             {
                 Id = appointment.Id,
                 PatientName = appointment.Patient?.FullName ?? string.Empty,
+                PersonnelId = appointment.Availability?.PersonnelId ?? string.Empty,
                 PersonnelName = appointment.Availability?.Personnel?.FullName ?? string.Empty,
                 Tasks = appointment.Tasks,
                 Date = appointment.Availability?.Date ?? DateTime.MinValue,
                 StartTime = appointment.StartTime.ToString(@"hh\:mm"),
                 EndTime = appointment.EndTime.ToString(@"hh\:mm"),
                 Status = appointment.Status,
+                PatientResponseStatus = appointment.PatientResponseStatus,
+                PatientRespondedAt = appointment.PatientRespondedAt,
+                PatientProposedDate = appointment.PatientProposedDate?.ToString("yyyy-MM-dd"),
+                PatientProposedStartTime = appointment.PatientProposedStartTime?.ToString(@"hh\:mm"),
+                PatientProposedEndTime = appointment.PatientProposedEndTime?.ToString(@"hh\:mm"),
                 FormattedDateTime = $"{appointment.Availability?.Date:yyyy-MM-dd} {appointment.StartTime:hh\\:mm}-{appointment.EndTime:hh\\:mm}",
                 AvailabilityNotes = appointment.Availability?.Notes ?? string.Empty,
-                VisitId = appointment.Visit?.Id,
-                VisitStatus = appointment.Visit?.Status,
-                VisitType = appointment.Visit?.VisitType
+                VisitId = canSeeVisit ? appointment.Visit?.Id : null,
+                VisitStatus = canSeeVisit ? appointment.Visit?.Status : null,
+                VisitType = canSeeVisit ? appointment.Visit?.VisitType : null
             };
         }
     }

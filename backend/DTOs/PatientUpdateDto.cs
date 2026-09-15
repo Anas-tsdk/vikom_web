@@ -19,6 +19,18 @@ namespace backend.DTOs
         public string? PhoneNumber { get; set; }
 
         public string? Address { get; set; }
+        [Range(-90, 90)] public double? Latitude { get; set; }
+        [Range(-180, 180)] public double? Longitude { get; set; }
+
+        public DateTime? DateOfBirth { get; set; }
+        public string? NextOfKinName { get; set; }
+        public string? NextOfKinRelation { get; set; }
+        public string? GeneralPractitioner { get; set; }
+        public string? Allergies { get; set; }
+        public List<string> Diagnoses { get; set; } = new();
+        public List<string> ConditionFlags { get; set; } = new();
+        public string? TreatmentPlan { get; set; }
+        public List<MedicationDto> Medications { get; set; } = new();
 
         /// <summary>
         /// UUID of the patient's Supabase profile. Empty clears the link, which

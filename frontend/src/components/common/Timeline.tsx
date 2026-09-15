@@ -1,5 +1,6 @@
 import React from 'react';
 import EmptyState from './EmptyState';
+import { useTranslation } from 'react-i18next';
 import './Timeline.css';
 
 export interface TimelineItem {
@@ -24,12 +25,13 @@ interface TimelineProps {
  */
 const Timeline: React.FC<TimelineProps> = ({
   items,
-  emptyText = 'Ingen aktivitet å vise.',
+  emptyText,
   emptyIcon = 'activity',
   className = '',
 }) => {
+  const { t } = useTranslation();
   if (items.length === 0) {
-    return <EmptyState icon={emptyIcon} text={emptyText} />;
+    return <EmptyState icon={emptyIcon} text={emptyText ?? t('Ingen aktivitet å vise.')} />;
   }
 
   return (

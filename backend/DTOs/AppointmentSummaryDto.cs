@@ -4,6 +4,7 @@ namespace backend.DTOs
     {
         public int Id { get; set; }
         public string PatientName { get; set; } = string.Empty;
+        public string PersonnelId { get; set; } = string.Empty;
         public string PersonnelName { get; set; } = string.Empty;
         // Stores comma-separated list of tasks (e.g., "Medication, Vitals, Exercises")
         public string Tasks { get; set; } = string.Empty;
@@ -11,6 +12,11 @@ namespace backend.DTOs
         public string StartTime { get; set; } = string.Empty; // "14:30" format
         public string EndTime { get; set; } = string.Empty;
         public string Status { get; set; } = string.Empty;
+        public string PatientResponseStatus { get; set; } = string.Empty;
+        public DateTime? PatientRespondedAt { get; set; }
+        public string? PatientProposedDate { get; set; }
+        public string? PatientProposedStartTime { get; set; }
+        public string? PatientProposedEndTime { get; set; }
         public string FormattedDateTime { get; set; } = string.Empty;
         public string AvailabilityNotes { get; set; } = string.Empty;
 

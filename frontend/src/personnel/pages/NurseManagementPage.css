@@ -1,0 +1,58 @@
+.nurse-management-page { padding: var(--space-6); }
+
+.nurse-loading {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-3);
+  min-height: 12rem;
+}
+
+.nurse-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(19rem, 1fr));
+  gap: var(--space-4);
+}
+
+.nurse-card {
+  display: flex;
+  gap: var(--space-3);
+  padding: var(--space-4);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-default);
+  background: var(--bs-white);
+}
+
+.nurse-avatar {
+  display: grid;
+  place-items: center;
+  width: 2.75rem;
+  height: 2.75rem;
+  flex: 0 0 auto;
+  border-radius: 50%;
+  background: var(--bs-light);
+  color: var(--bs-primary);
+  font-size: var(--fs-lg);
+}
+
+.nurse-card__body { display: flex; flex-direction: column; gap: var(--space-2); min-width: 0; }
+.nurse-card__body > span { overflow-wrap: anywhere; color: var(--text-muted); font-size: var(--fs-sm); }
+.nurse-card__heading { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-2); }
+.nurse-card__heading h2 { margin: 0; color: var(--bs-dark); font-size: var(--fs-md); }
+
+.nurse-role {
+  padding: .2rem .55rem;
+  border-radius: 999px;
+  background: var(--gray-100);
+  color: var(--bs-dark);
+  font-size: var(--fs-xs);
+  font-weight: 650;
+}
+
+.nurse-role--head { background: var(--bs-primary); color: var(--bs-white); }
+.nurse-form-row { display: grid; grid-template-columns: 1fr 1fr; gap: var(--space-3); }
+
+@media (max-width: 768px) {
+  .nurse-management-page { padding: var(--space-4); }
+  .nurse-form-row { grid-template-columns: 1fr; }
+}

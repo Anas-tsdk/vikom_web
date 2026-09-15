@@ -1,5 +1,6 @@
 import React from 'react';
 import Badge, { type BadgeColor } from './Badge';
+import { useTranslation } from 'react-i18next';
 
 interface StatusBadgeProps {
   status: string;
@@ -11,6 +12,7 @@ interface StatusBadgeProps {
  * label. Supports appointment + visit statuses.
  */
 const StatusBadge: React.FC<StatusBadgeProps> = ({ status, className = '' }) => {
+  const { t } = useTranslation();
   const normalized = status.toLowerCase();
 
   const color = ((): BadgeColor => {
@@ -36,20 +38,20 @@ const StatusBadge: React.FC<StatusBadgeProps> = ({ status, className = '' }) => 
   const label = ((): string => {
     switch (normalized) {
       case 'booked':
-        return 'Planlagt';
+        return t('Planlagt');
       case 'inprogress':
       case 'active':
-        return 'Pågår';
+        return t('Pågår');
       case 'completed':
-        return 'Fullført';
+        return t('Fullført');
       case 'cancelled':
-        return 'Avlyst';
+        return t('Avlyst');
       case 'notcompleted':
-        return 'Ikke gjennomført';
+        return t('Ikke gjennomført');
       case 'incomplete':
-        return 'Ikke fullført';
+        return t('Ikke fullført');
       case 'available':
-        return 'Tilgjengelig';
+        return t('Tilgjengelig');
       default:
         return status;
     }

@@ -16,7 +16,9 @@ public class AppointmentRealtimePayloadTests
             endTime: "11:00",
             personnelName: "Nurse Nora",
             status: "Booked",
-            shortMessage: "Visit scheduled"
+            patientResponseStatus: "Pending",
+            shortMessage: "Visit scheduled",
+            patientName: "Patient One"
         );
 
         var wrapper = AppointmentRealtimeEventService.BuildWrapper("profile-123", payload);
@@ -24,5 +26,7 @@ public class AppointmentRealtimePayloadTests
         Assert.Equal("appointment_event", wrapper["type"]!.ToString());
         Assert.Equal("profile-123", wrapper["targetUserId"]!.ToString());
         Assert.NotNull(wrapper["payload"]);
+        Assert.Contains("\"patientResponseStatus\":\"Pending\"", wrapper["payload"]!.ToString());
+        Assert.Contains("\"patientName\":\"Patient One\"", wrapper["payload"]!.ToString());
     }
 }

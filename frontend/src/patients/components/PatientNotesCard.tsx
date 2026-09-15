@@ -1,8 +1,10 @@
 import React, { useState } from 'react';
 import { Form } from 'react-bootstrap';
+import { useTranslation } from 'react-i18next';
 import SectionCard from '../../components/common/SectionCard';
 import IconButton from '../../components/common/IconButton';
 import PatientService from '../services/PatientService';
+import { localeForLanguage } from '../../i18n';
 
 interface PatientNotesCardProps {
   patientId: string;
@@ -11,11 +13,11 @@ interface PatientNotesCardProps {
   onSaved?: (notes: string) => void;
 }
 
-const formatUpdatedAt = (iso?: string | null): string => {
+const formatUpdatedAt = (iso: string | null | undefined, locale: string): string => {
   if (!iso) return '';
   const d = new Date(iso);
   if (isNaN(d.getTime())) return '';
-  return d.toLocaleString('nb-NO', {
+  return d.toLocaleString(locale, {
     day: '2-digit',
     month: 'short',
     year: 'numeric',
@@ -34,6 +36,7 @@ const PatientNotesCard: React.FC<PatientNotesCardProps> = ({
   notesUpdatedAt,
   onSaved,
 }) => {
+  const { t, i18n } = useTranslation();
   const [notes, setNotes] = useState<string>(initialNotes ?? '');
   const [savedNotes, setSavedNotes] = useState<string>(initialNotes ?? '');
   const [updatedAt, setUpdatedAt] = useState<string | null | undefined>(notesUpdatedAt);
@@ -65,7 +68,7 @@ const PatientNotesCard: React.FC<PatientNotesCardProps> = ({
       onSaved?.(notes);
       setEditing(false);
     } catch (err) {
-      setError('Kunne ikke lagre notatet. Prøv igjen.');
+      setError(t('Kunne ikke lagre notatet. Prøv igjen.'));
       console.error(err);
     } finally {
       setSaving(false);
@@ -80,15 +83,15 @@ const PatientNotesCard: React.FC<PatientNotesCardProps> = ({
 
   const action = editing ? (
     <div className="d-flex gap-2">
-      <IconButton icon="check-lg" title="Lagre" onClick={handleSave} loading={saving} />
-      <IconButton icon="x-lg" title="Avbryt" onClick={handleCancel} disabled={saving} />
+      <IconButton icon="check-lg" title={t('Lagre')} onClick={handleSave} loading={saving} />
+      <IconButton icon="x-lg" title={t('Avbryt')} onClick={handleCancel} disabled={saving} />
     </div>
   ) : (
-    <IconButton icon="pencil" title="Rediger" onClick={handleEdit} />
+    <IconButton icon="pencil" title={t('Rediger')} onClick={handleEdit} />
   );
 
   return (
-    <SectionCard title="Notater" icon="journal-text" action={action}>
+    <SectionCard title={t('Notater')} icon="journal-text" action={action}>
       {editing ? (
         <>
           <Form.Control
@@ -96,7 +99,7 @@ const PatientNotesCard: React.FC<PatientNotesCardProps> = ({
             rows={5}
             value={notes}
             onChange={(e) => setNotes(e.target.value)}
-            placeholder="Skriv et notat om pasienten (oppdateres jevnlig)..."
+            placeholder={t('Skriv et notat om pasienten (oppdateres jevnlig)...')}
             autoFocus
           />
           {error && <div className="text-danger small mt-2">{error}</div>}
@@ -104,11 +107,13 @@ const PatientNotesCard: React.FC<PatientNotesCardProps> = ({
       ) : savedNotes ? (
         <p className="vk-notes-text mb-0">{savedNotes}</p>
       ) : (
-        <p className="text-muted mb-0">Ingen notater enda.</p>
+        <p className="text-muted mb-0">{t('Ingen notater enda.')}</p>
       )}
       {updatedAt && (
         <div className="text-muted small mt-2">
-          Sist oppdatert: {formatUpdatedAt(updatedAt)}
+          {t('Sist oppdatert: {{date}}', {
+            date: formatUpdatedAt(updatedAt, localeForLanguage(i18n.resolvedLanguage)),
+          })}
         </div>
       )}
     </SectionCard>

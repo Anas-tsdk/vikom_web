@@ -1,5 +1,6 @@
 import React from 'react';
 import SectionCard from '../../components/common/SectionCard';
+import { useTranslation } from 'react-i18next';
 import type { Medication } from '../types/patient';
 
 interface MedicationsCardProps {
@@ -9,10 +10,11 @@ interface MedicationsCardProps {
 
 /** "Gjeldende medisinering" — name + dosage on top, schedule beneath. */
 const MedicationsCard: React.FC<MedicationsCardProps> = ({ medications, className }) => {
+  const { t } = useTranslation();
   return (
-    <SectionCard title="Gjeldende medisinering" icon="capsule" className={className}>
+    <SectionCard title={t('Gjeldende medisinering')} icon="capsule" className={className}>
       {medications.length === 0 ? (
-        <p className="text-muted mb-0">Ingen registrerte medisiner.</p>
+        <p className="text-muted mb-0">{t('Ingen registrerte medisiner.')}</p>
       ) : (
         <div className="d-flex flex-column gap-3">
           {medications.map((m, i) => (

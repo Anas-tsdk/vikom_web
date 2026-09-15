@@ -7,6 +7,8 @@ namespace backend.DTOs
         public string Email { get; set; } = string.Empty;
         public string PhoneNumber { get; set; } = string.Empty;
         public string Address { get; set; } = string.Empty;
+        public double? Latitude { get; set; }
+        public double? Longitude { get; set; }
         public string? SupabaseProfileId { get; set; }
         public string? Username { get; set; }
         public int TotalAppointments { get; set; }

@@ -107,6 +107,8 @@ namespace backend.Services
                 AppointmentId = visit.AppointmentId,
                 PatientId = visit.PatientId,
                 PatientName = visit.Patient?.FullName ?? string.Empty,
+                ResponsibleUserId = visit.ResponsibleUserId,
+                ResponsibleUserName = visit.ResponsibleUser?.FullName ?? string.Empty,
                 Date = visit.Appointment?.Availability?.Date.ToString("yyyy-MM-dd"),
                 StartTime = visit.Appointment?.StartTime.ToString(@"hh\:mm"),
                 VisitType = visit.VisitType,

@@ -1,5 +1,6 @@
-import React, { useEffect, useState } from 'react';
+import React, { useState } from 'react';
 import { Modal, Button, Form, Alert } from 'react-bootstrap';
+import { useTranslation } from 'react-i18next';
 
 interface CancelVisitModalProps {
   show: boolean;
@@ -24,43 +25,46 @@ const REASONS = [
  * understand what happened.
  */
 const CancelVisitModal: React.FC<CancelVisitModalProps> = ({ show, onClose, onConfirm }) => {
+  const { t } = useTranslation();
   const [reason, setReason] = useState<string>('');
   const [notes, setNotes] = useState<string>('');
   const [error, setError] = useState<string>('');
   const [submitting, setSubmitting] = useState<boolean>(false);
 
-  // Reset the form each time the modal opens.
-  useEffect(() => {
-    if (show) {
-      setReason('');
-      setNotes('');
-      setError('');
-      setSubmitting(false);
-    }
-  }, [show]);
+  const resetForm = () => {
+    setReason('');
+    setNotes('');
+    setError('');
+    setSubmitting(false);
+  };
+
+  const handleClose = () => {
+    resetForm();
+    onClose();
+  };
 
   const handleConfirm = async () => {
     if (!reason) {
-      setError('Velg en årsak før du avslutter besøket.');
+      setError(t('Velg en årsak før du avslutter besøket.'));
       return;
     }
     try {
       setSubmitting(true);
       await onConfirm(reason, notes);
     } catch {
-      setError('Kunne ikke lagre. Prøv igjen.');
+      setError(t('Kunne ikke lagre. Prøv igjen.'));
       setSubmitting(false);
     }
   };
 
   return (
-    <Modal show={show} onHide={onClose} centered>
+    <Modal show={show} onHide={handleClose} onShow={resetForm} centered>
       <Modal.Header closeButton>
-        <Modal.Title>Avbryt besøk</Modal.Title>
+        <Modal.Title>{t('Avbryt besøk')}</Modal.Title>
       </Modal.Header>
       <Modal.Body>
         {error && <Alert variant="danger">{error}</Alert>}
-        <p className="fw-semibold">Hvorfor kunne ikke besøket gjennomføres?</p>
+        <p className="fw-semibold">{t('Hvorfor kunne ikke besøket gjennomføres?')}</p>
         <Form>
           {REASONS.map((r) => (
             <Form.Check
@@ -68,30 +72,30 @@ const CancelVisitModal: React.FC<CancelVisitModalProps> = ({ show, onClose, onCo
               type="radio"
               name="cancel-reason"
               id={`cancel-reason-${r}`}
-              label={r}
+              label={t(r)}
               value={r}
               checked={reason === r}
               onChange={() => setReason(r)}
             />
           ))}
           <Form.Group className="mt-3">
-            <Form.Label>Notat (valgfritt)</Form.Label>
+            <Form.Label>{t('Notat (valgfritt)')}</Form.Label>
             <Form.Control
               as="textarea"
               rows={3}
               value={notes}
               onChange={(e) => setNotes(e.target.value)}
-              placeholder="Utfyllende informasjon..."
+              placeholder={t('Utfyllende informasjon...')}
             />
           </Form.Group>
         </Form>
       </Modal.Body>
       <Modal.Footer>
-        <Button variant="outline-secondary" onClick={onClose} disabled={submitting}>
-          Avbryt
+        <Button variant="outline-secondary" onClick={handleClose} disabled={submitting}>
+          {t('Avbryt')}
         </Button>
         <Button variant="danger" onClick={handleConfirm} disabled={submitting}>
-          {submitting ? 'Lagrer...' : 'Lagre og avslutt besøk'}
+          {submitting ? t('Lagrer...') : t('Lagre og avslutt besøk')}
         </Button>
       </Modal.Footer>
     </Modal>

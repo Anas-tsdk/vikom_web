@@ -15,9 +15,13 @@ namespace backend.Models
         [Display(Name = "Address")]
         public string? Address { get; set; }
 
+        /// <summary>Map coordinates for the validated patient address.</summary>
+        public double? Latitude { get; set; }
+        public double? Longitude { get; set; }
+
         [Required(ErrorMessage = "Role is required.")]
-        [RegularExpression(@"^(Personnel|Patient)$", ErrorMessage = "Role must be either 'Personnel' or 'Patient'.")]
-        public string Role { get; set; } = string.Empty; // "Personnel" or "Patient"
+        [RegularExpression(@"^(Nurse|HeadNurse|Personnel|Patient)$", ErrorMessage = "Role must be Nurse, HeadNurse, Personnel (legacy), or Patient.")]
+        public string Role { get; set; } = string.Empty;
 
         /// <summary>
         /// Optional: UUID from Supabase profiles.id for integration with Cart's TV app.
@@ -25,6 +29,17 @@ namespace backend.Models
         /// </summary>
         [Display(Name = "Supabase Profile ID")]
         public string? SupabaseProfileId { get; set; }
+
+        /// <summary>
+        /// Daily safety check-ins start only after a Supabase account is linked
+        /// to this patient in the web portal. Unlinked ViKom accounts never enter
+        /// the alert calculation.
+        /// </summary>
+        public bool DailyCheckInEnabled { get; set; }
+        public DateTime? DailyCheckInStartedAt { get; set; }
+        public DateTime? LastDailyCheckInAt { get; set; }
+        public string? LastDailyCheckInSource { get; set; }
+        public string? LastDailyCheckInConfirmedByUserId { get; set; }
 
         /// <summary>
         /// Human-readable handle (from the Supabase profile, e.g. "ingrid.berg")
@@ -47,7 +62,7 @@ namespace backend.Models
         /// </summary>
         public DateTime? NotesUpdatedAt { get; set; }
 
-        // --- Patient clinical profile (read-only in the app for now) ---
+        // --- Patient clinical profile ---
         // These describe a patient's ongoing care record and are surfaced on the
         // Besøk workspace and the patient details page. Null/empty for personnel.
 

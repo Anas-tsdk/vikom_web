@@ -1,4 +1,7 @@
 // Date and week utility functions for Availability Calendar
+import { localeForLanguage } from '../i18n';
+
+const currentLocale = () => localeForLanguage();
 
 /**
  * Gets the Monday of the week containing the given date
@@ -31,7 +34,7 @@ export function formatDateISO(date: Date): string {
  * Formats a date to readable format like "Monday, Dec 4, 2025"
  */
 export function formatDateLong(date: Date): string {
-  return date.toLocaleDateString('nb-NO', {
+  return date.toLocaleDateString(currentLocale(), {
     weekday: 'long',
     year: 'numeric',
     month: 'short',
@@ -43,7 +46,7 @@ export function formatDateLong(date: Date): string {
  * Formats a date to short format like "Dec 4"
  */
 export function formatDateShort(date: Date): string {
-  return date.toLocaleDateString('nb-NO', {
+  return date.toLocaleDateString(currentLocale(), {
     month: 'short',
     day: 'numeric',
   });
@@ -53,7 +56,7 @@ export function formatDateShort(date: Date): string {
  * Gets the day name (Sun, Mon, Tue, etc.)
  */
 export function getDayName(date: Date): string {
-  return date.toLocaleDateString('nb-NO', { weekday: 'short' });
+  return date.toLocaleDateString(currentLocale(), { weekday: 'short' });
 }
 
 /**
@@ -108,16 +111,14 @@ export function addWeeks(date: Date, weeks: number): Date {
  * Formats week range like "Nov 30 - Dec 6, 2025"
  */
 export function formatWeekRange(startDate: Date, endDate: Date): string {
-  const startMonth = startDate.toLocaleDateString('nb-NO', { month: 'short' });
-  const startDay = startDate.getDate();
-  const endMonth = endDate.toLocaleDateString('nb-NO', { month: 'short' });
-  const endDay = endDate.getDate();
-  const year = endDate.getFullYear();
-
-  if (startMonth === endMonth) {
-    return `${startMonth} ${startDay} - ${endDay}, ${year}`;
-  }
-  return `${startMonth} ${startDay} - ${endMonth} ${endDay}, ${year}`;
+  const locale = currentLocale();
+  const start = startDate.toLocaleDateString(locale, { day: 'numeric', month: 'short' });
+  const end = endDate.toLocaleDateString(locale, {
+    day: 'numeric',
+    month: 'short',
+    year: 'numeric',
+  });
+  return `${start} – ${end}`;
 }
 
 /**

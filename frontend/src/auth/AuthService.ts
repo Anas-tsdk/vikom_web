@@ -1,12 +1,18 @@
 import { API_URL } from '../config/config';
 import type { LoginDto, RegisterDto } from '../types';
 
-interface UserInfo {
+export interface UserInfo {
   userName: string;
   fullName: string;
   role: string;
   userId: string;
 }
+
+interface SessionResponse extends UserInfo {
+  token: string;
+}
+
+let refreshPromise: Promise<void> | null = null;
 
 // stores JWT token in localStorage
 export function setToken(token: string): void {
@@ -43,7 +49,83 @@ export function logout(): void {
 
 // checks if user is currently authenticated
 export function isAuthenticated(): boolean {
-  return getToken() !== null;
+  const token = getToken();
+  if (!token) return false;
+
+  try {
+    const payloadPart = token.split('.')[1];
+    if (!payloadPart) throw new Error('Invalid JWT');
+
+    const base64 = payloadPart.replace(/-/g, '+').replace(/_/g, '/');
+    const padded = base64.padEnd(Math.ceil(base64.length / 4) * 4, '=');
+    const payload = JSON.parse(atob(padded)) as { exp?: number };
+
+    if (typeof payload.exp !== 'number' || payload.exp <= Date.now() / 1000) {
+      logout();
+      return false;
+    }
+
+    return true;
+  } catch {
+    // The backend always issues a JWT. Treat malformed stored values as an
+    // expired session instead of leaving every API request failing with 401.
+    logout();
+    return false;
+  }
+}
+
+const storeSession = (data: SessionResponse): void => {
+  setToken(data.token);
+  setUserInfo({
+    userName: data.userName,
+    fullName: data.fullName,
+    role: data.role,
+    userId: data.userId,
+  });
+};
+
+/**
+ * Refreshes browser session metadata from the authoritative user record.
+ * This transparently upgrades older Personnel sessions after the nurse-role
+ * migration, so Nora receives the Head Nurse UI without clearing storage by
+ * hand. A temporary network/server error leaves the valid local session alone.
+ */
+export function refreshSession(): Promise<void> {
+  if (refreshPromise) return refreshPromise;
+
+  const token = getToken();
+  if (!token) return Promise.resolve();
+
+  refreshPromise = (async () => {
+    try {
+      const response = await fetch(`${API_URL}/api/auth/refresh`, {
+        method: 'POST',
+        headers: getAuthHeader(),
+      });
+
+      if (response.status === 401 || response.status === 403) {
+        logout();
+        return;
+      }
+      if (!response.ok) return;
+
+      const data = await response.json() as Partial<SessionResponse>;
+      if (typeof data.token !== 'string' || typeof data.userName !== 'string'
+        || typeof data.fullName !== 'string' || typeof data.role !== 'string'
+        || typeof data.userId !== 'string') {
+        return;
+      }
+
+      storeSession(data as SessionResponse);
+    } catch {
+      // Offline development should not destroy a locally valid session. API
+      // requests will report the connection problem through their normal UI.
+    }
+  })().finally(() => {
+    refreshPromise = null;
+  });
+
+  return refreshPromise;
 }
 
 // logs in user and stores JWT token; returns a result with a reason on failure
@@ -75,13 +157,7 @@ export async function login(
       return { success: false, message: 'Uventet svar fra serveren.' };
     }
 
-    setToken(data.token);
-    setUserInfo({
-      userName: data.userName,
-      fullName: data.fullName,
-      role: data.role,
-      userId: data.userId,
-    });
+    storeSession(data as SessionResponse);
 
     return { success: true };
   } catch {
@@ -98,7 +174,8 @@ export async function login(
  * Sends user information to backend and returns result with error details if applicable.
  * 
  * @param registerDto - User registration data including username, email, password, etc.
- * The backend always assigns the Personnel role; the portal has no patient accounts.
+ * The public endpoint always assigns the normal Nurse role; only a signed-in
+ * head nurse can create another head-nurse account.
  * @returns Promise with success status and optional error message
  */
 export async function register(registerDto: RegisterDto): Promise<{ success: boolean; message?: string }> {
@@ -118,16 +195,29 @@ export async function register(registerDto: RegisterDto): Promise<{ success: boo
     }
 
     // extracts error details from response
-    const errorData = await response.json();
+    const errorData: unknown = await response.json().catch(() => null);
+
+    if (Array.isArray(errorData)) {
+      const messages = errorData.map((error) => (
+        error && typeof error === 'object' && 'description' in error
+          ? String(error.description)
+          : ''
+      )).filter(Boolean);
+      if (messages.length > 0) return { success: false, message: messages.join(', ') };
+    }
+
+    const errorObject = errorData && typeof errorData === 'object' && !Array.isArray(errorData)
+      ? errorData as { errors?: Record<string, string[]>; message?: string }
+      : null;
     
     // formats validation errors if present
-    if (errorData.errors) {
-      const errorMessages = Object.values(errorData.errors).flat().join(', ');
+    if (errorObject?.errors) {
+      const errorMessages = Object.values(errorObject.errors).flat().join(', ');
       return { success: false, message: errorMessages };
     }
 
     // returns generic error message
-    return { success: false, message: errorData.message || 'Registration failed' };
+    return { success: false, message: errorObject?.message || 'Registration failed' };
   } catch {
     return { success: false, message: 'Nettverksfeil. Vennligst prøv igjen.' };
   }

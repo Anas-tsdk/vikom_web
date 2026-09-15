@@ -13,12 +13,14 @@ namespace backend.DAL
 
         public DbSet<Availability> Availabilities => Set<Availability>();
         public DbSet<AvailabilityWindow> AvailabilityWindows => Set<AvailabilityWindow>();
+        public DbSet<WeeklyAvailabilityRule> WeeklyAvailabilityRules => Set<WeeklyAvailabilityRule>();
         public DbSet<Appointment> Appointments => Set<Appointment>();
         public DbSet<PatientUserLink> PatientUserLinks => Set<PatientUserLink>();
         public DbSet<CallLog> CallLogs => Set<CallLog>();
         public DbSet<Visit> Visits => Set<Visit>();
         public DbSet<VisitTask> VisitTasks => Set<VisitTask>();
         public DbSet<PatientMedication> PatientMedications => Set<PatientMedication>();
+        public DbSet<DeclinedAppointmentSlot> DeclinedAppointmentSlots => Set<DeclinedAppointmentSlot>();
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
@@ -53,6 +55,19 @@ namespace backend.DAL
                 .HasMany(w => w.Slots)
                 .WithOne(a => a.AvailabilityWindow)
                 .HasForeignKey(a => a.AvailabilityWindowId)
+                .OnDelete(DeleteBehavior.Cascade);
+
+            modelBuilder.Entity<AvailabilityWindow>()
+                .HasIndex(w => new { w.PersonnelId, w.Date });
+
+            modelBuilder.Entity<WeeklyAvailabilityRule>()
+                .HasIndex(r => new { r.PersonnelId, r.DayOfWeek })
+                .IsUnique();
+
+            modelBuilder.Entity<WeeklyAvailabilityRule>()
+                .HasOne(r => r.Personnel)
+                .WithMany()
+                .HasForeignKey(r => r.PersonnelId)
                 .OnDelete(DeleteBehavior.Cascade);
 
             // CallLog has two FKs to AspNetUsers (patient + personnel); use Restrict
@@ -112,6 +127,15 @@ namespace backend.DAL
                 .WithMany(u => u.Medications)
                 .HasForeignKey(m => m.PatientId)
                 .OnDelete(DeleteBehavior.Cascade);
+
+            modelBuilder.Entity<DeclinedAppointmentSlot>()
+                .HasOne(slot => slot.Patient)
+                .WithMany()
+                .HasForeignKey(slot => slot.PatientId)
+                .OnDelete(DeleteBehavior.Cascade);
+
+            modelBuilder.Entity<DeclinedAppointmentSlot>()
+                .HasIndex(slot => new { slot.PatientId, slot.Date });
 
             // We persist DateTimes as UTC (DateTime.UtcNow), but SQLite returns
             // them with Kind=Unspecified — which serializes WITHOUT a trailing

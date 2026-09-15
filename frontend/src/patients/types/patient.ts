@@ -7,6 +7,8 @@ export interface PatientListDto {
   email: string;
   phoneNumber: string;
   address: string;
+  latitude?: number | null;
+  longitude?: number | null;
   supabaseProfileId?: string | null;
   username?: string | null;
   totalAppointments: number;
@@ -30,7 +32,7 @@ export interface Medication {
   schedule?: string | null;
 }
 
-// Read-only clinical profile shown on the visit workspace and patient page
+// Clinical profile shown on the visit workspace and edited on the patient page
 export interface PatientClinical {
   dateOfBirth?: string | null;
   nextOfKinName?: string | null;
@@ -50,6 +52,8 @@ export interface PatientDetailsDto {
   email: string;
   phoneNumber: string;
   address?: string;
+  latitude?: number | null;
+  longitude?: number | null;
   supabaseProfileId?: string | null;
   username?: string | null;
   totalAppointments: number;
@@ -70,7 +74,18 @@ export interface PatientUpdateDto {
   email: string;
   phoneNumber?: string | null;
   address?: string;
+  latitude?: number | null;
+  longitude?: number | null;
   supabaseProfileId?: string | null;
+  dateOfBirth?: string | null;
+  nextOfKinName?: string | null;
+  nextOfKinRelation?: string | null;
+  generalPractitioner?: string | null;
+  allergies?: string | null;
+  diagnoses?: string[];
+  medications?: Medication[];
+  conditionFlags?: string[];
+  treatmentPlan?: string | null;
 }
 
 // Payload for registering a new patient from the portal. supabaseProfileId
@@ -81,5 +96,7 @@ export interface PatientCreateDto {
   email: string;
   phoneNumber?: string | null;
   address?: string;
+  latitude?: number | null;
+  longitude?: number | null;
   supabaseProfileId?: string | null;
 }

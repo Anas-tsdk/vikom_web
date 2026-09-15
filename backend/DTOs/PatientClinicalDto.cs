@@ -1,8 +1,8 @@
 namespace backend.DTOs
 {
     /// <summary>
-    /// A patient's read-only clinical profile shown on the Besøk workspace and
-    /// the patient details page.
+    /// A patient's clinical profile shown on the visit workspace and editable
+    /// from the patient details page.
     /// </summary>
     public class PatientClinicalDto
     {

@@ -13,20 +13,26 @@ namespace backend.DAL
             // cannot vouch for.
             await context.Database.MigrateAsync();
 
-            // Check if roles exist, if not create them
-            if (!await roleManager.RoleExistsAsync("Personnel"))
+            // Keep the legacy Personnel role while old JWTs are still in the
+            // wild, but all newly stored staff use Nurse or HeadNurse.
+            foreach (var role in new[]
+                     {
+                         UserRoles.Nurse,
+                         UserRoles.HeadNurse,
+                         UserRoles.LegacyPersonnel,
+                         UserRoles.Patient
+                     })
             {
-                await roleManager.CreateAsync(new IdentityRole("Personnel"));
+                if (!await roleManager.RoleExistsAsync(role))
+                {
+                    await roleManager.CreateAsync(new IdentityRole(role));
+                }
             }
 
-            if (!await roleManager.RoleExistsAsync("Patient"))
-            {
-                await roleManager.CreateAsync(new IdentityRole("Patient"));
-            }
+            await NormalizePortalStaffRolesAsync(userManager);
 
-            // NOT a one-time cleanup: AvailabilityService can still produce
-            // duplicate slots (see the note on RemoveDuplicateSlotDataAsync),
-            // so this has to keep running until that is fixed properly.
+            // Repair duplicate rows left by older builds before the current
+            // upsert-based availability implementation was introduced.
             await RemoveDuplicateSlotDataAsync(context);
 
             // Ensure base personnel and a broader demo patient set always exist.
@@ -35,7 +41,7 @@ namespace backend.DAL
                 userName: "nurse@homecare.local",
                 email: "nurse@homecare.local",
                 fullName: "Nurse Nora",
-                role: "Personnel",
+                role: UserRoles.HeadNurse,
                 phoneNumber: "+47 900 00 001",
                 address: "Sognsveien 10, 0450 Oslo");
 
@@ -48,7 +54,7 @@ namespace backend.DAL
                 userName: "patient.ingrid@homecare.local",
                 email: "patient.ingrid@homecare.local",
                 fullName: "Ingrid Berg",
-                role: "Patient",
+                role: UserRoles.Patient,
                 phoneNumber: "+47 900 00 104",
                 address: "Grensen 12, 0159 Oslo",
                 supabaseProfileId: "c9f53a55-1375-48e6-95ce-25917f55be2d");
@@ -61,7 +67,7 @@ namespace backend.DAL
                 userName: "patient.wayki@homecare.local",
                 email: "wayki@oslomet.no",
                 fullName: "Bong Wayki",
-                role: "Patient",
+                role: UserRoles.Patient,
                 phoneNumber: "+47 900 00 105",
                 address: "Thorvald Meyers gate 33, 0555 Oslo",
                 supabaseProfileId: "4fb30313-b8e6-4381-896c-d345b5d3bd72");
@@ -77,7 +83,10 @@ namespace backend.DAL
             // Seed availability windows if none exist (NEW SYSTEM)
             if (!context.AvailabilityWindows.Any())
             {
-                var personnel = context.Users.FirstOrDefault(u => u.Role == "Personnel");
+                var personnel = context.Users.FirstOrDefault(u =>
+                    u.Role == UserRoles.Nurse ||
+                    u.Role == UserRoles.HeadNurse ||
+                    u.Role == UserRoles.LegacyPersonnel);
                 if (personnel != null)
                 {
                     var windows = new List<AvailabilityWindow>
@@ -127,9 +136,6 @@ namespace backend.DAL
                     // stays small and consistent with the visit architecture.
                 }
             }
-
-            // Enforce the upcoming 7-day availability pattern used by the dashboard module.
-            await EnsureUpcomingWeekAvailabilityPatternAsync(context);
 
             // Seed the canonical demo set: exactly 5 appointments (2 planned +
             // 3 completed), where the completed ones carry real Visit records.
@@ -268,7 +274,10 @@ namespace backend.DAL
         {
             if (await context.Appointments.AnyAsync()) return;
 
-            var nurse = await context.Users.FirstOrDefaultAsync(u => u.Role == "Personnel");
+            var nurse = await context.Users.FirstOrDefaultAsync(u =>
+                u.Role == UserRoles.Nurse ||
+                u.Role == UserRoles.HeadNurse ||
+                u.Role == UserRoles.LegacyPersonnel);
             var ingrid = await context.Users.FirstOrDefaultAsync(u => u.UserName == "patient.ingrid@homecare.local");
             if (nurse == null || ingrid == null) return;
 
@@ -305,7 +314,8 @@ namespace backend.DAL
                     Tasks = p.Tasks,
                     StartTime = p.Start,
                     EndTime = p.End,
-                    Status = "Booked"
+                    Status = "Booked",
+                    PatientResponseStatus = "Accepted"
                 });
             }
             await context.SaveChangesAsync();
@@ -333,7 +343,8 @@ namespace backend.DAL
                     Tasks = c.Tasks,
                     StartTime = c.Start,
                     EndTime = c.End,
-                    Status = incomplete ? "NotCompleted" : "Completed"
+                    Status = incomplete ? "NotCompleted" : "Completed",
+                    PatientResponseStatus = "Accepted"
                 };
                 context.Appointments.Add(appt);
                 await context.SaveChangesAsync();
@@ -474,7 +485,11 @@ namespace backend.DAL
                     PhoneNumber = phoneNumber,
                     Address = address,
                     EmailConfirmed = true,
-                    SupabaseProfileId = supabaseProfileId
+                    SupabaseProfileId = supabaseProfileId,
+                    DailyCheckInEnabled = role == UserRoles.Patient && supabaseProfileId != null,
+                    DailyCheckInStartedAt = role == UserRoles.Patient && supabaseProfileId != null
+                        ? DateTime.UtcNow
+                        : null
                 };
 
                 var createResult = await userManager.CreateAsync(newUser, "Pass123!");
@@ -499,7 +514,8 @@ namespace backend.DAL
                 existingUser.PhoneNumber != phoneNumber ||
                 existingUser.Address != address ||
                 !existingUser.EmailConfirmed ||
-                existingUser.SupabaseProfileId != supabaseProfileId;
+                existingUser.SupabaseProfileId != supabaseProfileId ||
+                (role == UserRoles.Patient && supabaseProfileId != null && !existingUser.DailyCheckInEnabled);
 
             if (requiresUpdate)
             {
@@ -509,7 +525,20 @@ namespace backend.DAL
                 existingUser.PhoneNumber = phoneNumber;
                 existingUser.Address = address;
                 existingUser.EmailConfirmed = true;
+                var linkChanged = existingUser.SupabaseProfileId != supabaseProfileId;
                 existingUser.SupabaseProfileId = supabaseProfileId;
+                existingUser.DailyCheckInEnabled = role == UserRoles.Patient && supabaseProfileId != null;
+                if (existingUser.DailyCheckInEnabled && (linkChanged || existingUser.DailyCheckInStartedAt == null))
+                {
+                    existingUser.DailyCheckInStartedAt = DateTime.UtcNow;
+                }
+                else if (!existingUser.DailyCheckInEnabled)
+                {
+                    existingUser.DailyCheckInStartedAt = null;
+                    existingUser.LastDailyCheckInAt = null;
+                    existingUser.LastDailyCheckInSource = null;
+                    existingUser.LastDailyCheckInConfirmedByUserId = null;
+                }
 
                 // A unique-index violation here would otherwise take down startup.
                 // The check above covers the case we know about; this keeps any
@@ -534,9 +563,71 @@ namespace backend.DAL
                 }
             }
 
-            if (!await userManager.IsInRoleAsync(existingUser, role))
+            await SyncIdentityRoleAsync(userManager, existingUser, role);
+        }
+
+        /// <summary>
+        /// Idempotent data migration for databases created before Nurse and
+        /// HeadNurse were introduced. Nurse Nora is the initial head nurse;
+        /// every other legacy Personnel account becomes a normal Nurse.
+        /// </summary>
+        private static async Task NormalizePortalStaffRolesAsync(UserManager<User> userManager)
+        {
+            var staff = await userManager.Users
+                .Where(user =>
+                    user.Role == UserRoles.LegacyPersonnel ||
+                    user.Role == UserRoles.Nurse ||
+                    user.Role == UserRoles.HeadNurse)
+                .ToListAsync();
+
+            foreach (var user in staff)
             {
-                await userManager.AddToRoleAsync(existingUser, role);
+                var desiredRole = user.Role;
+                if (user.Role == UserRoles.LegacyPersonnel)
+                {
+                    desiredRole = string.Equals(
+                        user.UserName,
+                        "nurse@homecare.local",
+                        StringComparison.OrdinalIgnoreCase)
+                        ? UserRoles.HeadNurse
+                        : UserRoles.Nurse;
+
+                    user.Role = desiredRole;
+                    var result = await userManager.UpdateAsync(user);
+                    if (!result.Succeeded)
+                    {
+                        Console.WriteLine(
+                            $"Seeder: could not migrate staff role for '{user.UserName}': " +
+                            string.Join("; ", result.Errors.Select(error => error.Description)));
+                        continue;
+                    }
+                }
+
+                await SyncIdentityRoleAsync(userManager, user, desiredRole);
+            }
+        }
+
+        private static async Task SyncIdentityRoleAsync(
+            UserManager<User> userManager,
+            User user,
+            string desiredRole)
+        {
+            var assignedRoles = await userManager.GetRolesAsync(user);
+            var obsoleteRoles = assignedRoles
+                .Where(role =>
+                    UserRoles.IsPortalStaff(role) &&
+                    !string.Equals(role, desiredRole, StringComparison.OrdinalIgnoreCase))
+                .ToArray();
+
+            if (obsoleteRoles.Length > 0)
+            {
+                await userManager.RemoveFromRolesAsync(user, obsoleteRoles);
+            }
+
+            if (!assignedRoles.Any(role =>
+                    string.Equals(role, desiredRole, StringComparison.OrdinalIgnoreCase)))
+            {
+                await userManager.AddToRoleAsync(user, desiredRole);
             }
         }
 
@@ -671,216 +762,11 @@ namespace backend.DAL
             };
         }
 
-        private static async Task EnsureUpcomingWeekAvailabilityPatternAsync(ApplicationDbContext context)
-        {
-            var personnel = await context.Users.FirstOrDefaultAsync(u => u.Role == "Personnel");
-            if (personnel == null)
-            {
-                return;
-            }
-
-            var today = DateTime.Today;
-            var weekEnd = today.AddDays(6);
-            const string defaultAddressNote = "Sone A, Hagegata 25, 0653 Oslo";
-            const string unavailableNote = "Fridag";
-
-            var weekAvailabilities = await context.Availabilities
-                .Include(availability => availability.Appointment)
-                .Where(availability =>
-                    availability.PersonnelId == personnel.Id
-                    && availability.Date >= today
-                    && availability.Date <= weekEnd)
-                .ToListAsync();
-
-            var weekWindows = await context.AvailabilityWindows
-                .Where(window =>
-                    window.PersonnelId == personnel.Id
-                    && window.Date >= today
-                    && window.Date <= weekEnd)
-                .OrderBy(window => window.Date)
-                .ThenBy(window => window.Id)
-                .ToListAsync();
-
-            for (var offset = 0; offset < 7; offset++)
-            {
-                var currentDate = today.AddDays(offset).Date;
-                var dayAvailabilities = weekAvailabilities
-                    .Where(availability => availability.Date == currentDate)
-                    .ToList();
-                var dayWindows = weekWindows
-                    .Where(window => window.Date == currentDate)
-                    .ToList();
-
-                var isAvailableDay = TryGetScheduledWindowForDay(
-                    currentDate.DayOfWeek,
-                    out var windowStart,
-                    out var windowEnd);
-
-                var primaryWindow = dayWindows.FirstOrDefault();
-                if (primaryWindow == null)
-                {
-                    primaryWindow = new AvailabilityWindow
-                    {
-                        PersonnelId = personnel.Id,
-                        Date = currentDate
-                    };
-
-                    context.AvailabilityWindows.Add(primaryWindow);
-                    await context.SaveChangesAsync();
-                    weekWindows.Add(primaryWindow);
-                    dayWindows.Add(primaryWindow);
-                }
-
-                primaryWindow.IsAvailable = isAvailableDay;
-                primaryWindow.StartTime = isAvailableDay ? windowStart : TimeSpan.Zero;
-                primaryWindow.EndTime = isAvailableDay ? windowEnd : TimeSpan.Zero;
-                primaryWindow.Notes = isAvailableDay ? defaultAddressNote : unavailableNote;
-
-                var desiredSlots = isAvailableDay
-                    ? BuildBufferedSlots(windowStart, windowEnd)
-                    : new List<(TimeSpan Start, TimeSpan End)>();
-
-                var desiredSlotSet = desiredSlots
-                    .Select(slot => slot.Start)
-                    .ToHashSet();
-
-                var staleUnbookedSlots = dayAvailabilities
-                    .Where(availability =>
-                        availability.Appointment == null
-                        && !desiredSlotSet.Contains(availability.StartTime))
-                    .ToList();
-
-                if (staleUnbookedSlots.Count > 0)
-                {
-                    context.Availabilities.RemoveRange(staleUnbookedSlots);
-                    weekAvailabilities.RemoveAll(availability => staleUnbookedSlots.Any(stale => stale.Id == availability.Id));
-                    dayAvailabilities.RemoveAll(availability => staleUnbookedSlots.Any(stale => stale.Id == availability.Id));
-                }
-
-                if (isAvailableDay)
-                {
-                    foreach (var desiredSlot in desiredSlots)
-                    {
-                        var existingSlot = dayAvailabilities.FirstOrDefault(availability =>
-                            availability.StartTime == desiredSlot.Start);
-
-                        if (existingSlot == null)
-                        {
-                            var slot = new Availability
-                            {
-                                PersonnelId = personnel.Id,
-                                Date = currentDate,
-                                StartTime = desiredSlot.Start,
-                                EndTime = desiredSlot.End,
-                                Notes = defaultAddressNote,
-                                AvailabilityWindowId = primaryWindow.Id
-                            };
-
-                            context.Availabilities.Add(slot);
-                            weekAvailabilities.Add(slot);
-                            dayAvailabilities.Add(slot);
-                        }
-                        else
-                        {
-                            existingSlot.AvailabilityWindowId = primaryWindow.Id;
-                            if (string.IsNullOrWhiteSpace(existingSlot.Notes))
-                            {
-                                existingSlot.Notes = defaultAddressNote;
-                            }
-                        }
-                    }
-                }
-
-                foreach (var extraWindow in dayWindows.Skip(1))
-                {
-                    var linkedAvailabilities = dayAvailabilities
-                        .Where(availability => availability.AvailabilityWindowId == extraWindow.Id)
-                        .ToList();
-
-                    if (linkedAvailabilities.Any(availability => availability.Appointment != null))
-                    {
-                        continue;
-                    }
-
-                    if (linkedAvailabilities.Count > 0)
-                    {
-                        context.Availabilities.RemoveRange(linkedAvailabilities);
-                        weekAvailabilities.RemoveAll(availability => linkedAvailabilities.Any(linked => linked.Id == availability.Id));
-                        dayAvailabilities.RemoveAll(availability => linkedAvailabilities.Any(linked => linked.Id == availability.Id));
-                    }
-
-                    context.AvailabilityWindows.Remove(extraWindow);
-                    weekWindows.Remove(extraWindow);
-                }
-            }
-
-            await context.SaveChangesAsync();
-        }
-
-        private static bool TryGetScheduledWindowForDay(
-            DayOfWeek dayOfWeek,
-            out TimeSpan startTime,
-            out TimeSpan endTime)
-        {
-            switch (dayOfWeek)
-            {
-                case DayOfWeek.Monday:
-                case DayOfWeek.Friday:
-                    startTime = new TimeSpan(9, 0, 0);
-                    endTime = new TimeSpan(17, 0, 0);
-                    return true;
-                case DayOfWeek.Tuesday:
-                case DayOfWeek.Thursday:
-                    startTime = new TimeSpan(8, 0, 0);
-                    endTime = new TimeSpan(16, 0, 0);
-                    return true;
-                default:
-                    startTime = TimeSpan.Zero;
-                    endTime = TimeSpan.Zero;
-                    return false;
-            }
-        }
-
-        private static List<(TimeSpan Start, TimeSpan End)> BuildBufferedSlots(TimeSpan startTime, TimeSpan endTime)
-        {
-            var slots = new List<(TimeSpan Start, TimeSpan End)>();
-            var slotDuration = TimeSpan.FromHours(1);
-            var travelDuration = TimeSpan.FromMinutes(30);
-            var current = startTime;
-
-            while (current < endTime)
-            {
-                var slotEnd = current.Add(slotDuration);
-                if (slotEnd > endTime)
-                {
-                    break;
-                }
-
-                slots.Add((current, slotEnd));
-                current = slotEnd.Add(travelDuration);
-            }
-
-            return slots;
-        }
-
         private static List<Availability> GenerateSlots(AvailabilityWindow window)
         {
             var slots = new List<Availability>();
 
-            if (!window.IsAvailable)
-            {
-                // Unavailable: create single slot covering the whole period
-                slots.Add(new Availability
-                {
-                    PersonnelId = window.PersonnelId,
-                    Date = window.Date,
-                    StartTime = window.StartTime,
-                    EndTime = window.EndTime,
-                    Notes = window.Notes,
-                    AvailabilityWindowId = window.Id
-                });
-            }
-            else
+            if (window.IsAvailable)
             {
                 // Available: 1-hour appointments with 30-minute travel buffer between visits.
                 var slotDuration = TimeSpan.FromHours(1);

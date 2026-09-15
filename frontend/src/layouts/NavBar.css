@@ -26,7 +26,7 @@
 .navbar-with-sidebar .user-dropdown-wrapper,
 .navbar-with-sidebar .navbar-toggler,
 .navbar-with-sidebar .mobile-sidebar-menu,
-.navbar-with-sidebar .mobile-logout-wrapper {
+.navbar-with-sidebar .mobile-account-tools {
     pointer-events: auto;
 }
 
@@ -103,6 +103,24 @@
     font-size: 1.5rem;
 }
 
+.user-dropdown-identity {
+    display: inline-flex;
+    flex-direction: column;
+    line-height: 1.15;
+}
+
+.user-dropdown-identity small {
+    margin-top: 0.15rem;
+    color: var(--bs-secondary);
+    font-size: 0.7rem;
+    font-weight: 500;
+    opacity: 0.8;
+}
+
+.user-dropdown .dropdown-menu {
+    min-width: 15rem;
+}
+
 .user-dropdown .dropdown-toggle {
     font-weight: 600;
     color: var(--bs-secondary);
@@ -114,6 +132,45 @@
 
 .user-dropdown .dropdown-toggle:hover {
     background-color: var(--bs-light);
+}
+
+.language-menu-toggle,
+.language-option {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1rem;
+}
+
+.language-menu-toggle {
+    font-weight: 600;
+}
+
+.language-menu-label {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.65rem;
+}
+
+.language-options {
+    padding: 0.25rem 0;
+    border-top: 1px solid var(--bs-border-color);
+}
+
+.language-option {
+    padding-left: 2.6rem;
+}
+
+.language-option.active,
+.language-option:active {
+    color: var(--bs-secondary);
+    background-color: var(--bs-light);
+}
+
+.language-menu-toggle:focus-visible,
+.language-option:focus-visible {
+    outline: 2px solid var(--bs-secondary);
+    outline-offset: -2px;
 }
 
 .dropdown-logout {
@@ -149,20 +206,74 @@
     color: var(--bs-dark);
 }
 
-/* Mobile logout button - direct access without dropdown */
-.mobile-logout-wrapper {
+/* Mobile account and language controls */
+.mobile-account-tools {
     width: 100%;
+    padding: 0.75rem 1.5rem;
+    border-top: 1px solid var(--bs-border-color);
+}
+
+.mobile-account-summary {
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    gap: 0.65rem;
+    margin-bottom: 0.75rem;
+    color: var(--bs-secondary);
+    font-weight: 600;
+    text-align: right;
+}
+
+.mobile-account-summary > i {
+    font-size: 1.5rem;
+}
+
+.mobile-language-toggle,
+.mobile-language-option {
+    width: 100%;
+    border: 0;
+    background: transparent;
+    color: var(--bs-dark);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    border-radius: var(--radius-default);
+}
+
+.mobile-language-toggle {
+    padding: 0.75rem 0;
+    font-weight: 600;
+}
+
+.mobile-language-options {
+    padding-bottom: 0.5rem;
+}
+
+.mobile-language-option {
+    padding: 0.6rem 0.75rem;
+}
+
+.mobile-language-option.active {
+    color: var(--bs-secondary);
+    background: var(--bs-light);
+    font-weight: 600;
+}
+
+.mobile-language-toggle:focus-visible,
+.mobile-language-option:focus-visible {
+    outline: 2px solid var(--bs-secondary);
+    outline-offset: 2px;
 }
 
 .mobile-logout-btn {
     color: var(--bs-danger);
     font-weight: 600;
-    padding: 0.75rem 1.5rem;
+    padding: 0.75rem 0;
     text-align: right;
     border-radius: var(--radius-default);
     transition: all 0.2s ease;
-    display: inline-block;
-    width: auto;
+    display: block;
+    width: 100%;
 }
 
 .mobile-logout-btn:hover {
@@ -203,10 +314,8 @@
         display: block;
     }
 
-    /* Aligns mobile logout wrapper to the right */
-    .mobile-logout-wrapper {
-        display: flex;
-        justify-content: flex-end;
+    .mobile-account-tools {
+        display: block;
     }
 }
 

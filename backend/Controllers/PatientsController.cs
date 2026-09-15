@@ -6,7 +6,7 @@ using System.Security.Claims;
 
 namespace backend.Controllers
 {
-    [Authorize(Roles = "Personnel")]
+    [Authorize(Policy = AuthorizationPolicies.PortalStaff)]
     [ApiController]
     [Route("api/[controller]")]
     public class PatientsController : ControllerBase
@@ -14,17 +14,20 @@ namespace backend.Controllers
         private readonly IPatientService _patientService;
         private readonly ICallLogService _callLogService;
         private readonly ISupabaseProfileDirectory _supabaseProfiles;
+        private readonly IPortalAccessService _access;
         private readonly ILogger<PatientsController> _logger;
 
         public PatientsController(
             IPatientService patientService,
             ICallLogService callLogService,
             ISupabaseProfileDirectory supabaseProfiles,
+            IPortalAccessService access,
             ILogger<PatientsController> logger)
         {
             _patientService = patientService;
             _callLogService = callLogService;
             _supabaseProfiles = supabaseProfiles;
+            _access = access;
             _logger = logger;
         }
 
@@ -40,7 +43,9 @@ namespace backend.Controllers
                     return Unauthorized();
                 }
 
-                var patients = await _patientService.GetLinkedPatientsAsync(userId);
+                var patients = await _access.IsHeadNurseAsync(User)
+                    ? await _patientService.GetAllPatientsAsync()
+                    : await _patientService.GetLinkedPatientsAsync(userId);
                 return Ok(patients);
             }
             catch (Exception ex)
@@ -52,11 +57,11 @@ namespace backend.Controllers
 
         // GET: api/patients/all
         [HttpGet("all")]
-        [Authorize(Roles = "Personnel")]
         public async Task<ActionResult<IEnumerable<PatientListDto>>> GetAllPatients()
         {
             try
             {
+                if (!await _access.IsHeadNurseAsync(User)) return Forbid();
                 var patients = await _patientService.GetAllPatientsAsync();
                 return Ok(patients);
             }
@@ -72,7 +77,7 @@ namespace backend.Controllers
         // Backs the TV-link picker. The browser never queries Supabase for patient
         // identities: portal users hold a backend JWT, not a Supabase session, so a
         // direct lookup would run as `anon` and force `profiles` to allow anonymous
-        // SELECT. The class-level [Authorize(Roles = "Personnel")] gates this, and
+        // SELECT. The class-level PortalStaff policy gates this, and
         // the service-role key stays on the server.
         //
         // The literal segment takes precedence over the "{id}" route below, the same
@@ -83,6 +88,7 @@ namespace backend.Controllers
             [FromQuery] int? limit,
             CancellationToken cancellationToken)
         {
+            if (!await _access.IsHeadNurseAsync(User)) return Forbid();
             var result = await _supabaseProfiles.SearchByUsernameAsync(query, limit, cancellationToken);
             return SupabaseProfileResult(result);
         }
@@ -94,6 +100,7 @@ namespace backend.Controllers
             string profileId,
             CancellationToken cancellationToken)
         {
+            if (!await _access.IsHeadNurseAsync(User)) return Forbid();
             var result = await _supabaseProfiles.GetByIdAsync(profileId, cancellationToken);
 
             if (result.Status == SupabaseProfileLookupStatus.Success)
@@ -121,13 +128,38 @@ namespace backend.Controllers
                 _ => StatusCode(StatusCodes.Status502BadGateway, result.Message)
             };
 
+        private async Task<ActionResult?> ValidateSupabaseProfileAsync(
+            string? profileId,
+            CancellationToken cancellationToken)
+        {
+            if (string.IsNullOrWhiteSpace(profileId)) return null;
+
+            var result = await _supabaseProfiles.GetByIdAsync(profileId, cancellationToken);
+            if (result.Status != SupabaseProfileLookupStatus.Success)
+            {
+                return SupabaseProfileResult(result);
+            }
+
+            return result.Profiles.Count == 0
+                ? BadRequest("The selected Supabase account could not be found.")
+                : null;
+        }
+
         // GET: api/patients/{id}
         [HttpGet("{id}")]
         public async Task<ActionResult<PatientDetailsDto>> GetPatientById(string id)
         {
             try
             {
-                var patient = await _patientService.GetPatientByIdAsync(id);
+                if (!await _access.CanAccessPatientAsync(User, id)) return Forbid();
+                var isHeadNurse = await _access.IsHeadNurseAsync(User);
+                var viewerPersonnelId = isHeadNurse ? null : _access.GetUserId(User);
+                if (!isHeadNurse && string.IsNullOrWhiteSpace(viewerPersonnelId))
+                {
+                    return Unauthorized();
+                }
+
+                var patient = await _patientService.GetPatientByIdAsync(id, viewerPersonnelId);
                 if (patient == null)
                 {
                     return NotFound();
@@ -148,6 +180,7 @@ namespace backend.Controllers
         {
             try
             {
+                if (!await _access.IsHeadNurseAsync(User)) return Forbid();
                 if (!ModelState.IsValid)
                 {
                     return BadRequest(ModelState);
@@ -158,6 +191,11 @@ namespace backend.Controllers
                 {
                     return Unauthorized();
                 }
+
+                var eligibilityError = await ValidateSupabaseProfileAsync(
+                    dto.SupabaseProfileId,
+                    HttpContext.RequestAborted);
+                if (eligibilityError != null) return eligibilityError;
 
                 var created = await _patientService.CreatePatientAsync(dto, userId);
 
@@ -183,10 +221,18 @@ namespace backend.Controllers
         {
             try
             {
+                if (!await _access.IsHeadNurseAsync(User)) return Forbid();
                 if (!ModelState.IsValid)
                 {
                     return BadRequest(ModelState);
                 }
+
+                if (!await _access.CanAccessPatientAsync(User, id)) return Forbid();
+
+                var eligibilityError = await ValidateSupabaseProfileAsync(
+                    dto.SupabaseProfileId,
+                    HttpContext.RequestAborted);
+                if (eligibilityError != null) return eligibilityError;
 
                 var updated = await _patientService.UpdatePatientAsync(id, dto);
                 if (updated == null)
@@ -219,6 +265,8 @@ namespace backend.Controllers
                     return BadRequest(ModelState);
                 }
 
+                if (!await _access.CanAccessPatientAsync(User, id)) return Forbid();
+
                 var updated = await _patientService.UpdatePatientNotesAsync(id, dto.Notes);
                 if (!updated)
                 {
@@ -240,6 +288,7 @@ namespace backend.Controllers
         {
             try
             {
+                if (!await _access.CanAccessPatientAsync(User, id)) return Forbid();
                 var personnelId = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
                 if (string.IsNullOrEmpty(personnelId))
                 {
@@ -272,7 +321,16 @@ namespace backend.Controllers
                     return BadRequest(ModelState);
                 }
 
-                var updated = await _callLogService.UpdateStatusAsync(id, callId, dto.Status);
+                if (!await _access.CanAccessPatientAsync(User, id)) return Forbid();
+
+                var personnelId = _access.GetUserId(User);
+                if (string.IsNullOrWhiteSpace(personnelId)) return Unauthorized();
+
+                var updated = await _callLogService.UpdateStatusAsync(
+                    id,
+                    callId,
+                    dto.Status,
+                    personnelId);
                 if (!updated)
                 {
                     return NotFound();
