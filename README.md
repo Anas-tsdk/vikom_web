@@ -38,7 +38,9 @@ dotnet run --project backend
 ```
 
 The API starts on port **5084** and listens for both laptop and LAN clients. On
-the laptop, Swagger is available at **http://localhost:5084/swagger**.
+the laptop, Swagger is available at **http://localhost:5084/swagger**. Relative
+SQLite database paths are anchored to the backend project directory, so starting
+the API from a different terminal working directory uses the same database.
 
 The SQLite database is created and seeded automatically on first run in Development.
 
@@ -106,6 +108,9 @@ npm run dev
 ```
 
 The frontend starts at **http://localhost:5173**. In Development the backend accepts any loopback origin, so Vite picking a different port when 5173 is taken will not break CORS.
+API requests use the same origin and Vite forwards `/api` to the backend at
+`http://127.0.0.1:5084` in both development and preview mode. Set
+`VITE_API_PROXY_TARGET` if the local backend listens on a different address.
 
 Public registration creates a normal **Nurse** account. A signed-in **Head Nurse** can register either Nurses or other Head Nurses from the **Nurses** page. The seeded `nurse@homecare.local` (Nurse Nora) account is the initial Head Nurse.
 
@@ -389,7 +394,7 @@ Cloudflare Pages cannot run this ASP.NET Core + SQLite backend. Choose one of th
 
 1. **Keep it local for now:** run the backend and frontend as documented above. No cloud deployment is necessary.
 2. **Private remote staff access:** keep both on a controlled computer/server and publish them through Cloudflare Tunnel protected with Cloudflare Access. This avoids opening an inbound router port, but the Android API routes also need a deliberate machine-to-machine access design; do not simply place an interactive Access login page in front of tablet API calls.
-3. **Production Internet deployment:** host the frontend on Pages and the .NET 8 API on a .NET-capable service, with a managed production database. Point `VITE_API_URL` at that HTTPS API and restrict CORS to the exact Pages/custom-domain origin.
+3. **Production Internet deployment:** host the frontend on Pages and the .NET 8 API on a .NET-capable service, with a managed production database. Point `VITE_API_URL` at that HTTPS API and restrict CORS to the exact Pages/custom-domain origin. For a local frontend served through Vite Preview and Cloudflare Tunnel, keep the API same-origin (or use the portal hostname) so Preview can proxy `/api` to the backend; do not point the browser directly at `localhost` for a remote user.
 
 Before any production or health-data deployment:
 

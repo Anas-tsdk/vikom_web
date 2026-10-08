@@ -12,6 +12,7 @@ namespace backend.Services
     {
         private readonly IAppointmentRepository _appointmentRepository;
         private readonly IAvailabilityRepository _availabilityRepository;
+        private readonly IAvailabilityService _availabilityService;
         private readonly IUserRepository _userRepository;
         private readonly IHttpClientFactory _httpClientFactory;
         private readonly IConfiguration _configuration;
@@ -20,6 +21,7 @@ namespace backend.Services
         public AppointmentService(
             IAppointmentRepository appointmentRepository,
             IAvailabilityRepository availabilityRepository,
+            IAvailabilityService availabilityService,
             IUserRepository userRepository,
             IHttpClientFactory httpClientFactory,
             IConfiguration configuration,
@@ -27,6 +29,7 @@ namespace backend.Services
         {
             _appointmentRepository = appointmentRepository;
             _availabilityRepository = availabilityRepository;
+            _availabilityService = availabilityService;
             _userRepository = userRepository;
             _httpClientFactory = httpClientFactory;
             _configuration = configuration;
@@ -252,6 +255,89 @@ namespace backend.Services
                 await EmitAppointmentRealtimeEventAsync(
                     result,
                     "updated");
+            }
+
+            return MapToDto(result!);
+        }
+
+        public async Task<AppointmentDto> AcceptPatientProposalAsync(int id)
+        {
+            var appointment = await _appointmentRepository.GetByIdAsync(id);
+            if (appointment == null)
+                throw new InvalidOperationException("Appointment not found");
+
+            if (appointment.Status != "Cancelled" ||
+                appointment.PatientResponseStatus != "Declined" ||
+                appointment.PatientProposedDate == null ||
+                appointment.PatientProposedStartTime == null ||
+                appointment.PatientProposedEndTime == null)
+            {
+                throw new InvalidOperationException(
+                    "Only declined appointments with a proposed time can be accepted");
+            }
+
+            var proposedDate = appointment.PatientProposedDate.Value.Date;
+            var proposedStart = appointment.PatientProposedStartTime.Value;
+            var proposedEnd = appointment.PatientProposedEndTime.Value;
+            if (proposedDate + proposedStart <= DateTime.Now ||
+                proposedEnd <= proposedStart)
+            {
+                throw new InvalidOperationException(
+                    "The proposed time must be in the future and end after it starts");
+            }
+
+            await _availabilityService.GetDayAvailabilityAsync(
+                appointment.Availability.PersonnelId,
+                proposedDate);
+
+            var availableSlots = await _availabilityRepository.GetByPersonnelIdAsync(
+                appointment.Availability.PersonnelId);
+            var scheduledAppointments =
+                await _appointmentRepository.GetByPersonnelIdAndDateRangeAsync(
+                    appointment.Availability.PersonnelId,
+                    proposedDate,
+                    proposedDate);
+            var selectedSlot = availableSlots
+                .Where(slot =>
+                    slot.Date.Date == proposedDate &&
+                    slot.Appointment == null &&
+                    slot.StartTime >= proposedStart &&
+                    slot.EndTime <= proposedEnd &&
+                    slot.Date.Date + slot.StartTime > DateTime.Now &&
+                    !scheduledAppointments.Any(scheduled =>
+                        (scheduled.Status == "Booked" || scheduled.Status == "InProgress") &&
+                        scheduled.StartTime < slot.EndTime &&
+                        slot.StartTime < scheduled.EndTime))
+                .OrderBy(slot => Math.Abs((slot.StartTime - proposedStart).Ticks))
+                .ThenBy(slot => slot.StartTime)
+                .ThenBy(slot => slot.Id)
+                .FirstOrDefault();
+
+            if (selectedSlot == null)
+            {
+                throw new InvalidOperationException(
+                    "No available nurse slot fits the proposed time");
+            }
+
+            await EnsurePatientHasNotDeclinedSlotAsync(
+                appointment.PatientId,
+                selectedSlot);
+
+            appointment.AvailabilityId = selectedSlot.Id;
+            appointment.Availability = selectedSlot;
+            appointment.StartTime = selectedSlot.StartTime;
+            appointment.EndTime = selectedSlot.EndTime;
+            appointment.Status = "Booked";
+            appointment.PatientResponseStatus = "Accepted";
+            appointment.PatientProposedDate = null;
+            appointment.PatientProposedStartTime = null;
+            appointment.PatientProposedEndTime = null;
+
+            var updated = await _appointmentRepository.UpdateAsync(appointment);
+            var result = await _appointmentRepository.GetByIdAsync(updated.Id);
+            if (result != null)
+            {
+                await EmitAppointmentRealtimeEventAsync(result, "updated");
             }
 
             return MapToDto(result!);

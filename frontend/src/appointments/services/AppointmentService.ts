@@ -71,6 +71,14 @@ const AppointmentService = {
     return handleResponse(response);
   },
 
+  acceptProposal: async (id: number): Promise<Appointment> => {
+    const response = await fetch(`${BASE_URL}/${id}/accept-proposal`, {
+      method: 'POST',
+      headers: { ...headers, ...getAuthHeader() },
+    });
+    return handleResponse(response);
+  },
+
   // Delete appointment
   delete: async (id: number): Promise<void> => {
     const response = await fetch(`${BASE_URL}/${id}`, {

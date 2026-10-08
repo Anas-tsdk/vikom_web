@@ -64,6 +64,7 @@ const AppointmentListPage: React.FC = () => {
   const [appointmentToDelete, setAppointmentToDelete] = useState<{ id: number; description: string } | null>(null);
   const [detailsVisitId, setDetailsVisitId] = useState<number | null>(null);
   const [plannedAppointment, setPlannedAppointment] = useState<Appointment | null>(null);
+  const [acceptingProposalId, setAcceptingProposalId] = useState<number | null>(null);
 
   const [patientFilter, setPatientFilter] = useState<string>('');
   const [dateFilter, setDateFilter] = useState<string>('');
@@ -156,6 +157,25 @@ const AppointmentListPage: React.FC = () => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  const handleAcceptProposal = async (appointment: Appointment) => {
+    if (!appointment.id) return;
+
+    setAcceptingProposalId(appointment.id);
+    setError('');
+    try {
+      const accepted = await AppointmentService.acceptProposal(appointment.id);
+      setAppointments((current) =>
+        current.map((item) => item.id === accepted.id ? accepted : item),
+      );
+    } catch (acceptError) {
+      setError(acceptError instanceof Error
+        ? t(acceptError.message)
+        : t('Could not accept the proposed time'));
+    } finally {
+      setAcceptingProposalId(null);
+    }
+  };
+
   // Personnel row actions. Each row gets one document icon: a read-only
   // "Planlagt besøk" (pre-visit plan) before/while it's planned, or the
   // post-visit "Besøksdetaljer" once the visit has ended. While a visit is
@@ -171,10 +191,22 @@ const AppointmentListPage: React.FC = () => {
 
     if (hasPatientProposal) {
       return isHeadNurse ? (
-        <button className="btn btn-primary btn-sm" onClick={() => handleReplan(appointment)}>
-          <i className="bi bi-calendar2-plus me-1" aria-hidden="true"></i>
-          {t('Planlegg et nytt tidspunkt')}
-        </button>
+        <>
+          <button
+            className="btn btn-success btn-sm"
+            disabled={acceptingProposalId === id}
+            onClick={() => void handleAcceptProposal(appointment)}
+          >
+            {acceptingProposalId === id
+              ? <span className="spinner-border spinner-border-sm me-1" aria-hidden="true"></span>
+              : <i className="bi bi-calendar2-check me-1" aria-hidden="true"></i>}
+            {t('Godta foreslått tidspunkt')}
+          </button>
+          <button className="btn btn-primary btn-sm" onClick={() => handleReplan(appointment)}>
+            <i className="bi bi-calendar2-plus me-1" aria-hidden="true"></i>
+            {t('Planlegg et nytt tidspunkt')}
+          </button>
+        </>
       ) : null;
     }
 

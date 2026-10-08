@@ -48,6 +48,7 @@ public sealed class AppointmentReschedulingTests : IDisposable
         var service = new AppointmentService(
             new AppointmentRepository(_context),
             new AvailabilityRepository(_context),
+            CreateAvailabilityService(),
             new UserRepository(_context),
             new NoopHttpClientFactory(),
             new ConfigurationBuilder().Build(),
@@ -161,6 +162,91 @@ public sealed class AppointmentReschedulingTests : IDisposable
         Assert.Equal(
             "Cannot schedule a patient in a time range they have already declined",
             error.Message);
+    }
+
+    [Fact]
+    public async Task Head_nurse_can_accept_a_proposal_into_a_free_nurse_slot()
+    {
+        var personnel = AddUser("accept-proposal.nurse@example.test", UserRoles.Nurse);
+        var patient = AddUser("accept-proposal.patient@example.test", UserRoles.Patient);
+        var date = NextWeekday(DateTime.Today);
+        var declinedSlot = AddAvailability(personnel.Id, DateTime.Today.AddDays(3), 10);
+        var appointment = new Appointment
+        {
+            PatientId = patient.Id,
+            AvailabilityId = declinedSlot.Id,
+            Tasks = "Medisin",
+            StartTime = declinedSlot.StartTime,
+            EndTime = declinedSlot.EndTime,
+            Status = "Cancelled",
+            PatientResponseStatus = "Declined",
+            PatientProposedDate = date,
+            PatientProposedStartTime = TimeSpan.FromHours(13.5),
+            PatientProposedEndTime = TimeSpan.FromHours(14.5),
+        };
+        _context.Appointments.Add(appointment);
+        await _context.SaveChangesAsync();
+
+        var result = await CreateService().AcceptPatientProposalAsync(appointment.Id);
+
+        var matchingSlot = await new AvailabilityRepository(_context).GetByIdAsync(result.AvailabilityId);
+        Assert.NotNull(matchingSlot);
+        Assert.Equal(personnel.Id, matchingSlot.PersonnelId);
+        Assert.Equal(date.ToString("yyyy-MM-dd"), result.Date);
+        Assert.Equal("13:30", result.StartTime);
+        Assert.Equal("14:30", result.EndTime);
+        Assert.Equal("Booked", result.Status);
+        Assert.Equal("Accepted", result.PatientResponseStatus);
+        Assert.Null(result.PatientProposedDate);
+        Assert.Null(result.PatientProposedStartTime);
+        Assert.Null(result.PatientProposedEndTime);
+    }
+
+    [Fact]
+    public async Task Accepting_a_proposal_fails_when_the_matching_slot_overlaps_a_booked_visit()
+    {
+        var personnel = AddUser("no-fit.nurse@example.test", UserRoles.Nurse);
+        var patient = AddUser("no-fit.patient@example.test", UserRoles.Patient);
+        var date = DateTime.Today.AddDays(5);
+        var declinedSlot = AddAvailability(personnel.Id, DateTime.Today.AddDays(3), 10);
+        AddAvailability(personnel.Id, date, 14);
+        var overlappingSlot = AddAvailability(personnel.Id, date, 14);
+        overlappingSlot.StartTime = TimeSpan.FromHours(14.5);
+        overlappingSlot.EndTime = TimeSpan.FromHours(15.5);
+        var otherAppointment = new Appointment
+        {
+            PatientId = patient.Id,
+            AvailabilityId = overlappingSlot.Id,
+            Tasks = "Medisin",
+            StartTime = overlappingSlot.StartTime,
+            EndTime = overlappingSlot.EndTime,
+            Status = "Booked",
+            PatientResponseStatus = "Accepted",
+        };
+        _context.Appointments.Add(otherAppointment);
+        var appointment = new Appointment
+        {
+            PatientId = patient.Id,
+            AvailabilityId = declinedSlot.Id,
+            Tasks = "Medisin",
+            StartTime = declinedSlot.StartTime,
+            EndTime = declinedSlot.EndTime,
+            Status = "Cancelled",
+            PatientResponseStatus = "Declined",
+            PatientProposedDate = date,
+            PatientProposedStartTime = TimeSpan.FromHours(14),
+            PatientProposedEndTime = TimeSpan.FromHours(15),
+        };
+        _context.Appointments.Add(appointment);
+        await _context.SaveChangesAsync();
+
+        var error = await Assert.ThrowsAsync<InvalidOperationException>(() =>
+            CreateService().AcceptPatientProposalAsync(appointment.Id));
+
+        Assert.Equal("No available nurse slot fits the proposed time", error.Message);
+        Assert.Equal("Cancelled", appointment.Status);
+        Assert.Equal("Declined", appointment.PatientResponseStatus);
+        Assert.Equal(date, appointment.PatientProposedDate);
     }
 
     [Fact]
@@ -279,10 +365,25 @@ public sealed class AppointmentReschedulingTests : IDisposable
     private AppointmentService CreateService() => new(
         new AppointmentRepository(_context),
         new AvailabilityRepository(_context),
+        CreateAvailabilityService(),
         new UserRepository(_context),
         new NoopHttpClientFactory(),
         new ConfigurationBuilder().Build(),
         NullLogger<AppointmentService>.Instance);
+
+    private AvailabilityService CreateAvailabilityService() => new(
+        new AvailabilityRepository(_context),
+        new AvailabilityWindowRepository(_context),
+        new AppointmentRepository(_context),
+        _context);
+
+    private static DateTime NextWeekday(DateTime date)
+    {
+        var next = date.Date.AddDays(1);
+        while (next.DayOfWeek is DayOfWeek.Saturday or DayOfWeek.Sunday)
+            next = next.AddDays(1);
+        return next;
+    }
 
     private User AddUser(string email, string role)
     {

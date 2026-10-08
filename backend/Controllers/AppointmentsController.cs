@@ -183,6 +183,35 @@ namespace backend.Controllers
             }
         }
 
+        // POST: api/appointments/{id}/accept-proposal
+        [HttpPost("{id}/accept-proposal")]
+        public async Task<ActionResult<AppointmentDto>> AcceptPatientProposal(int id)
+        {
+            try
+            {
+                if (!await _access.IsHeadNurseAsync(User)) return Forbid();
+
+                var existing = await _appointmentService.GetByIdAsync(id);
+                if (existing == null)
+                    return NotFound();
+                if (!await _access.CanManagePersonnelAsync(User, existing.PersonnelId ?? string.Empty))
+                    return Forbid();
+
+                var accepted = await _appointmentService.AcceptPatientProposalAsync(id);
+                return Ok(accepted);
+            }
+            catch (InvalidOperationException ex)
+            {
+                _logger.LogWarning(ex, "Invalid operation when accepting patient proposal for appointment {Id}", id);
+                return BadRequest(ex.Message);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error accepting patient proposal for appointment {Id}", id);
+                return StatusCode(500, "An error occurred while accepting the proposed time");
+            }
+        }
+
         // DELETE: api/appointments/{id}
         [HttpDelete("{id}")]
         public async Task<IActionResult> DeleteAppointment(int id)

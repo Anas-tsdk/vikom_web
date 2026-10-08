@@ -3,6 +3,7 @@ using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi.Models;
+using Microsoft.Data.Sqlite;
 using System.Text;
 using backend.DAL;
 using backend.DAL.Repositories;
@@ -46,9 +47,25 @@ builder.Services.AddCors(options =>
     });
 });
 
+// Resolve relative SQLite paths from the backend project (or published app)
+// rather than the shell's current working directory.
+var sqliteConnectionString = new SqliteConnectionStringBuilder(
+    builder.Configuration.GetConnectionString("ApplicationDbConnection")
+    ?? throw new InvalidOperationException(
+        "Connection string 'ApplicationDbConnection' is not configured."));
+if (!string.IsNullOrWhiteSpace(sqliteConnectionString.DataSource) &&
+    sqliteConnectionString.DataSource != ":memory:" &&
+    !sqliteConnectionString.DataSource.StartsWith("file:", StringComparison.OrdinalIgnoreCase) &&
+    !Path.IsPathRooted(sqliteConnectionString.DataSource))
+{
+    sqliteConnectionString.DataSource = Path.GetFullPath(
+        sqliteConnectionString.DataSource,
+        ResolveDatabaseDirectory(builder.Environment.ContentRootPath));
+}
+
 // Configure SQLite Database
 builder.Services.AddDbContext<ApplicationDbContext>(options =>
-    options.UseSqlite(builder.Configuration.GetConnectionString("ApplicationDbConnection")));
+    options.UseSqlite(sqliteConnectionString.ConnectionString));
 
 // Configure Identity
 builder.Services.AddIdentity<User, IdentityRole>(options =>
@@ -179,6 +196,9 @@ builder.Logging.AddConsole();
 builder.Logging.AddDebug();
 
 var app = builder.Build();
+app.Logger.LogInformation(
+    "Using SQLite database at {DatabasePath}",
+    sqliteConnectionString.DataSource);
 
 if (!supabaseAuthConfigured)
 {
@@ -227,3 +247,16 @@ app.UseAuthorization();
 app.MapControllers();
 
 app.Run();
+
+static string ResolveDatabaseDirectory(string contentRootPath)
+{
+    for (var directory = new DirectoryInfo(AppContext.BaseDirectory);
+         directory != null;
+         directory = directory.Parent)
+    {
+        if (File.Exists(Path.Combine(directory.FullName, "backend.csproj")))
+            return directory.FullName;
+    }
+
+    return AppContext.BaseDirectory;
+}

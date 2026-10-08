@@ -22,6 +22,7 @@ const CancelledAppointmentsPage: React.FC = () => {
   const [selected, setSelected] = useState<Appointment>();
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+  const [acceptingProposalId, setAcceptingProposalId] = useState<number | null>(null);
 
   const loadAppointments = useCallback(async (silent = false) => {
     if (!authorized) {
@@ -87,6 +88,23 @@ const CancelledAppointmentsPage: React.FC = () => {
     await loadAppointments(true);
   };
 
+  const acceptProposal = async (appointment: Appointment) => {
+    if (!appointment.id) return;
+
+    setAcceptingProposalId(appointment.id);
+    setError('');
+    try {
+      await AppointmentService.acceptProposal(appointment.id);
+      await loadAppointments(true);
+    } catch (acceptError) {
+      setError(acceptError instanceof Error
+        ? t(acceptError.message)
+        : t('Could not accept the proposed time'));
+    } finally {
+      setAcceptingProposalId(null);
+    }
+  };
+
   if (!authorized) {
     return (
       <div className="appointment-list-page">
@@ -121,6 +139,9 @@ const CancelledAppointmentsPage: React.FC = () => {
       ) : (
         <div className="d-flex flex-column gap-3">
           {sortedAppointments.map((appointment) => {
+            const hasProposal = !!appointment.patientProposedDate &&
+              !!appointment.patientProposedStartTime &&
+              !!appointment.patientProposedEndTime;
             const originalDate = appointment.date
               ? new Date(`${appointment.date}T12:00:00`).toLocaleDateString(locale, {
                   weekday: 'long', day: 'numeric', month: 'long', year: 'numeric',
@@ -139,10 +160,25 @@ const CancelledAppointmentsPage: React.FC = () => {
                   </span>
                 )}
                 actions={(
-                  <button className="btn btn-primary" type="button" onClick={() => openReschedule(appointment)}>
-                    <i className="bi bi-calendar2-plus me-2" aria-hidden="true"></i>
-                    {t('Planlegg et nytt tidspunkt')}
-                  </button>
+                  <>
+                    {hasProposal && (
+                      <button
+                        className="btn btn-success"
+                        type="button"
+                        disabled={acceptingProposalId === appointment.id}
+                        onClick={() => void acceptProposal(appointment)}
+                      >
+                        {acceptingProposalId === appointment.id
+                          ? <span className="spinner-border spinner-border-sm me-2" aria-hidden="true"></span>
+                          : <i className="bi bi-calendar2-check me-2" aria-hidden="true"></i>}
+                        {t('Godta foreslått avtale')}
+                      </button>
+                    )}
+                    <button className="btn btn-primary" type="button" onClick={() => openReschedule(appointment)}>
+                      <i className="bi bi-calendar2-plus me-2" aria-hidden="true"></i>
+                      {t('Planlegg et nytt tidspunkt')}
+                    </button>
+                  </>
                 )}
               />
             );

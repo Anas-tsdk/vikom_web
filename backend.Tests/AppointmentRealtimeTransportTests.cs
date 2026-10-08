@@ -57,6 +57,11 @@ public class AppointmentRealtimeTransportTests : IDisposable
         var service = new AppointmentService(
             new AppointmentRepository(_context),
             new AvailabilityRepository(_context),
+            new AvailabilityService(
+                new AvailabilityRepository(_context),
+                new AvailabilityWindowRepository(_context),
+                new AppointmentRepository(_context),
+                _context),
             new UserRepository(_context),
             new TestHttpClientFactory(new HttpClient(handler)),
             configuration,

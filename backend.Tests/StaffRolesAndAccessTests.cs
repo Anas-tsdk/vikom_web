@@ -278,6 +278,7 @@ public sealed class StaffRolesAndAccessTests : IDisposable
         var appointmentService = new AppointmentService(
             appointmentRepository,
             availabilityRepository,
+            availabilityService,
             new UserRepository(_context),
             new NoopHttpClientFactory(),
             new ConfigurationBuilder().Build(),
@@ -654,6 +655,11 @@ public sealed class StaffRolesAndAccessTests : IDisposable
         var appointmentService = new AppointmentService(
             appointmentRepository,
             new AvailabilityRepository(_context),
+            new AvailabilityService(
+                new AvailabilityRepository(_context),
+                new AvailabilityWindowRepository(_context),
+                appointmentRepository,
+                _context),
             new UserRepository(_context),
             new NoopHttpClientFactory(),
             new ConfigurationBuilder().Build(),

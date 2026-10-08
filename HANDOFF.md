@@ -459,6 +459,7 @@ The current web/backend contract for the TV app is:
 - a created or rescheduled appointment has `patientResponseStatus = "Pending"`
 - the signed-in patient answers with `POST /api/tv/appointments/{id}/response` and `{ "response": "Accepted" }` or `{ "response": "Declined" }`
 - acceptance retains `Status = "Booked"`; declining records the response and moves the appointment to `Status = "Cancelled"`
+- when a decline includes an alternative time, a Head Nurse can accept it from the web appointment list; the backend books one free one-hour slot for the assigned nurse that fits wholly inside the proposed range, or reports that no matching slot is available. Manual replanning remains available as a fallback
 - the endpoint resolves the Supabase token and refuses to mutate another patient's appointment
 
 The Android app must subscribe to `appointment_event`, show the choice, and call the response endpoint. That app-side UI is intentionally outside this repository.
@@ -756,7 +757,7 @@ Heads-up: the Supabase `profiles` table also has an `fcm_token` column that `FCM
 
 **Staff-only (wrapped in `PersonnelOnlyRoute`):**
 - `/dashboard`: the signed-in nurse's homepage
-- `/appointments`: a Nurse sees their own work list; a Head Nurse selects a nurse and creates, reschedules, or cancels assignments
+- `/appointments`: a Nurse sees their own work list; a Head Nurse selects a nurse and creates, reschedules, or cancels assignments, and can directly accept a patient-proposed time when a matching nurse slot is free
 - `/appointments/archive`: historical visits (reached from buttons on the appointments page; there is no sidebar link)
 - `/availability`: availability calendar (weekly/daily views, recurring standard week, manual day/week overrides, and Head-Nurse staff selection)
 - `/patients` and `/patients/:username`: roster and clinical profile (the URL uses the patient's profile username, falling back to their GUID)
@@ -1012,7 +1013,7 @@ Statuses below were verified against the code. See the intro for what 🟢 🟡 
 | Feature | Status | Notes |
 |---------|--------|-------|
 | Web portal login/register | 🟢 | ASP.NET Identity + JWT; public registration creates Nurse; Head Nurses provision either staff role; patients get 403 |
-| Appointment CRUD (web) | 🟢 | Head Nurses assign across staff; Nurses receive a scoped work list; patient acceptance/decline remains on the TV app |
+| Appointment CRUD (web) | 🟢 | Head Nurses assign across staff and can accept a declined patient's proposed time into a matching free nurse slot; Nurses receive a scoped work list; patient invitation acceptance/decline remains on the TV app |
 | Availability slots + recurring windows | 🟢 | 09:00–17:00 defaults, recurring standard week, manual overrides, Head-Nurse staff selection |
 | Patient roster & clinical profiles | 🟢 | Diagnoses, medications, treatment plan, notes, next-of-kin, GP |
 | Visit execution (_Besøk_) | 🟢 | Timer, task checklist, autosaving notes, call attempts, outcomes |
