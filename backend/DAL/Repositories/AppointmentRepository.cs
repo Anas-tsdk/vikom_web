@@ -36,6 +36,8 @@ namespace backend.DAL.Repositories
                 .Include(a => a.Visit)
                 .Include(a => a.Availability)
                 .ThenInclude(av => av.Personnel)
+                .Include(a => a.Availability)
+                .ThenInclude(av => av.AvailabilityWindow)
                 .FirstOrDefaultAsync(a => a.Id == id);
         }
 

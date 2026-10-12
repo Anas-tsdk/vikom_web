@@ -427,9 +427,43 @@ The durable call/missed-call/TURN deployment is maintained in `vikom_app-main/su
 
 - Role-based authentication (Patient, Personnel)
 - Personnel availability management with weekly and daily calendar views
-- Appointment booking and scheduling
+- Appointment booking with task-based duration, nurse-added extra minutes, and conflict/travel-aware time recommendations
 - Visit ("Besøk") execution workspace with task tracking and visit records
 - WebRTC audio and video calling from the portal to a patient's TV app, including answer/reject, an accepted in-call audio-to-video upgrade, managed TURN support, and durable missed-call recovery
 - Realtime appointment events emitted toward the patient's TV app on create, update and cancel (both ends are wired, but delivery is not yet verified; see the hand-off guide)
 - User-specific dashboards
 - Responsive design for mobile and desktop
+
+### Visit duration and schedule planning
+
+New appointments include a five-minute buffer at the start and end of each
+visit. The selected activities add:
+
+| Activity | Minutes |
+|----------|---------|
+| Medication | 5 |
+| Bathing | 15 |
+| Serving Meals | 10 |
+| Housekeeping | 25 |
+| Digital Assistance | 15 |
+| Others | 0 |
+
+Head Nurses can add any non-negative whole number of extra minutes; the visit
+must still fit the nurse's availability and calendar day. Candidate start times
+are offered at 15-minute intervals, and the server calculates the actual appointment end
+from the selected activities and extra time. It rejects appointments that run
+outside the nurse's availability, overlap another nurse or patient appointment,
+or leave too little time to travel to the preceding or following visit. SQLite
+also guards against overlapping persisted bookings.
+
+Travel estimates stay on the backend/browser and do not send patient
+coordinates to a route provider. When both patients have coordinates, the
+scheduler uses a great-circle distance estimate with an assumed road detour and
+urban speed, then adds a 25% traffic reserve and five minutes. If coordinates
+are unavailable, it reserves 25 minutes. These are planning estimates, not
+live road-route or traffic calculations; the map's separate route display may
+use its configured OSRM service.
+
+Existing booked appointments keep their current end times when this feature is
+deployed. Their duration is recalculated when they are edited or rescheduled,
+avoiding a silent change to already-confirmed visits.

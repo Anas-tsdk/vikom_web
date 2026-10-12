@@ -154,6 +154,11 @@ namespace backend.Migrations
                     b.Property<int>("AvailabilityId")
                         .HasColumnType("INTEGER");
 
+                    b.Property<int>("AdditionalDurationMinutes")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("INTEGER")
+                        .HasDefaultValue(0);
+
                     b.Property<TimeSpan>("EndTime")
                         .HasColumnType("TEXT");
 

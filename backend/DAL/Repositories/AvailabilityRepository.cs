@@ -24,6 +24,7 @@ namespace backend.DAL.Repositories
         {
             return await _context.Availabilities
                 .Include(a => a.Personnel)
+                .Include(a => a.AvailabilityWindow)
                 .Include(a => a.Appointment)
                 .FirstOrDefaultAsync(a => a.Id == id);
         }
@@ -32,6 +33,7 @@ namespace backend.DAL.Repositories
         {
             return await _context.Availabilities
                 .Include(a => a.Personnel)
+                .Include(a => a.AvailabilityWindow)
                 .Include(a => a.Appointment)
                 .Where(a => a.PersonnelId == personnelId)
                 .ToListAsync();

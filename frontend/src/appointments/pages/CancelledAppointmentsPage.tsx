@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import PageHeader from '../../components/common/PageHeader';
@@ -23,8 +23,10 @@ const CancelledAppointmentsPage: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [acceptingProposalId, setAcceptingProposalId] = useState<number | null>(null);
+  const appointmentRequestRef = useRef(0);
 
   const loadAppointments = useCallback(async (silent = false) => {
+    const requestId = ++appointmentRequestRef.current;
     if (!authorized) {
       setLoading(false);
       return;
@@ -32,14 +34,18 @@ const CancelledAppointmentsPage: React.FC = () => {
     try {
       if (!silent) setLoading(true);
       const all = await AppointmentService.getAll();
-      setAppointments(all.filter((appointment) =>
-        appointment.status === 'Cancelled' &&
-        appointment.patientResponseStatus === 'Declined'));
-      setError('');
+      if (requestId === appointmentRequestRef.current) {
+        setAppointments(all.filter((appointment) =>
+          appointment.status === 'Cancelled' &&
+          appointment.patientResponseStatus === 'Declined'));
+        setError('');
+      }
     } catch {
-      setError(t('Kunne ikke laste avlyste avtaler'));
+      if (requestId === appointmentRequestRef.current) {
+        setError(t('Kunne ikke laste avlyste avtaler'));
+      }
     } finally {
-      if (!silent) setLoading(false);
+      if (!silent && requestId === appointmentRequestRef.current) setLoading(false);
     }
   }, [authorized, t]);
 
@@ -93,9 +99,13 @@ const CancelledAppointmentsPage: React.FC = () => {
 
     setAcceptingProposalId(appointment.id);
     setError('');
+    appointmentRequestRef.current += 1;
     try {
       await AppointmentService.acceptProposal(appointment.id);
-      await loadAppointments(true);
+      appointmentRequestRef.current += 1;
+      setAppointments((current) =>
+        current.filter((item) => item.id !== appointment.id),
+      );
     } catch (acceptError) {
       setError(acceptError instanceof Error
         ? t(acceptError.message)

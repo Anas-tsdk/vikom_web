@@ -11,6 +11,7 @@ export interface Appointment {
   personnelName?: string;
   date?: string;
   availabilityNotes?: string;
+  additionalDurationMinutes?: number;
   // Stores comma-separated list of tasks (e.g., "Medication, Vitals, Exercises")
   tasks: string;
   startTime: string; // TimeSpan represented as string "HH:mm:ss" or "HH:mm"
@@ -38,6 +39,7 @@ export interface AppointmentCreateDto {
   availabilityId: number;
   // Stores comma-separated list of tasks (e.g., "Medication, Vitals, Exercises")
   tasks: string;
+  additionalDurationMinutes?: number;
   startTime: string;
   endTime: string;
   status?: string;

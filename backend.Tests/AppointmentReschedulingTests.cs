@@ -71,6 +71,123 @@ public sealed class AppointmentReschedulingTests : IDisposable
     }
 
     [Fact]
+    public async Task New_appointment_end_time_uses_task_durations_and_additional_minutes()
+    {
+        var personnel = AddUser("duration.nurse@example.test", UserRoles.Nurse);
+        var patient = AddUser("duration.patient@example.test", UserRoles.Patient);
+        var slot = AddWindowedAvailability(personnel.Id, DateTime.Today.AddDays(3), 9);
+
+        var result = await CreateService().CreateAsync(new AppointmentDto
+        {
+            PatientId = patient.Id,
+            AvailabilityId = slot.Id,
+            Tasks = "Medisin, Bading, Servering av måltider, Husholdning, Digital hjelp, Annet",
+            AdditionalDurationMinutes = 10,
+        });
+
+        Assert.Equal("09:00", result.StartTime);
+        Assert.Equal("10:30", result.EndTime);
+        Assert.Equal(10, result.AdditionalDurationMinutes);
+    }
+
+    [Fact]
+    public async Task New_appointment_is_rejected_when_its_duration_overlaps_another_nurse_visit()
+    {
+        var personnel = AddUser("overlap.nurse@example.test", UserRoles.Nurse);
+        var patient = AddUser("overlap.patient@example.test", UserRoles.Patient);
+        var otherPatient = AddUser("overlap.other.patient@example.test", UserRoles.Patient);
+        var date = DateTime.Today.AddDays(3);
+        var newSlot = AddWindowedAvailability(personnel.Id, date, 9);
+        var existingSlot = AddWindowedAvailability(personnel.Id, date, 9.25);
+        _context.Appointments.Add(new Appointment
+        {
+            PatientId = otherPatient.Id,
+            AvailabilityId = existingSlot.Id,
+            Tasks = "Medisin",
+            StartTime = TimeSpan.FromMinutes(9 * 60 + 6),
+            EndTime = TimeSpan.FromMinutes(9 * 60 + 21),
+            Status = "Booked",
+        });
+        await _context.SaveChangesAsync();
+
+        var error = await Assert.ThrowsAsync<InvalidOperationException>(() =>
+            CreateService().CreateAsync(new AppointmentDto
+            {
+                PatientId = patient.Id,
+                AvailabilityId = newSlot.Id,
+                Tasks = "Medisin",
+            }));
+
+        Assert.Contains("overlap", error.Message, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
+    public async Task New_appointment_requires_a_traffic_adjusted_travel_gap()
+    {
+        var personnel = AddUser("travel.nurse@example.test", UserRoles.Nurse);
+        var previousPatient = AddUser("travel.previous.patient@example.test", UserRoles.Patient);
+        var patient = AddUser("travel.patient@example.test", UserRoles.Patient);
+        previousPatient.Latitude = 59.91;
+        previousPatient.Longitude = 10.75;
+        patient.Latitude = 59.955;
+        patient.Longitude = 10.75;
+        var date = DateTime.Today.AddDays(3);
+        var previousSlot = AddWindowedAvailability(personnel.Id, date, 9);
+        var candidateSlot = AddWindowedAvailability(personnel.Id, date, 9.5);
+        _context.Appointments.Add(new Appointment
+        {
+            PatientId = previousPatient.Id,
+            AvailabilityId = previousSlot.Id,
+            Tasks = "Medisin",
+            StartTime = TimeSpan.FromHours(9),
+            EndTime = TimeSpan.FromMinutes(9 * 60 + 15),
+            Status = "Booked",
+        });
+        await _context.SaveChangesAsync();
+
+        var error = await Assert.ThrowsAsync<InvalidOperationException>(() =>
+            CreateService().CreateAsync(new AppointmentDto
+            {
+                PatientId = patient.Id,
+                AvailabilityId = candidateSlot.Id,
+                Tasks = "Medisin",
+            }));
+
+        Assert.Contains("travel-time", error.Message, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
+    public async Task Patient_cannot_be_booked_for_overlapping_visits_with_different_nurses()
+    {
+        var selectedNurse = AddUser("patient-overlap.nurse@example.test", UserRoles.Nurse);
+        var assignedNurse = AddUser("patient-overlap.assigned@example.test", UserRoles.Nurse);
+        var patient = AddUser("patient-overlap.patient@example.test", UserRoles.Patient);
+        var date = DateTime.Today.AddDays(3);
+        var newSlot = AddWindowedAvailability(selectedNurse.Id, date, 9);
+        var existingSlot = AddWindowedAvailability(assignedNurse.Id, date, 9);
+        _context.Appointments.Add(new Appointment
+        {
+            PatientId = patient.Id,
+            AvailabilityId = existingSlot.Id,
+            Tasks = "Medisin",
+            StartTime = TimeSpan.FromHours(9),
+            EndTime = TimeSpan.FromMinutes(9 * 60 + 30),
+            Status = "Booked",
+        });
+        await _context.SaveChangesAsync();
+
+        var error = await Assert.ThrowsAsync<InvalidOperationException>(() =>
+            CreateService().CreateAsync(new AppointmentDto
+            {
+                PatientId = patient.Id,
+                AvailabilityId = newSlot.Id,
+                Tasks = "Medisin",
+            }));
+
+        Assert.Contains("overlap", error.Message, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
     public async Task Patient_can_accept_their_pending_appointment_invitation()
     {
         var personnel = AddUser("accept.nurse@example.test", "Personnel");
@@ -194,7 +311,7 @@ public sealed class AppointmentReschedulingTests : IDisposable
         Assert.Equal(personnel.Id, matchingSlot.PersonnelId);
         Assert.Equal(date.ToString("yyyy-MM-dd"), result.Date);
         Assert.Equal("13:30", result.StartTime);
-        Assert.Equal("14:30", result.EndTime);
+        Assert.Equal("13:45", result.EndTime);
         Assert.Equal("Booked", result.Status);
         Assert.Equal("Accepted", result.PatientResponseStatus);
         Assert.Null(result.PatientProposedDate);
@@ -412,6 +529,31 @@ public sealed class AppointmentReschedulingTests : IDisposable
             EndTime = TimeSpan.FromHours(hour + 1),
         };
         _context.Availabilities.Add(availability);
+        _context.SaveChanges();
+        return availability;
+    }
+
+    private Availability AddWindowedAvailability(string personnelId, DateTime date, double startHour)
+    {
+        var start = TimeSpan.FromHours(startHour);
+        var window = new AvailabilityWindow
+        {
+            PersonnelId = personnelId,
+            Date = date.Date,
+            StartTime = TimeSpan.FromHours(9),
+            EndTime = TimeSpan.FromHours(17),
+            IsAvailable = true,
+        };
+        var availability = new Availability
+        {
+            PersonnelId = personnelId,
+            Date = date.Date,
+            StartTime = start,
+            EndTime = start.Add(TimeSpan.FromMinutes(15)),
+            AvailabilityWindow = window,
+        };
+        window.Slots.Add(availability);
+        _context.AvailabilityWindows.Add(window);
         _context.SaveChanges();
         return availability;
     }

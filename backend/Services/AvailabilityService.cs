@@ -343,8 +343,10 @@ namespace backend.Services
                     else if (window.IsGeneratedFromWeeklySchedule && !window.Slots.Any(s => s.Appointment != null))
                     {
                         ApplyRuleToWindow(window, rule);
-                        ReplaceUnbookedSlots(window);
                     }
+
+                    if (window != null && !HasExpectedSlotGrid(window))
+                        ReplaceUnbookedSlots(window);
                 }
                 await _context.SaveChangesAsync();
             }
@@ -405,6 +407,27 @@ namespace backend.Services
                 window.Slots.Add(slot);
         }
 
+        private bool HasExpectedSlotGrid(AvailabilityWindow window)
+        {
+            var bookedStarts = window.Slots
+                .Where(slot => slot.Appointment != null)
+                .Select(slot => slot.StartTime)
+                .ToHashSet();
+            var expected = GenerateSlots(window)
+                .Where(slot => !bookedStarts.Contains(slot.StartTime))
+                .OrderBy(slot => slot.StartTime)
+                .ToList();
+            var actual = window.Slots
+                .Where(slot => slot.Appointment == null)
+                .OrderBy(slot => slot.StartTime)
+                .ToList();
+
+            return expected.Count == actual.Count &&
+                expected.Zip(actual).All(pair =>
+                    pair.First.StartTime == pair.Second.StartTime &&
+                    pair.First.EndTime == pair.Second.EndTime);
+        }
+
         private static (TimeSpan Start, TimeSpan End) NormalizeTimes(
             bool isAvailable,
             string? startTime,
@@ -454,8 +477,8 @@ namespace backend.Services
         // ============ HELPER METHODS ============
 
         private DayAvailabilityDto CreateDayAvailabilityDto(
-            DateTime date, 
-            List<AvailabilityWindow> windows, 
+            DateTime date,
+            List<AvailabilityWindow> windows,
             List<Appointment> appointments)
         {
             string status = "Free";
@@ -484,16 +507,15 @@ namespace backend.Services
 
             if (window.IsAvailable)
             {
-                // Available: 1-hour appointments with 30-minute travel buffer between visits.
-                var slotDuration = TimeSpan.FromHours(1);
-                var travelDuration = TimeSpan.FromMinutes(30);
+                // Slots represent possible start times, not fixed appointment
+                // lengths. AppointmentService calculates each actual end time.
+                var slotDuration = TimeSpan.FromMinutes(15);
                 var currentTime = window.StartTime;
 
                 while (currentTime < window.EndTime)
                 {
                     var slotEnd = currentTime.Add(slotDuration);
-                    if (slotEnd > window.EndTime)
-                        break;
+                    if (slotEnd > window.EndTime) slotEnd = window.EndTime;
 
                     slots.Add(new Availability
                     {
@@ -505,7 +527,7 @@ namespace backend.Services
                         AvailabilityWindowId = window.Id
                     });
 
-                    currentTime = slotEnd.Add(travelDuration);
+                    currentTime = currentTime.Add(slotDuration);
                 }
             }
 

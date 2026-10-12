@@ -74,7 +74,9 @@ public sealed class AvailabilityScheduleTests : IDisposable
 
         Assert.Equal("09:00", created.StartTime);
         Assert.Equal("17:00", created.EndTime);
-        Assert.Equal(5, created.Slots.Count);
+        Assert.Equal(32, created.Slots.Count);
+        Assert.Equal("09:00", created.Slots[0].StartTime);
+        Assert.Equal("09:15", created.Slots[1].StartTime);
         Assert.Equal(1, await _context.AvailabilityWindows.CountAsync(window =>
             window.PersonnelId == _personnelId && window.Date == monday));
     }

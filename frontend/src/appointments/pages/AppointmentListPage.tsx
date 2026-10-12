@@ -375,6 +375,7 @@ const AppointmentListPage: React.FC = () => {
         patientId: data.patientId,
         availabilityId: data.availabilityId,
         tasks: data.tasks,
+        additionalDurationMinutes: data.additionalDurationMinutes ?? 0,
         startTime: data.startTime,
         endTime: data.endTime,
         status: data.status,

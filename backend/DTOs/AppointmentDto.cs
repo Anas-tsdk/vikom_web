@@ -31,6 +31,9 @@ namespace backend.DTOs
         [Required(ErrorMessage = "At least one task is required.")]
         public string Tasks { get; set; } = string.Empty;
 
+        [Range(0, int.MaxValue)]
+        public int? AdditionalDurationMinutes { get; set; }
+
         public string? AvailabilityNotes { get; set; }
         
         // Auto-filled from availability slot - not user input

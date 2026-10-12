@@ -47,6 +47,7 @@ One architecture decision runs through everything: the .NET backend is the singl
 
 - 🟢 Web portal for Head Nurses and Nurses (cross-nurse planning, appointment management, patient profiles, visit execution, dashboard)
 - 🟢 Responsive day-route planning with an interactive map, driving legs, and per-nurse selection for Head Nurses
+- 🟢 Activity-based appointment durations, additive Head-Nurse time, overlap prevention, and travel-aware time recommendations (travel time is a local estimate, not live routing)
 - 🟢 Norwegian, English, German, Finnish, and Swedish web UI
 - 🟢 TV app with login, appointment display, care-team view, and contacts
 - 🟢 Backend API and SQLite database (system of record for clinical data)
@@ -1013,12 +1014,12 @@ Statuses below were verified against the code. See the intro for what 🟢 🟡 
 | Feature | Status | Notes |
 |---------|--------|-------|
 | Web portal login/register | 🟢 | ASP.NET Identity + JWT; public registration creates Nurse; Head Nurses provision either staff role; patients get 403 |
-| Appointment CRUD (web) | 🟢 | Head Nurses assign across staff and can accept a declined patient's proposed time into a matching free nurse slot; Nurses receive a scoped work list; patient invitation acceptance/decline remains on the TV app |
-| Availability slots + recurring windows | 🟢 | 09:00–17:00 defaults, recurring standard week, manual overrides, Head-Nurse staff selection |
+| Appointment CRUD (web) | 🟢 | Head Nurses assign across staff and can accept a declined patient's proposed time into a matching free nurse slot; the server derives visit length from care tasks and extra minutes, and rejects overlaps or insufficient travel gaps; Nurses receive a scoped work list; patient invitation acceptance/decline remains on the TV app |
+| Availability slots + recurring windows | 🟢 | 09:00–17:00 defaults, recurring standard week, manual overrides, 15-minute candidate starts, Head-Nurse staff selection |
 | Patient roster & clinical profiles | 🟢 | Diagnoses, medications, treatment plan, notes, next-of-kin, GP |
 | Visit execution (_Besøk_) | 🟢 | Timer, task checklist, autosaving notes, call attempts, outcomes |
 | Personnel dashboard | 🟢 | Planned count excludes completed work; recent list contains concluded appointments and opens visit details |
-| Daily route planning | 🟢 | Responsive map and time-ordered driving route; Head Nurses select a nurse; automatic stop optimisation is not implemented |
+| Daily route planning | 🟡 | Appointment recommendations account for nearby scheduled visits using local coordinate estimates; the map displays OSRM road routes separately; the scheduler does not have live road or traffic data |
 | Web translations | 🟢 | Norwegian, English, German, Finnish, Swedish; selected in the profile menu |
 | TV app login | 🟢 | Supabase Auth, email verification, encrypted session, auto-refresh |
 | TV appointment fetching + display | 🟢 | `/api/tv/appointments/mine`, day-grouped list, home hero card |

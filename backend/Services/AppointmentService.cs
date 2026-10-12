@@ -1,6 +1,8 @@
 using backend.DAL.Repositories;
 using backend.DTOs;
 using backend.Models;
+using Microsoft.Data.Sqlite;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using System.Net.Http.Headers;
 using System.Net.Http.Json;
@@ -10,6 +12,8 @@ namespace backend.Services
 {
     public class AppointmentService : IAppointmentService
     {
+        private static readonly SemaphoreSlim BookingLock = new(1, 1);
+
         private readonly IAppointmentRepository _appointmentRepository;
         private readonly IAvailabilityRepository _availabilityRepository;
         private readonly IAvailabilityService _availabilityService;
@@ -62,163 +66,133 @@ namespace backend.Services
 
         public async Task<AppointmentDto> CreateAsync(AppointmentDto appointmentDto)
         {
-            var availability = await _availabilityRepository.GetByIdAsync(appointmentDto.AvailabilityId);
-
-            if (availability == null)
+            await BookingLock.WaitAsync();
+            try
             {
-                throw new InvalidOperationException("Availability not found");
+                var availability = await _availabilityRepository.GetByIdAsync(appointmentDto.AvailabilityId);
+
+                if (availability == null)
+                    throw new InvalidOperationException("Availability not found");
+
+                if (availability.Appointment != null)
+                    throw new InvalidOperationException("Availability slot is already booked");
+
+                var appointmentDateTime =
+                    availability.Date.Date + availability.StartTime;
+
+                if (appointmentDateTime <= DateTime.Now)
+                    throw new InvalidOperationException("Cannot book appointments in the past");
+
+                var patient = await _userRepository.GetByIdAsync(appointmentDto.PatientId);
+                if (patient == null)
+                    throw new InvalidOperationException("Patient not found");
+
+                var additionalDuration = appointmentDto.AdditionalDurationMinutes ?? 0;
+                var endTime = await ValidateScheduleAsync(
+                    availability,
+                    patient,
+                    appointmentDto.Tasks,
+                    additionalDuration);
+                await EnsurePatientHasNotDeclinedSlotAsync(
+                    appointmentDto.PatientId,
+                    availability,
+                    endTime);
+
+                var appointment = new Appointment
+                {
+                    PatientId = appointmentDto.PatientId,
+                    AvailabilityId = appointmentDto.AvailabilityId,
+                    Tasks = appointmentDto.Tasks,
+                    AdditionalDurationMinutes = additionalDuration,
+                    StartTime = availability.StartTime,
+                    EndTime = endTime,
+                    Status = "Booked",
+                    PatientResponseStatus = "Pending"
+                };
+
+                var created =
+                    await _appointmentRepository.CreateAsync(appointment);
+
+                var result =
+                    await _appointmentRepository.GetByIdAsync(created.Id);
+
+                if (result != null)
+                    await EmitAppointmentRealtimeEventAsync(result, "created");
+
+                return MapToDto(result!);
             }
-
-            if (availability.Appointment != null)
-            {
-                throw new InvalidOperationException("Availability slot is already booked");
-            }
-
-            var appointmentDateTime =
-                availability.Date.Date + availability.StartTime;
-
-            if (appointmentDateTime <= DateTime.Now)
+            catch (DbUpdateException ex) when (IsOverlapConstraint(ex))
             {
                 throw new InvalidOperationException(
-                    "Cannot book appointments in the past");
+                    "The nurse or patient already has an overlapping appointment",
+                    ex);
             }
-
-            await EnsurePatientHasNotDeclinedSlotAsync(
-                appointmentDto.PatientId,
-                availability);
-
-            var appointment = new Appointment
+            finally
             {
-                PatientId = appointmentDto.PatientId,
-                AvailabilityId = appointmentDto.AvailabilityId,
-                Tasks = appointmentDto.Tasks,
-                StartTime = availability.StartTime,
-                EndTime = availability.EndTime,
-                Status = "Booked",
-                PatientResponseStatus = "Pending"
-            };
-
-            var created =
-                await _appointmentRepository.CreateAsync(appointment);
-
-            var result =
-                await _appointmentRepository.GetByIdAsync(created.Id);
-
-            if (result != null)
-            {
-                await EmitAppointmentRealtimeEventAsync(
-                    result,
-                    "created");
+                BookingLock.Release();
             }
-
-            return MapToDto(result!);
         }
 
         public async Task<AppointmentDto> UpdateAsync(
             int id,
             AppointmentDto appointmentDto)
         {
-            var existing =
-                await _appointmentRepository.GetByIdAsync(id);
-
-            if (existing == null)
+            await BookingLock.WaitAsync();
+            try
             {
-                throw new InvalidOperationException(
-                    "Appointment not found");
-            }
+                var existing =
+                    await _appointmentRepository.GetByIdAsync(id);
 
-            var updated = false;
-            var replannedAfterPatientDecline = false;
+                if (existing == null)
+                    throw new InvalidOperationException("Appointment not found");
 
-            if (appointmentDto.AvailabilityId != 0 &&
-                appointmentDto.AvailabilityId != existing.AvailabilityId)
-            {
-                var isPatientDeclinedCancellation =
-                    existing.Status == "Cancelled" &&
-                    existing.PatientResponseStatus == "Declined";
+                var updated = false;
+                var scheduleChanged = false;
+                var replannedAfterPatientDecline = false;
 
-                if (existing.Status != "Booked" && !isPatientDeclinedCancellation)
-                    throw new InvalidOperationException("Only planned appointments can be rescheduled");
-
-                var currentAppointmentDateTime = existing.Availability.Date.Date + existing.StartTime;
-                if (!isPatientDeclinedCancellation &&
-                    (currentAppointmentDateTime - DateTime.Now).TotalHours < 24)
-                    throw new InvalidOperationException(
-                        "Appointments cannot be modified less than 24 hours before the scheduled time");
-
-                var newAvailability = await _availabilityRepository.GetByIdAsync(appointmentDto.AvailabilityId);
-                if (newAvailability == null)
-                    throw new InvalidOperationException("Availability not found");
-                if (newAvailability.Appointment != null && newAvailability.Appointment.Id != existing.Id)
-                    throw new InvalidOperationException("Availability slot is already booked");
-                if (newAvailability.Date.Date + newAvailability.StartTime <= DateTime.Now)
-                    throw new InvalidOperationException("Cannot book appointments in the past");
-
-                await EnsurePatientHasNotDeclinedSlotAsync(
-                    existing.PatientId,
-                    newAvailability);
-
-                existing.AvailabilityId = newAvailability.Id;
-                existing.Availability = newAvailability;
-                existing.StartTime = newAvailability.StartTime;
-                existing.EndTime = newAvailability.EndTime;
-                // A changed time is a new proposal and must be confirmed again.
-                existing.Status = "Booked";
-                existing.PatientResponseStatus = "Pending";
-                existing.PatientRespondedAt = null;
-                existing.PatientProposedDate = null;
-                existing.PatientProposedStartTime = null;
-                existing.PatientProposedEndTime = null;
-                replannedAfterPatientDecline = isPatientDeclinedCancellation;
-                updated = true;
-            }
-
-            if (!string.Equals(
-                    appointmentDto.Tasks,
-                    existing.Tasks,
-                    StringComparison.Ordinal))
-            {
-                var appointmentDateTime =
-                    existing.Availability.Date.Date +
-                    existing.StartTime;
-
-                var hoursUntilAppointment =
-                    (appointmentDateTime - DateTime.Now).TotalHours;
-
-                if (hoursUntilAppointment < 24)
+                if (appointmentDto.AvailabilityId != 0 &&
+                    appointmentDto.AvailabilityId != existing.AvailabilityId)
                 {
-                    throw new InvalidOperationException(
-                        "Appointments cannot be modified less than 24 hours before the scheduled time");
+                    var isPatientDeclinedCancellation =
+                        existing.Status == "Cancelled" &&
+                        existing.PatientResponseStatus == "Declined";
+
+                    if (existing.Status != "Booked" && !isPatientDeclinedCancellation)
+                        throw new InvalidOperationException("Only planned appointments can be rescheduled");
+
+                    var currentAppointmentDateTime = existing.Availability.Date.Date + existing.StartTime;
+                    if (!isPatientDeclinedCancellation &&
+                        (currentAppointmentDateTime - DateTime.Now).TotalHours < 24)
+                        throw new InvalidOperationException(
+                            "Appointments cannot be modified less than 24 hours before the scheduled time");
+
+                    var newAvailability = await _availabilityRepository.GetByIdAsync(appointmentDto.AvailabilityId);
+                    if (newAvailability == null)
+                        throw new InvalidOperationException("Availability not found");
+                    if (newAvailability.Appointment != null && newAvailability.Appointment.Id != existing.Id)
+                        throw new InvalidOperationException("Availability slot is already booked");
+                    if (newAvailability.Date.Date + newAvailability.StartTime <= DateTime.Now)
+                        throw new InvalidOperationException("Cannot book appointments in the past");
+
+                    existing.AvailabilityId = newAvailability.Id;
+                    existing.Availability = newAvailability;
+                    existing.StartTime = newAvailability.StartTime;
+                    scheduleChanged = true;
+                    // A changed time is a new proposal and must be confirmed again.
+                    existing.Status = "Booked";
+                    existing.PatientResponseStatus = "Pending";
+                    existing.PatientRespondedAt = null;
+                    existing.PatientProposedDate = null;
+                    existing.PatientProposedStartTime = null;
+                    existing.PatientProposedEndTime = null;
+                    replannedAfterPatientDecline = isPatientDeclinedCancellation;
+                    updated = true;
                 }
 
-                existing.Tasks = appointmentDto.Tasks;
-                updated = true;
-            }
-
-            if (!(replannedAfterPatientDecline && appointmentDto.Status == "Cancelled") &&
-                !string.IsNullOrEmpty(appointmentDto.Status) &&
-                appointmentDto.Status != existing.Status)
-            {
-                var currentStatus = existing.Status;
-                var newStatus = appointmentDto.Status;
-
-                var validTransition =
-                    (currentStatus, newStatus) switch
-                    {
-                        ("Booked", "InProgress") => true,
-                        ("Booked", "Cancelled") => true,
-                        ("InProgress", "Completed") => true,
-                        ("InProgress", "Cancelled") => true,
-                        _ => false
-                    };
-
-                if (!validTransition)
-                {
-                    throw new InvalidOperationException(
-                        $"Invalid status transition from {currentStatus} to {newStatus}");
-                }
-
-                if (newStatus == "Cancelled")
+                if (!string.Equals(
+                        appointmentDto.Tasks,
+                        existing.Tasks,
+                        StringComparison.Ordinal))
                 {
                     var appointmentDateTime =
                         existing.Availability.Date.Date +
@@ -230,117 +204,213 @@ namespace backend.Services
                     if (hoursUntilAppointment < 24)
                     {
                         throw new InvalidOperationException(
-                            "Appointments cannot be cancelled less than 24 hours before the scheduled time");
+                            "Appointments cannot be modified less than 24 hours before the scheduled time");
                     }
+
+                    existing.Tasks = appointmentDto.Tasks;
+                    scheduleChanged = true;
+                    updated = true;
                 }
 
-                existing.Status = newStatus;
-                updated = true;
-            }
+                if (appointmentDto.AdditionalDurationMinutes is int requestedAdditionalDuration &&
+                    requestedAdditionalDuration != existing.AdditionalDurationMinutes)
+                {
+                    var appointmentDateTime =
+                        existing.Availability.Date.Date + existing.StartTime;
+                    if ((appointmentDateTime - DateTime.Now).TotalHours < 24)
+                        throw new InvalidOperationException(
+                            "Appointments cannot be modified less than 24 hours before the scheduled time");
 
-            if (!updated)
+                    existing.AdditionalDurationMinutes = requestedAdditionalDuration;
+                    scheduleChanged = true;
+                    updated = true;
+                }
+
+                if (!(replannedAfterPatientDecline && appointmentDto.Status == "Cancelled") &&
+                    !string.IsNullOrEmpty(appointmentDto.Status) &&
+                    appointmentDto.Status != existing.Status)
+                {
+                    var currentStatus = existing.Status;
+                    var newStatus = appointmentDto.Status;
+
+                    var validTransition =
+                        (currentStatus, newStatus) switch
+                        {
+                            ("Booked", "InProgress") => true,
+                            ("Booked", "Cancelled") => true,
+                            ("InProgress", "Completed") => true,
+                            ("InProgress", "Cancelled") => true,
+                            _ => false
+                        };
+
+                    if (!validTransition)
+                    {
+                        throw new InvalidOperationException(
+                            $"Invalid status transition from {currentStatus} to {newStatus}");
+                    }
+
+                    if (newStatus == "Cancelled")
+                    {
+                        var appointmentDateTime =
+                            existing.Availability.Date.Date +
+                            existing.StartTime;
+
+                        var hoursUntilAppointment =
+                            (appointmentDateTime - DateTime.Now).TotalHours;
+
+                        if (hoursUntilAppointment < 24)
+                        {
+                            throw new InvalidOperationException(
+                                "Appointments cannot be cancelled less than 24 hours before the scheduled time");
+                        }
+                    }
+
+                    existing.Status = newStatus;
+                    updated = true;
+                }
+
+                if (scheduleChanged)
+                {
+                    var endTime = await ValidateScheduleAsync(
+                        existing.Availability,
+                        existing.Patient,
+                        existing.Tasks,
+                        existing.AdditionalDurationMinutes,
+                        existing.Id);
+                    await EnsurePatientHasNotDeclinedSlotAsync(
+                        existing.PatientId,
+                        existing.Availability,
+                        endTime);
+                    existing.EndTime = endTime;
+                }
+
+                if (!updated)
+                {
+                    return MapToDto(existing);
+                }
+
+                var updatedAppointment =
+                    await _appointmentRepository.UpdateAsync(existing);
+
+                var result =
+                    await _appointmentRepository.GetByIdAsync(
+                        updatedAppointment.Id);
+
+                if (result != null)
+                {
+                    await EmitAppointmentRealtimeEventAsync(
+                        result,
+                        "updated");
+                }
+
+                return MapToDto(result!);
+            }
+            catch (DbUpdateException ex) when (IsOverlapConstraint(ex))
             {
-                return MapToDto(existing);
+                throw new InvalidOperationException(
+                    "The nurse or patient already has an overlapping appointment",
+                    ex);
             }
-
-            var updatedAppointment =
-                await _appointmentRepository.UpdateAsync(existing);
-
-            var result =
-                await _appointmentRepository.GetByIdAsync(
-                    updatedAppointment.Id);
-
-            if (result != null)
+            finally
             {
-                await EmitAppointmentRealtimeEventAsync(
-                    result,
-                    "updated");
+                BookingLock.Release();
             }
-
-            return MapToDto(result!);
         }
 
         public async Task<AppointmentDto> AcceptPatientProposalAsync(int id)
         {
-            var appointment = await _appointmentRepository.GetByIdAsync(id);
-            if (appointment == null)
-                throw new InvalidOperationException("Appointment not found");
-
-            if (appointment.Status != "Cancelled" ||
-                appointment.PatientResponseStatus != "Declined" ||
-                appointment.PatientProposedDate == null ||
-                appointment.PatientProposedStartTime == null ||
-                appointment.PatientProposedEndTime == null)
+            await BookingLock.WaitAsync();
+            try
             {
-                throw new InvalidOperationException(
-                    "Only declined appointments with a proposed time can be accepted");
-            }
+                var appointment = await _appointmentRepository.GetByIdAsync(id);
+                if (appointment == null)
+                    throw new InvalidOperationException("Appointment not found");
 
-            var proposedDate = appointment.PatientProposedDate.Value.Date;
-            var proposedStart = appointment.PatientProposedStartTime.Value;
-            var proposedEnd = appointment.PatientProposedEndTime.Value;
-            if (proposedDate + proposedStart <= DateTime.Now ||
-                proposedEnd <= proposedStart)
-            {
-                throw new InvalidOperationException(
-                    "The proposed time must be in the future and end after it starts");
-            }
+                if (appointment.Status != "Cancelled" ||
+                    appointment.PatientResponseStatus != "Declined" ||
+                    appointment.PatientProposedDate == null ||
+                    appointment.PatientProposedStartTime == null ||
+                    appointment.PatientProposedEndTime == null)
+                    throw new InvalidOperationException(
+                        "Only declined appointments with a proposed time can be accepted");
 
-            await _availabilityService.GetDayAvailabilityAsync(
-                appointment.Availability.PersonnelId,
-                proposedDate);
+                var proposedDate = appointment.PatientProposedDate.Value.Date;
+                var proposedStart = appointment.PatientProposedStartTime.Value;
+                var proposedEnd = appointment.PatientProposedEndTime.Value;
+                if (proposedDate + proposedStart <= DateTime.Now || proposedEnd <= proposedStart)
+                    throw new InvalidOperationException(
+                        "The proposed time must be in the future and end after it starts");
 
-            var availableSlots = await _availabilityRepository.GetByPersonnelIdAsync(
-                appointment.Availability.PersonnelId);
-            var scheduledAppointments =
-                await _appointmentRepository.GetByPersonnelIdAndDateRangeAsync(
+                await _availabilityService.GetDayAvailabilityAsync(
                     appointment.Availability.PersonnelId,
-                    proposedDate,
                     proposedDate);
-            var selectedSlot = availableSlots
-                .Where(slot =>
+
+                var availableSlots = await _availabilityRepository.GetByPersonnelIdAsync(
+                    appointment.Availability.PersonnelId);
+                var candidates = availableSlots
+                    .Where(slot =>
                     slot.Date.Date == proposedDate &&
                     slot.Appointment == null &&
                     slot.StartTime >= proposedStart &&
-                    slot.EndTime <= proposedEnd &&
-                    slot.Date.Date + slot.StartTime > DateTime.Now &&
-                    !scheduledAppointments.Any(scheduled =>
-                        (scheduled.Status == "Booked" || scheduled.Status == "InProgress") &&
-                        scheduled.StartTime < slot.EndTime &&
-                        slot.StartTime < scheduled.EndTime))
-                .OrderBy(slot => Math.Abs((slot.StartTime - proposedStart).Ticks))
-                .ThenBy(slot => slot.StartTime)
-                .ThenBy(slot => slot.Id)
-                .FirstOrDefault();
+                    slot.Date.Date + slot.StartTime > DateTime.Now)
+                    .OrderBy(slot => Math.Abs((slot.StartTime - proposedStart).Ticks))
+                    .ThenBy(slot => slot.StartTime)
+                    .ThenBy(slot => slot.Id)
+                    .ToList();
 
-            if (selectedSlot == null)
+                Availability? selectedSlot = null;
+                TimeSpan selectedEnd = default;
+                foreach (var slot in candidates)
+                {
+                    var end = await TryGetScheduleEndTimeAsync(
+                        slot,
+                        appointment.Patient,
+                        appointment.Tasks,
+                        appointment.AdditionalDurationMinutes,
+                        appointment.Id);
+                    if (end is null || end.Value > proposedEnd)
+                        continue;
+
+                    if (await HasPatientDeclinedSlotOverlapAsync(
+                        appointment.PatientId,
+                        slot,
+                        end.Value))
+                        continue;
+                    selectedSlot = slot;
+                    selectedEnd = end.Value;
+                    break;
+                }
+
+                if (selectedSlot == null)
+                    throw new InvalidOperationException("No available nurse slot fits the proposed time");
+
+                appointment.AvailabilityId = selectedSlot.Id;
+                appointment.Availability = selectedSlot;
+                appointment.StartTime = selectedSlot.StartTime;
+                appointment.EndTime = selectedEnd;
+                appointment.Status = "Booked";
+                appointment.PatientResponseStatus = "Accepted";
+                appointment.PatientProposedDate = null;
+                appointment.PatientProposedStartTime = null;
+                appointment.PatientProposedEndTime = null;
+
+                var updated = await _appointmentRepository.UpdateAsync(appointment);
+                var result = await _appointmentRepository.GetByIdAsync(updated.Id);
+                if (result != null)
+                    await EmitAppointmentRealtimeEventAsync(result, "updated");
+
+                return MapToDto(result!);
+            }
+            catch (DbUpdateException ex) when (IsOverlapConstraint(ex))
             {
                 throw new InvalidOperationException(
-                    "No available nurse slot fits the proposed time");
+                    "The nurse or patient already has an overlapping appointment",
+                    ex);
             }
-
-            await EnsurePatientHasNotDeclinedSlotAsync(
-                appointment.PatientId,
-                selectedSlot);
-
-            appointment.AvailabilityId = selectedSlot.Id;
-            appointment.Availability = selectedSlot;
-            appointment.StartTime = selectedSlot.StartTime;
-            appointment.EndTime = selectedSlot.EndTime;
-            appointment.Status = "Booked";
-            appointment.PatientResponseStatus = "Accepted";
-            appointment.PatientProposedDate = null;
-            appointment.PatientProposedStartTime = null;
-            appointment.PatientProposedEndTime = null;
-
-            var updated = await _appointmentRepository.UpdateAsync(appointment);
-            var result = await _appointmentRepository.GetByIdAsync(updated.Id);
-            if (result != null)
+            finally
             {
-                await EmitAppointmentRealtimeEventAsync(result, "updated");
+                BookingLock.Release();
             }
-
-            return MapToDto(result!);
         }
 
         public async Task<AppointmentDto?> RespondToInvitationAsync(
@@ -591,34 +661,128 @@ namespace backend.Services
 
         private async Task EnsurePatientHasNotDeclinedSlotAsync(
             string patientId,
-            Availability candidate)
+            Availability candidate,
+            TimeSpan endTime)
+        {
+            if (await HasPatientDeclinedSlotOverlapAsync(patientId, candidate, endTime))
+            {
+                throw new InvalidOperationException(
+                    "Cannot schedule a patient in a time range they have already declined");
+            }
+        }
+
+        private async Task<bool> HasPatientDeclinedSlotOverlapAsync(
+            string patientId,
+            Availability candidate,
+            TimeSpan endTime)
         {
             var persistedConflict = await _appointmentRepository.HasDeclinedSlotOverlapAsync(
                 patientId,
                 candidate.Date,
                 candidate.StartTime,
-                candidate.EndTime);
+                endTime);
             if (persistedConflict)
-            {
-                throw new InvalidOperationException(
-                    "Cannot schedule a patient in a time range they have already declined");
-            }
+                return true;
 
             // This fallback covers rows created before declined-slot history was
             // introduced and protects the migration window immediately.
             var patientAppointments = await _appointmentRepository.GetByPatientIdAsync(patientId);
-            var legacyConflict = patientAppointments.Any(appointment =>
+            return patientAppointments.Any(appointment =>
                 appointment.Status == "Cancelled" &&
                 appointment.PatientResponseStatus == "Declined" &&
                 appointment.Availability.Date.Date == candidate.Date.Date &&
-                appointment.StartTime < candidate.EndTime &&
+                appointment.StartTime < endTime &&
                 candidate.StartTime < appointment.EndTime);
+        }
 
-            if (legacyConflict)
+        private async Task<TimeSpan> ValidateScheduleAsync(
+            Availability candidate,
+            User patient,
+            string tasks,
+            int additionalDurationMinutes,
+            int ignoredAppointmentId = 0)
+        {
+            return await TryGetScheduleEndTimeAsync(
+                    candidate,
+                    patient,
+                    tasks,
+                    additionalDurationMinutes,
+                    ignoredAppointmentId)
+                ?? throw new InvalidOperationException(
+                    "The visit does not fit the nurse's availability, overlap, or travel-time requirements");
+        }
+
+        private async Task<TimeSpan?> TryGetScheduleEndTimeAsync(
+            Availability candidate,
+            User patient,
+            string tasks,
+            int additionalDurationMinutes,
+            int ignoredAppointmentId = 0)
+        {
+            var durationMinutes = AppointmentSchedulingRules.CalculateDurationMinutes(
+                tasks,
+                additionalDurationMinutes);
+            var endTime = candidate.StartTime.Add(TimeSpan.FromMinutes(durationMinutes));
+            var window = candidate.AvailabilityWindow;
+            var windowEnd = window?.EndTime ?? candidate.EndTime;
+
+            if (window != null &&
+                (!window.IsAvailable ||
+                 window.PersonnelId != candidate.PersonnelId ||
+                 window.Date.Date != candidate.Date.Date ||
+                 candidate.StartTime < window.StartTime))
+                return null;
+            if (endTime > TimeSpan.FromDays(1) || endTime > windowEnd)
+                return null;
+
+            var nurseAppointments = (await _appointmentRepository.GetByPersonnelIdAndDateRangeAsync(
+                    candidate.PersonnelId,
+                    candidate.Date.Date,
+                    candidate.Date.Date))
+                .Where(appointment =>
+                    appointment.Id != ignoredAppointmentId &&
+                    appointment.Status != "Cancelled")
+                .OrderBy(appointment => appointment.StartTime)
+                .ToList();
+
+            if (nurseAppointments.Any(appointment =>
+                appointment.StartTime < endTime && candidate.StartTime < appointment.EndTime))
+                return null;
+
+            var patientAppointments = await _appointmentRepository.GetByPatientIdAsync(patient.Id);
+            if (patientAppointments.Any(appointment =>
+                appointment.Id != ignoredAppointmentId &&
+                appointment.Status != "Cancelled" &&
+                appointment.Availability.Date.Date == candidate.Date.Date &&
+                appointment.StartTime < endTime &&
+                candidate.StartTime < appointment.EndTime))
+                return null;
+
+            var previous = nurseAppointments
+                .Where(appointment => appointment.EndTime <= candidate.StartTime)
+                .LastOrDefault();
+            if (previous != null)
             {
-                throw new InvalidOperationException(
-                    "Cannot schedule a patient in a time range they have already declined");
+                var gapMinutes = (candidate.StartTime - previous.EndTime).TotalMinutes;
+                var requiredMinutes = AppointmentSchedulingRules.EstimateTravelMinutes(
+                    previous.Patient,
+                    patient);
+                if (gapMinutes < requiredMinutes)
+                    return null;
             }
+
+            var next = nurseAppointments.FirstOrDefault(appointment => appointment.StartTime >= endTime);
+            if (next != null)
+            {
+                var gapMinutes = (next.StartTime - endTime).TotalMinutes;
+                var requiredMinutes = AppointmentSchedulingRules.EstimateTravelMinutes(
+                    patient,
+                    next.Patient);
+                if (gapMinutes < requiredMinutes)
+                    return null;
+            }
+
+            return endTime;
         }
 
         private static AppointmentDto MapToDto(
@@ -634,29 +798,36 @@ namespace backend.Services
             {
                 Id = appointment.Id,
                 PatientId = appointment.PatientId,
-PatientName = appointment.Patient?.FullName ?? string.Empty,
-PatientAddress = appointment.Patient?.Address ?? string.Empty,
-PatientLatitude = appointment.Patient?.Latitude,
-PatientLongitude = appointment.Patient?.Longitude,
-PatientSupabaseProfileId = appointment.Patient?.SupabaseProfileId,
-AvailabilityId = appointment.AvailabilityId,
-PersonnelId = appointment.Availability?.PersonnelId ?? string.Empty,
-PersonnelName = appointment.Availability?.Personnel?.FullName ?? string.Empty,
-Date = appointment.Availability?.Date.ToString("yyyy-MM-dd") ?? string.Empty,
-Tasks = appointment.Tasks,
-AvailabilityNotes = appointment.Availability?.Notes ?? string.Empty,
-StartTime = appointment.StartTime.ToString(@"hh\:mm"),
-EndTime = appointment.EndTime.ToString(@"hh\:mm"),
-Status = status,
-PatientResponseStatus = appointment.PatientResponseStatus,
-PatientRespondedAt = appointment.PatientRespondedAt,
-PatientProposedDate = appointment.PatientProposedDate?.ToString("yyyy-MM-dd"),
-PatientProposedStartTime = appointment.PatientProposedStartTime?.ToString(@"hh\:mm"),
-PatientProposedEndTime = appointment.PatientProposedEndTime?.ToString(@"hh\:mm"),
-VisitId = appointment.Visit?.Id,
-VisitStatus = appointment.Visit?.Status,
-VisitType = appointment.Visit?.VisitType
+                PatientName = appointment.Patient?.FullName ?? string.Empty,
+                PatientAddress = appointment.Patient?.Address ?? string.Empty,
+                PatientLatitude = appointment.Patient?.Latitude,
+                PatientLongitude = appointment.Patient?.Longitude,
+                PatientSupabaseProfileId = appointment.Patient?.SupabaseProfileId,
+                AvailabilityId = appointment.AvailabilityId,
+                PersonnelId = appointment.Availability?.PersonnelId ?? string.Empty,
+                PersonnelName = appointment.Availability?.Personnel?.FullName ?? string.Empty,
+                Date = appointment.Availability?.Date.ToString("yyyy-MM-dd") ?? string.Empty,
+                Tasks = appointment.Tasks,
+                AdditionalDurationMinutes = appointment.AdditionalDurationMinutes,
+                AvailabilityNotes = appointment.Availability?.Notes ?? string.Empty,
+                StartTime = appointment.StartTime.ToString(@"hh\:mm"),
+                EndTime = appointment.EndTime.ToString(@"hh\:mm"),
+                Status = status,
+                PatientResponseStatus = appointment.PatientResponseStatus,
+                PatientRespondedAt = appointment.PatientRespondedAt,
+                PatientProposedDate = appointment.PatientProposedDate?.ToString("yyyy-MM-dd"),
+                PatientProposedStartTime = appointment.PatientProposedStartTime?.ToString(@"hh\:mm"),
+                PatientProposedEndTime = appointment.PatientProposedEndTime?.ToString(@"hh\:mm"),
+                VisitId = appointment.Visit?.Id,
+                VisitStatus = appointment.Visit?.Status,
+                VisitType = appointment.Visit?.VisitType
             };
         }
+
+        private static bool IsOverlapConstraint(DbUpdateException exception) =>
+            exception.InnerException is SqliteException sqliteException &&
+            sqliteException.Message.Contains(
+                "appointments cannot overlap",
+                StringComparison.OrdinalIgnoreCase);
     }
 }

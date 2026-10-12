@@ -50,6 +50,10 @@ namespace backend.DAL
                 .HasForeignKey<Appointment>(a => a.AvailabilityId)
                 .OnDelete(DeleteBehavior.Cascade);
 
+            modelBuilder.Entity<Appointment>()
+                .Property(a => a.AdditionalDurationMinutes)
+                .HasDefaultValue(0);
+
             // Configure one-to-many relationship between AvailabilityWindow and Availability
             modelBuilder.Entity<AvailabilityWindow>()
                 .HasMany(w => w.Slots)

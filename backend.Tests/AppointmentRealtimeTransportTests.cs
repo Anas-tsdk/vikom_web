@@ -8,6 +8,7 @@ using Microsoft.Data.Sqlite;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging.Abstractions;
+using System.Text.Json;
 using Xunit;
 
 namespace backend.Tests;
@@ -26,7 +27,7 @@ public class AppointmentRealtimeTransportTests : IDisposable
     }
 
     [Fact]
-    public async Task Creating_appointment_broadcasts_pending_invitation_to_linked_profile()
+    public async Task Creating_appointment_broadcasts_exact_calculated_end_time_in_pending_invitation()
     {
         var personnel = new User { Id = "nurse", UserName = "nurse", FullName = "Nurse", Role = "Personnel" };
         var patient = new User
@@ -71,10 +72,11 @@ public class AppointmentRealtimeTransportTests : IDisposable
         {
             PatientId = patient.Id,
             AvailabilityId = availability.Id,
-            Tasks = "Medication"
+            Tasks = "Medisin, Bading, Servering av måltider"
         });
 
         Assert.Equal("Pending", created.PatientResponseStatus);
+        Assert.Equal("10:40", created.EndTime);
         Assert.Equal(2, handler.RequestCount);
         Assert.EndsWith(
             "/realtime/v1/api/broadcast/webrtc-signaling/events/message",
@@ -83,6 +85,12 @@ public class AppointmentRealtimeTransportTests : IDisposable
         Assert.Contains("appointment_staff_event", handler.RequestBodies);
         Assert.Contains("patientResponseStatus", handler.RequestBodies);
         Assert.Contains("Pending", handler.RequestBodies);
+
+        using var request = JsonDocument.Parse(handler.RequestBody);
+        var payloadJson = request.RootElement.GetProperty("payload").GetString();
+        Assert.NotNull(payloadJson);
+        using var payload = JsonDocument.Parse(payloadJson);
+        Assert.Equal("10:40", payload.RootElement.GetProperty("endTime").GetString());
     }
 
     private sealed class TestHttpClientFactory(HttpClient client) : IHttpClientFactory

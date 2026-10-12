@@ -23,6 +23,9 @@ namespace backend.Models
         [Required(ErrorMessage = "At least one task is required.")]
         public string Tasks { get; set; } = string.Empty;
 
+        [Range(0, int.MaxValue)]
+        public int AdditionalDurationMinutes { get; set; }
+
         [DataType(DataType.Time)]
         public TimeSpan StartTime { get; set; }
 

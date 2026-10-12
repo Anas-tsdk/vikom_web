@@ -1,14 +1,16 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { Form, Button, Spinner, Alert } from 'react-bootstrap';
 import { useTranslation } from 'react-i18next';
 import PatientService from '../../patients/services/PatientService';
 import PersonnelService, { type NurseSummary } from '../../personnel/services/PersonnelService';
 import { fetchWeekAvailability } from '../../availability/services/AvailabilityService';
+import AppointmentService from '../services/AppointmentService';
 import type { Appointment } from '../types/appointment';
 import type { PatientListDto } from '../../patients/types/patient';
-import type { AvailabilitySlot, DayAvailability, WeekAvailability } from '../../availability/types/availability';
+import type { DayAvailability, WeekAvailability } from '../../availability/types/availability';
 import { localeForLanguage } from '../../i18n';
 import { addWeeks, formatDateISO, getMonday } from '../../utils/dateUtils';
+import { calculateVisitDurationMinutes, recommendSlots } from '../utils/scheduling';
 
 interface AppointmentFormProps {
   initialData?: Appointment;
@@ -20,56 +22,20 @@ interface AppointmentFormProps {
 const ALL_TASKS = [
   { id: 'medisin', label: 'Medisin', description: 'Hjelp med medisinering og dosering' },
   { id: 'bading', label: 'Bading', description: 'Hjelp med personlig hygiene og bading' },
-  { id: 'matlaging', label: 'Matlaging', description: 'Hjelp med måltider og matlaging' },
-  { id: 'handel', label: 'Handel', description: 'Hjelp med å handle mat og nødvendigheter' },
+  { id: 'servering', label: 'Servering av måltider', description: 'Hjelp med måltider og servering' },
   { id: 'husholdning', label: 'Husholdning', description: 'Lett husarbeid og rengjøring' },
   { id: 'digitalhjelp', label: 'Digital hjelp', description: 'Hjelp med telefon, nettbrett eller PC' },
-  { id: 'transport', label: 'Transport', description: 'Støtte til avtaler og ærender' },
+  { id: 'annet', label: 'Annet', description: 'Andre oppgaver uten fastsatt tidsbruk' },
 ] as const;
 
 const BOOKING_WEEKS = 12;
-
-const slotStartTimestamp = (date: string, time: string): number | null => {
-  const [year, month, day] = date.split('-').map(Number);
-  const [hour, minute, second = 0] = time.split(':').map(Number);
-  if (![year, month, day, hour, minute, second].every(Number.isFinite)) return null;
-
-  const value = new Date(year, month - 1, day, hour, minute, second).getTime();
-  return Number.isNaN(value) ? null : value;
-};
-
-const isSelectableSlot = (
-  date: string,
-  slot: AvailabilitySlot,
-  currentAppointment: Appointment | undefined,
-  declinedAppointment: Appointment | undefined,
-  now: Date,
-): boolean => {
-  const declinedStart = declinedAppointment?.declinedSlotStartTime?.slice(0, 5);
-  const declinedEnd = declinedAppointment?.declinedSlotEndTime?.slice(0, 5);
-  const isDeclinedTime =
-    declinedAppointment?.declinedSlotDate === date &&
-    !!declinedStart &&
-    !!declinedEnd &&
-    slot.startTime.slice(0, 5) < declinedEnd &&
-    declinedStart < slot.endTime.slice(0, 5);
-  if (isDeclinedTime) return false;
-
-  const isCurrentAppointmentSlot =
-    currentAppointment?.date === date && currentAppointment.availabilityId === slot.id;
-  if (isCurrentAppointmentSlot) return true;
-  if (slot.isBooked) return false;
-
-  const startsAt = slotStartTimestamp(date, slot.startTime);
-  // Mirrors the backend rule: a new booking must start strictly after now.
-  return startsAt !== null && startsAt > now.getTime();
-};
 
 const AppointmentForm: React.FC<AppointmentFormProps> = ({ initialData, defaultPersonnelId, onSubmit, onCancel }) => {
   const { t, i18n } = useTranslation();
   const locale = localeForLanguage(i18n.resolvedLanguage);
 
   const [selectedTaskIds, setSelectedTaskIds] = useState<string[]>([]);
+  const [slotSelectionTouched, setSlotSelectionTouched] = useState(Boolean(initialData?.id));
 
 
   // Form state
@@ -78,6 +44,7 @@ const AppointmentForm: React.FC<AppointmentFormProps> = ({ initialData, defaultP
     patientId: initialData?.patientId || '',
     availabilityId: initialData?.availabilityId || 0,
     tasks: initialData?.tasks || '',
+    additionalDurationMinutes: initialData?.additionalDurationMinutes ?? 0,
     startTime: initialData?.startTime || '',
     endTime: initialData?.endTime || '',
     status: initialData?.status || 'Booked',
@@ -92,8 +59,26 @@ const AppointmentForm: React.FC<AppointmentFormProps> = ({ initialData, defaultP
       .map((t) => t.trim())
       .filter(Boolean);
 
+    const legacyTaskAliases: Record<string, string> = {
+      Medication: 'medisin',
+      Bathing: 'bading',
+      Matlaging: 'servering',
+      Cooking: 'servering',
+      'Serving Meals': 'servering',
+      Housekeeping: 'husholdning',
+      'Digital assistance': 'digitalhjelp',
+      Others: 'annet',
+      Other: 'annet',
+      Handel: 'annet',
+      Shopping: 'annet',
+      Transport: 'annet',
+    };
+
     const selectedIds = ALL_TASKS
-      .filter((task) => taskLabels.includes(task.label))
+      .filter((task) =>
+        taskLabels.includes(task.label) ||
+        taskLabels.some((label) => legacyTaskAliases[label] === task.id),
+      )
       .map((task) => task.id);
 
     setSelectedTaskIds(selectedIds);
@@ -106,15 +91,117 @@ const AppointmentForm: React.FC<AppointmentFormProps> = ({ initialData, defaultP
     initialData?.personnelId || defaultPersonnelId || '',
   );
   const [selectedDate, setSelectedDate] = useState<string>(initialData?.date || '');
-  const [availableDates, setAvailableDates] = useState<string[]>([]);
-  const [availableSlots, setAvailableSlots] = useState<AvailabilitySlot[]>([]);
   const [allDaysData, setAllDaysData] = useState<DayAvailability[]>([]);
+  const [nurseAppointments, setNurseAppointments] = useState<Appointment[]>([]);
+  const [patientAppointments, setPatientAppointments] = useState<Appointment[]>([]);
+  const [patientAppointmentsLoadedFor, setPatientAppointmentsLoadedFor] = useState<string | null>(null);
   const [loading, setLoading] = useState<boolean>(true);
   const [loadingDates, setLoadingDates] = useState<boolean>(false);
-  const [loadingSlots, setLoadingSlots] = useState<boolean>(false);
+  const [optionsLoadError, setOptionsLoadError] = useState<string>('');
+  const [availabilityLoadError, setAvailabilityLoadError] = useState<string>('');
+  const [patientAppointmentsLoadError, setPatientAppointmentsLoadError] = useState<string>('');
   const [errors, setErrors] = useState<{ [key: string]: string }>({});
   const currentAppointmentForPersonnel =
     selectedPersonnelId === initialData?.personnelId ? initialData : undefined;
+  const selectedPatient = patients.find((patient) => patient.id === formData.patientId);
+  const selectedTaskLabels = useMemo(
+    () => selectedTaskIds.flatMap((id) => {
+      const label = ALL_TASKS.find((task) => task.id === id)?.label;
+      return label ? [label] : [];
+    }),
+    [selectedTaskIds],
+  );
+  const visitDurationMinutes = calculateVisitDurationMinutes(
+    selectedTaskLabels,
+    formData.additionalDurationMinutes ?? 0,
+  );
+  const patientSchedulingDataReady = !formData.patientId || (
+    Boolean(selectedPatient) &&
+    patientAppointmentsLoadedFor === formData.patientId &&
+    !patientAppointmentsLoadError
+  );
+  const schedulingDataReady =
+    !loadingDates &&
+    !availabilityLoadError &&
+    patientSchedulingDataReady;
+  const recommendedSlots = useMemo(
+    () => schedulingDataReady ? recommendSlots(
+      allDaysData,
+      nurseAppointments,
+      patientAppointments,
+      selectedPatient,
+      selectedTaskLabels,
+      formData.additionalDurationMinutes ?? 0,
+      new Date(),
+      currentAppointmentForPersonnel,
+      initialData,
+    ) : [],
+    [
+      schedulingDataReady,
+      allDaysData,
+      nurseAppointments,
+      patientAppointments,
+      selectedPatient,
+      selectedTaskLabels,
+      formData.additionalDurationMinutes,
+      currentAppointmentForPersonnel,
+      initialData,
+    ],
+  );
+  const availableDates = [...new Set(recommendedSlots.map((slot) => slot.date))];
+  const availableSlots = recommendedSlots.filter((slot) => slot.date === selectedDate);
+  const recommendedSlot = recommendedSlots[0];
+
+  useEffect(() => {
+    if (!schedulingDataReady) return;
+
+    if (recommendedSlots.length === 0) {
+      if (formData.availabilityId !== 0 || formData.startTime || formData.endTime) {
+        setFormData((previous) => ({
+          ...previous,
+          availabilityId: 0,
+          startTime: '',
+          endTime: '',
+        }));
+      }
+      return;
+    }
+
+    const selectedSlot = recommendedSlots.find((slot) =>
+      slot.date === selectedDate && slot.id === formData.availabilityId,
+    );
+    if (selectedSlot && slotSelectionTouched) {
+      if (formData.endTime !== selectedSlot.endTime) {
+        setFormData((previous) => ({
+          ...previous,
+          startTime: selectedSlot.startTime,
+          endTime: selectedSlot.endTime,
+        }));
+      }
+      return;
+    }
+
+    const nextSlot = slotSelectionTouched
+      ? recommendedSlots.find((slot) => slot.date === selectedDate) ?? recommendedSlot
+      : recommendedSlot;
+    if (!nextSlot) return;
+    if (selectedDate !== nextSlot.date) setSelectedDate(nextSlot.date);
+    setFormData((previous) => ({
+      ...previous,
+      availabilityId: nextSlot.id,
+      startTime: nextSlot.startTime,
+      endTime: nextSlot.endTime,
+    }));
+  }, [
+    recommendedSlots,
+    recommendedSlot,
+    selectedDate,
+    formData.availabilityId,
+    formData.startTime,
+    formData.endTime,
+    slotSelectionTouched,
+    schedulingDataReady,
+  ]);
 
   useEffect(() => {
     if (!initialData?.id && defaultPersonnelId) setSelectedPersonnelId(defaultPersonnelId);
@@ -134,22 +221,22 @@ const AppointmentForm: React.FC<AppointmentFormProps> = ({ initialData, defaultP
         const personnelList = await PersonnelService.getAll();
         setPersonnel(personnelList);
       } catch {
-        // Failed to load form data
+        setOptionsLoadError(t('Kunne ikke laste planleggingsdata. Prøv igjen.'));
       } finally {
         setLoading(false);
       }
     };
 
     loadData();
-  }, []);
+  }, [t]);
 
   // Loads available dates when personnel is selected
   useEffect(() => {
     let active = true;
     const loadAvailableDates = async () => {
       if (!selectedPersonnelId) {
-        setAvailableDates([]);
         setAllDaysData([]);
+        setNurseAppointments([]);
         return;
       }
 
@@ -159,42 +246,31 @@ const AppointmentForm: React.FC<AppointmentFormProps> = ({ initialData, defaultP
         // Fetch the configured booking horizon. Each request also materializes
         // recurring weekly rules into real, bookable database slots.
         const monday = getMonday(new Date());
-        const weeks: WeekAvailability[] = [];
+        const weeksPromise = (async () => {
+          const weeks: WeekAvailability[] = [];
+          for (let offset = 0; offset < BOOKING_WEEKS; offset += 1) {
+            weeks.push(await fetchWeekAvailability(
+              selectedPersonnelId,
+              formatDateISO(addWeeks(monday, offset)),
+            ));
+          }
+          return weeks;
+        })();
+        const appointmentsPromise = AppointmentService.getByPersonnelId(selectedPersonnelId);
         // Reading a week also materializes its recurring schedule into SQLite.
         // Keep these requests sequential so a newly registered nurse's first
         // booking load cannot race concurrent database writes.
-        for (let offset = 0; offset < BOOKING_WEEKS; offset += 1) {
-          weeks.push(await fetchWeekAvailability(
-            selectedPersonnelId,
-            formatDateISO(addWeeks(monday, offset)),
-          ));
-        }
+        const [weeks, appointments] = await Promise.all([weeksPromise, appointmentsPromise]);
         const allDays = weeks.flatMap((week) => week.days);
-        const now = new Date();
-        const todayIso = formatDateISO(now);
-        
-        // Extracts dates that have available (unbooked) slots
-        const datesWithSlots = allDays
-          .filter(day => {
-            // Checks if day has windows with available slots
-            const hasAvailableSlots = day.windows.some(window =>
-              window.isAvailable &&
-              window.slots &&
-              window.slots.some(slot =>
-                isSelectableSlot(day.date, slot, currentAppointmentForPersonnel, initialData, now))
-            );
-            const isCurrentAppointmentDate = currentAppointmentForPersonnel?.date === day.date;
-            return isCurrentAppointmentDate || (day.date >= todayIso && hasAvailableSlots);
-          })
-          .map(day => day.date);
-        
         if (!active) return;
-        setAvailableDates(datesWithSlots);
         setAllDaysData(allDays);
+        setNurseAppointments(appointments);
+        setAvailabilityLoadError('');
       } catch {
         if (active) {
-          setAvailableDates([]);
           setAllDaysData([]);
+          setNurseAppointments([]);
+          setAvailabilityLoadError(t('Kunne ikke laste planleggingsdata. Prøv igjen.'));
         }
       } finally {
         if (active) setLoadingDates(false);
@@ -203,54 +279,35 @@ const AppointmentForm: React.FC<AppointmentFormProps> = ({ initialData, defaultP
 
     void loadAvailableDates();
     return () => { active = false; };
-  }, [currentAppointmentForPersonnel, initialData, selectedPersonnelId]);
+  }, [currentAppointmentForPersonnel, initialData, selectedPersonnelId, t]);
 
-  // Loads available time slots when date is selected
   useEffect(() => {
-    if (!selectedDate || allDaysData.length === 0) {
-      setAvailableSlots([]);
-      return;
+    let active = true;
+    if (!formData.patientId) {
+      setPatientAppointments([]);
+      setPatientAppointmentsLoadedFor(null);
+      return () => { active = false; };
     }
 
-    try {
-      setLoadingSlots(true);
-      
-      // Finds the day data for selected date
-      const dayData = allDaysData.find(day => day.date === selectedDate);
-      if (!dayData) {
-        setAvailableSlots([]);
-        return;
-      }
-
-      // Extracts all unbooked slots from available windows
-      const slots: AvailabilitySlot[] = [];
-      const now = new Date();
-      dayData.windows.forEach(window => {
-        if (window.isAvailable && window.slots) {
-          const selectableSlots = window.slots.filter((slot) =>
-            isSelectableSlot(selectedDate, slot, currentAppointmentForPersonnel, initialData, now));
-          slots.push(...selectableSlots);
+    setPatientAppointmentsLoadedFor(null);
+    AppointmentService.getByPatientId(formData.patientId)
+      .then((appointments) => {
+        if (active) {
+          setPatientAppointments(appointments);
+          setPatientAppointmentsLoadedFor(formData.patientId);
+          setPatientAppointmentsLoadError('');
+        }
+      })
+      .catch(() => {
+        if (active) {
+          setPatientAppointments([]);
+          setPatientAppointmentsLoadedFor(null);
+          setPatientAppointmentsLoadError(t('Kunne ikke laste planleggingsdata. Prøv igjen.'));
         }
       });
 
-      if (currentAppointmentForPersonnel?.availabilityId &&
-          currentAppointmentForPersonnel.date === selectedDate &&
-          !slots.some((slot) => slot.id === currentAppointmentForPersonnel.availabilityId)) {
-        slots.push({
-          id: currentAppointmentForPersonnel.availabilityId,
-          startTime: currentAppointmentForPersonnel.startTime,
-          endTime: currentAppointmentForPersonnel.endTime,
-          isBooked: true,
-        });
-      }
-
-      setAvailableSlots(slots);
-    } catch {
-      setAvailableSlots([]);
-    } finally {
-      setLoadingSlots(false);
-    }
-  }, [currentAppointmentForPersonnel, initialData, selectedDate, allDaysData]);
+    return () => { active = false; };
+  }, [formData.patientId, t]);
 
   // Handles personnel selection
   const handlePersonnelChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
@@ -259,7 +316,15 @@ const AppointmentForm: React.FC<AppointmentFormProps> = ({ initialData, defaultP
 
     // Reset dependent fields when personnel changes
     setSelectedDate('');
-    setFormData(prev => ({ ...prev, availabilityId: 0, tasks: '' }));
+    setSlotSelectionTouched(false);
+    setAllDaysData([]);
+    setNurseAppointments([]);
+    setFormData(prev => ({
+      ...prev,
+      availabilityId: 0,
+      tasks: '',
+      additionalDurationMinutes: 0,
+    }));
     setSelectedTaskIds([]);
 
     if (errors.personnelId || errors.date || errors.availabilityId || errors.tasks) {
@@ -277,6 +342,7 @@ const AppointmentForm: React.FC<AppointmentFormProps> = ({ initialData, defaultP
   const handleDateChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
     const date = e.target.value;
     setSelectedDate(date);
+    setSlotSelectionTouched(true);
     // Resets slot selection when date changes
     setFormData(prev => ({ ...prev, availabilityId: 0 }));
     if (errors.date || errors.availabilityId) {
@@ -287,7 +353,14 @@ const AppointmentForm: React.FC<AppointmentFormProps> = ({ initialData, defaultP
   // Handles time slot selection
   const handleSlotChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
     const slotId = Number(e.target.value);
-    setFormData(prev => ({ ...prev, availabilityId: slotId }));
+    const slot = availableSlots.find((candidate) => candidate.id === slotId);
+    setSlotSelectionTouched(true);
+    setFormData((prev) => ({
+      ...prev,
+      availabilityId: slotId,
+      startTime: slot?.startTime ?? prev.startTime,
+      endTime: slot?.endTime ?? prev.endTime,
+    }));
     if (errors.availabilityId) {
       setErrors(prev => ({ ...prev, availabilityId: '' }));
     }
@@ -308,9 +381,21 @@ const AppointmentForm: React.FC<AppointmentFormProps> = ({ initialData, defaultP
   const handlePatientChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
     const { value } = e.target;
     setFormData(prev => ({ ...prev, patientId: value }));
+    setPatientAppointments([]);
+    setPatientAppointmentsLoadedFor(null);
+    setSlotSelectionTouched(false);
     if (errors.patientId) {
       setErrors(prev => ({ ...prev, patientId: '' }));
     }
+  };
+
+  const handleAdditionalDurationChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const rawValue = e.target.value;
+    const value = rawValue === '' ? undefined : Number(rawValue);
+    setFormData((previous) => ({
+      ...previous,
+      additionalDurationMinutes: value !== undefined && Number.isFinite(value) ? value : undefined,
+    }));
   };
 
   // Gets selected slot details for display
@@ -337,13 +422,22 @@ const AppointmentForm: React.FC<AppointmentFormProps> = ({ initialData, defaultP
       newErrors.date = t('Vennligst velg en dato');
     }
 
-    if (!formData.availabilityId || formData.availabilityId === 0) {
+    if (
+      !formData.availabilityId ||
+      formData.availabilityId === 0 ||
+      !availableSlots.some((slot) => slot.id === formData.availabilityId)
+    ) {
       newErrors.availabilityId = t('Vennligst velg et tidspunkt');
     }
 
     // Validates that at least one task is selected
     if (selectedTaskIds.length === 0) {
       newErrors.tasks = t('Velg minst én oppgave');
+    }
+
+    const additionalDuration = formData.additionalDurationMinutes ?? 0;
+    if (!Number.isInteger(additionalDuration) || additionalDuration < 0) {
+      newErrors.additionalDurationMinutes = t('Ekstra minutter må være et heltall på minst 0.');
     }
 
     setErrors(newErrors);
@@ -362,10 +456,15 @@ const AppointmentForm: React.FC<AppointmentFormProps> = ({ initialData, defaultP
     const selectedTaskLabels = selectedTaskIds
       .map((id) => ALL_TASKS.find((task) => task.id === id)?.label)
       .filter(Boolean);
+    const selectedSlot = availableSlots.find((slot) => slot.id === formData.availabilityId);
+    if (!selectedSlot) return;
 
     onSubmit({
       ...formData,
       tasks: selectedTaskLabels.join(', '),
+      additionalDurationMinutes: formData.additionalDurationMinutes ?? 0,
+      startTime: selectedSlot.startTime,
+      endTime: selectedSlot.endTime,
     });
   };
 
@@ -381,6 +480,12 @@ const AppointmentForm: React.FC<AppointmentFormProps> = ({ initialData, defaultP
 
   return (
     <Form onSubmit={handleSubmit}>
+      {(optionsLoadError || availabilityLoadError || patientAppointmentsLoadError) && (
+        <Alert variant="danger">
+          {optionsLoadError || availabilityLoadError || patientAppointmentsLoadError}
+        </Alert>
+      )}
+
       {initialData?.declinedSlotDate && (
         <Alert variant="warning" className="mb-3">
           <div className="fw-semibold">{t('Opprinnelig avslått tidspunkt')}</div>
@@ -453,6 +558,7 @@ const AppointmentForm: React.FC<AppointmentFormProps> = ({ initialData, defaultP
               </option>
               {availableDates.map((date) => (
                 <option key={date} value={date}>
+                  {date === recommendedSlot?.date ? `${t('Anbefalt')}: ` : ''}
                   {new Date(date).toLocaleDateString(locale, {
                     weekday: 'short', 
                     day: '2-digit', 
@@ -467,6 +573,14 @@ const AppointmentForm: React.FC<AppointmentFormProps> = ({ initialData, defaultP
                   {t('Ingen tilgjengelige datoer for denne ansatte.')}
               </Form.Text>
             )}
+            {recommendedSlot && (
+              <Form.Text className="d-block">
+                {t('Anbefalt tidspunkt: {{date}} kl. {{start}}', {
+                  date: new Date(recommendedSlot.date).toLocaleDateString(locale),
+                  start: recommendedSlot.startTime,
+                })}
+              </Form.Text>
+            )}
           </>
         )}
       </Form.Group>
@@ -475,37 +589,30 @@ const AppointmentForm: React.FC<AppointmentFormProps> = ({ initialData, defaultP
       <Form.Group className="mb-3">
         <Form.Label>{t('Tidspunkt')} <span className="text-danger">*</span></Form.Label>
         {errors.availabilityId && <div className="text-danger small mb-1">{errors.availabilityId}</div>}
-        {loadingSlots ? (
-          <div className="text-center py-2">
-            <Spinner animation="border" size="sm" role="status">
-              <span className="visually-hidden">{t('Laster tidspunkter...')}</span>
-            </Spinner>
-          </div>
-        ) : (
-          <>
-            <Form.Select
-              value={formData.availabilityId}
-              onChange={handleSlotChange}
-              isInvalid={!!errors.availabilityId}
-              disabled={!selectedDate}
-            >
-              <option value="0">
-                {selectedDate 
-                  ? t('-- Velg Tidspunkt --')
-                  : t('-- Velg Dato --')}
-              </option>
-              {availableSlots.map((slot) => (
-                <option key={slot.id} value={slot.id}>
-                  {slot.startTime} - {slot.endTime}
-                </option>
-              ))}
-            </Form.Select>
-            {selectedDate && availableSlots.length === 0 && !loadingSlots && (
-              <Form.Text className="text-muted">
-                {t('Ingen ledige tidspunkter for denne datoen.')}
-              </Form.Text>
-            )}
-          </>
+        <Form.Select
+          value={formData.availabilityId}
+          onChange={handleSlotChange}
+          isInvalid={!!errors.availabilityId}
+          disabled={!selectedDate || loadingDates}
+        >
+          <option value="0">
+            {selectedDate
+              ? t('-- Velg Tidspunkt --')
+              : t('-- Velg Dato --')}
+          </option>
+          {availableSlots.map((slot) => (
+            <option key={slot.id} value={slot.id}>
+              {slot.startTime} - {slot.endTime}
+              {slot.id === recommendedSlot?.id && slot.date === recommendedSlot.date
+                ? ` · ${t('Anbefalt')}`
+                : ''}
+            </option>
+          ))}
+        </Form.Select>
+        {selectedDate && availableSlots.length === 0 && !loadingDates && (
+          <Form.Text className="text-muted">
+            {t('Ingen ledige tidspunkter for denne datoen.')}
+          </Form.Text>
         )}
       </Form.Group>
 
@@ -548,9 +655,33 @@ const AppointmentForm: React.FC<AppointmentFormProps> = ({ initialData, defaultP
         ) : null}
       </Form.Group>
 
+      <Form.Group className="mb-3">
+        <Form.Label>{t('Ekstra minutter')}</Form.Label>
+        {errors.additionalDurationMinutes && (
+          <div className="text-danger small mb-1">{errors.additionalDurationMinutes}</div>
+        )}
+        <Form.Control
+          type="number"
+          min={0}
+          step={5}
+        placeholder="0"
+        value={formData.additionalDurationMinutes || ''}
+        onChange={handleAdditionalDurationChange}
+        />
+        <Form.Text>
+          {t('Planlagt varighet: {{minutes}} minutter (inkludert 5 minutters buffer før og etter)', {
+            minutes: visitDurationMinutes,
+          })}
+        </Form.Text>
+      </Form.Group>
+
       {/* Buttons */}
       <div className="d-flex gap-2">
-        <Button variant="primary" type="submit">
+        <Button
+          variant="primary"
+          type="submit"
+          disabled={!schedulingDataReady || !selectedSlot}
+        >
           {initialData ? t('Oppdater') : t('Opprett')}
         </Button>
         <Button variant="outline-secondary" onClick={onCancel}>
