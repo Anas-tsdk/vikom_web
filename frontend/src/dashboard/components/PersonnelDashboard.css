@@ -220,6 +220,7 @@
 }
 
 .personnel-dashboard .calendar-day {
+  width: 100%;
   height: 2rem;
   border: 1px solid transparent;
   border-radius: 999px;
@@ -228,14 +229,29 @@
   justify-content: center;
   position: relative;
   background-color: var(--bs-white);
+  padding: 0;
+  font: inherit;
+  cursor: pointer;
+  transition: background-color 0.15s ease, border-color 0.15s ease;
 }
 
 .personnel-dashboard .calendar-day.outside-month {
   opacity: 0.4;
 }
 
-.personnel-dashboard .calendar-day.current-week {
+.personnel-dashboard .calendar-day.selected-week {
   background-color: rgba(var(--bs-primary-rgb), 0.12);
+}
+
+.personnel-dashboard .calendar-day:hover,
+.personnel-dashboard .calendar-day:focus-visible {
+  border-color: var(--bs-primary);
+  outline: none;
+}
+
+.personnel-dashboard .calendar-day.selected-day {
+  border-color: var(--bs-primary);
+  box-shadow: inset 0 0 0 1px var(--bs-primary);
 }
 
 .personnel-dashboard .calendar-day.today {

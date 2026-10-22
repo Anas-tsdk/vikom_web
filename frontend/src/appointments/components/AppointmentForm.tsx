@@ -10,7 +10,7 @@ import type { PatientListDto } from '../../patients/types/patient';
 import type { DayAvailability, WeekAvailability } from '../../availability/types/availability';
 import { localeForLanguage } from '../../i18n';
 import { addWeeks, formatDateISO, getMonday } from '../../utils/dateUtils';
-import { calculateVisitDurationMinutes, recommendSlots } from '../utils/scheduling';
+import { calculateVisitDurationMinutes, getTaskDurationMinutes, recommendSlots } from '../utils/scheduling';
 
 interface AppointmentFormProps {
   initialData?: Appointment;
@@ -644,7 +644,9 @@ const AppointmentForm: React.FC<AppointmentFormProps> = ({ initialData, defaultP
                 label={
                   <div>
                     <strong>{t(task.label)}</strong>
-                    <div className="text-muted" style={{ fontSize: '0.9rem' }}>{t(task.description)}</div>
+                    <div className="text-muted" style={{ fontSize: '0.9rem' }}>
+                      {t(task.description)} · +{getTaskDurationMinutes(task.label)} min
+                    </div>
                   </div>
                 }
                 checked={selectedTaskIds.includes(task.id)}
@@ -664,9 +666,9 @@ const AppointmentForm: React.FC<AppointmentFormProps> = ({ initialData, defaultP
           type="number"
           min={0}
           step={5}
-        placeholder="0"
-        value={formData.additionalDurationMinutes || ''}
-        onChange={handleAdditionalDurationChange}
+          placeholder="0"
+          value={formData.additionalDurationMinutes || ''}
+          onChange={handleAdditionalDurationChange}
         />
         <Form.Text>
           {t('Planlagt varighet: {{minutes}} minutter (inkludert 5 minutters buffer før og etter)', {

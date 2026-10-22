@@ -3,6 +3,8 @@ import { Dropdown } from 'react-bootstrap';
 import { useTranslation } from 'react-i18next';
 import { Link, useNavigate } from 'react-router-dom';
 import { fetchPersonnelDashboard } from '../services/DashboardService';
+import { fetchWeekAvailability } from '../../availability/services/AvailabilityService';
+import type { AvailabilitySummary } from '../../availability/types/availability';
 import TaskBadges from '../../components/common/TaskBadges';
 import PageHeader from '../../components/common/PageHeader';
 import SectionCard from '../../components/common/SectionCard';
@@ -16,6 +18,7 @@ import type { AppointmentSummary } from '../../appointments/types/appointment';
 import { localeForLanguage } from '../../i18n';
 import { getUserInfo } from '../../auth/AuthService';
 import { isHeadNurseRole } from '../../auth/roles';
+import { formatDateISO, getMonday } from '../../utils/dateUtils';
 import './PersonnelDashboard.css';
 
 // Visible labels for the timeline visit-type filter dropdown.
@@ -43,6 +46,10 @@ const PersonnelDashboard: React.FC = () => {
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
   const [selectedAvailabilityDateKey, setSelectedAvailabilityDateKey] = useState<string>('');
+  const [selectedAvailabilityWeekStart, setSelectedAvailabilityWeekStart] = useState<Date>(() => getMonday(new Date()));
+  const [availabilityWeek, setAvailabilityWeek] = useState<AvailabilitySummary[]>([]);
+  const [availabilityWeekLoading, setAvailabilityWeekLoading] = useState(false);
+  const [availabilityWeekError, setAvailabilityWeekError] = useState<string | null>(null);
   const [timelineFilter, setTimelineFilter] = useState<'alle' | 'fysisk' | 'digitalt'>('alle');
   const [detailsVisitId, setDetailsVisitId] = useState<number | null>(null);
   const [displayedMonthDate, setDisplayedMonthDate] = useState<Date>(() => {
@@ -66,6 +73,40 @@ const PersonnelDashboard: React.FC = () => {
 
     loadDashboard();
   }, [t]);
+
+  useEffect(() => {
+    if (!dashboard?.personnelId) return;
+
+    let active = true;
+    setAvailabilityWeekLoading(true);
+    setAvailabilityWeekError(null);
+    fetchWeekAvailability(dashboard.personnelId, formatDateISO(selectedAvailabilityWeekStart))
+      .then((week) => {
+        if (!active) return;
+        setAvailabilityWeek(week.days.flatMap((day) =>
+          day.windows.flatMap((window) =>
+            (window.slots ?? []).map((slot) => ({
+              id: slot.id,
+              date: day.date,
+              startTime: slot.startTime,
+              endTime: slot.endTime,
+              notes: window.notes ?? '',
+              isBooked: slot.isBooked,
+            })),
+          ),
+        ));
+      })
+      .catch(() => {
+        if (!active) return;
+        setAvailabilityWeek([]);
+        setAvailabilityWeekError(t('Kunne ikke laste tilgjengelighet.'));
+      })
+      .finally(() => {
+        if (active) setAvailabilityWeekLoading(false);
+      });
+
+    return () => { active = false; };
+  }, [dashboard?.personnelId, selectedAvailabilityWeekStart, t]);
 
   // renders loading state while fetching data
   if (loading) {
@@ -102,14 +143,6 @@ const PersonnelDashboard: React.FC = () => {
   const weekDayLabels = Array.from({ length: 7 }, (_, index) =>
     new Date(2024, 0, 1 + index).toLocaleDateString(locale, { weekday: 'narrow' }),
   );
-
-  const currentWeekStart = new Date(today);
-  currentWeekStart.setHours(0, 0, 0, 0);
-  const mondayOffset = (today.getDay() + 6) % 7;
-  currentWeekStart.setDate(today.getDate() - mondayOffset);
-
-  const currentWeekEnd = new Date(currentWeekStart);
-  currentWeekEnd.setDate(currentWeekStart.getDate() + 6);
 
   const appointmentDateSet = new Set(
     dashboard.upcomingAppointments.map((appointment) => {
@@ -238,28 +271,9 @@ const PersonnelDashboard: React.FC = () => {
   });
 
   const todayDateKey = toDateKey(today);
-  const availabilityWeekEnd = new Date(today);
-  availabilityWeekEnd.setHours(23, 59, 59, 999);
-  availabilityWeekEnd.setDate(today.getDate() + 6);
-
-  const isWithinAvailabilityWeek = (date: Date) => {
-    const normalizedDate = new Date(date);
-    normalizedDate.setHours(0, 0, 0, 0);
-
-    const normalizedToday = new Date(today);
-    normalizedToday.setHours(0, 0, 0, 0);
-
-    return normalizedDate >= normalizedToday && normalizedDate <= availabilityWeekEnd;
-  };
-
-  const availabilityByDate = dashboard.upcomingAvailability
-    .reduce<Record<string, typeof dashboard.upcomingAvailability>>((groupedAvailability, availability) => {
-      const date = new Date(availability.date);
-      if (!isWithinAvailabilityWeek(date)) {
-        return groupedAvailability;
-      }
-
-      const dateKey = toDateKey(date);
+  const availabilityByDate = availabilityWeek
+    .reduce<Record<string, AvailabilitySummary[]>>((groupedAvailability, availability) => {
+      const dateKey = availability.date;
 
       if (!groupedAvailability[dateKey]) {
         groupedAvailability[dateKey] = [];
@@ -273,6 +287,11 @@ const PersonnelDashboard: React.FC = () => {
     .sort((firstKey, secondKey) => firstKey.localeCompare(secondKey));
 
   const baseWindowDate = new Date(today);
+  baseWindowDate.setFullYear(
+    selectedAvailabilityWeekStart.getFullYear(),
+    selectedAvailabilityWeekStart.getMonth(),
+    selectedAvailabilityWeekStart.getDate(),
+  );
 
   const availabilityWindowDays = Array.from({ length: 7 }, (_, index) => {
     const date = new Date(baseWindowDate);
@@ -283,11 +302,12 @@ const PersonnelDashboard: React.FC = () => {
     return {
       date,
       dateKey,
-      label: index === 0 && dateKey === todayDateKey ? t('I dag') : `${dayName.charAt(0).toUpperCase()}${dayName.slice(1)}`,
+      label: dateKey === todayDateKey ? t('I dag') : `${dayName.charAt(0).toUpperCase()}${dayName.slice(1)}`,
     };
   });
 
   const defaultAvailabilityDateKey =
+    availabilityWindowDays.some((day) => day.dateKey === todayDateKey) &&
     availabilityByDate[todayDateKey]
       ? todayDateKey
       : orderedAvailabilityDateKeys[0] ?? availabilityWindowDays[0]?.dateKey ?? todayDateKey;
@@ -332,6 +352,15 @@ const PersonnelDashboard: React.FC = () => {
     !hasCurrentTimelineItem && currentMinutes >= timelineStartMinutes && currentMinutes <= timelineEndMinutes;
 
   const nowMarkerIndex = timelineItems.findIndex((item) => currentMinutes < toMinutes(item.startTime));
+
+  const selectCalendarDate = (date: Date) => {
+    const selectedDate = new Date(date.getFullYear(), date.getMonth(), date.getDate());
+    setSelectedAvailabilityDateKey(toDateKey(selectedDate));
+    setSelectedAvailabilityWeekStart(getMonday(selectedDate));
+    if (selectedDate.getMonth() !== displayedMonth || selectedDate.getFullYear() !== displayedYear) {
+      setDisplayedMonthDate(new Date(selectedDate.getFullYear(), selectedDate.getMonth(), 1));
+    }
+  };
 
   return (
     <div className="personnel-dashboard">
@@ -382,8 +411,13 @@ const PersonnelDashboard: React.FC = () => {
 
             <div className="calendar-grid">
               {calendarDays.map((calendarDay) => {
-                const isInCurrentWeek =
-                  calendarDay.date >= currentWeekStart && calendarDay.date <= currentWeekEnd && calendarDay.isCurrentMonth;
+                const isInSelectedWeek =
+                  calendarDay.date >= selectedAvailabilityWeekStart &&
+                  calendarDay.date < new Date(
+                    selectedAvailabilityWeekStart.getFullYear(),
+                    selectedAvailabilityWeekStart.getMonth(),
+                    selectedAvailabilityWeekStart.getDate() + 7,
+                  );
 
                 const isToday =
                   calendarDay.date.getDate() === today.getDate() &&
@@ -391,14 +425,25 @@ const PersonnelDashboard: React.FC = () => {
                   calendarDay.date.getFullYear() === today.getFullYear();
 
                 const hasAppointment = appointmentDateSet.has(calendarDay.date.getTime());
+                const isSelectedDay = toDateKey(calendarDay.date) === activeAvailabilityDateKey;
 
                 return (
-                  <div
+                  <button
                     key={calendarDay.key}
-                    className={`calendar-day ${calendarDay.isCurrentMonth ? '' : 'outside-month'} ${isInCurrentWeek ? 'current-week' : ''} ${isToday ? 'today' : ''} ${hasAppointment ? 'has-appointment' : ''}`}
+                    type="button"
+                    className={`calendar-day ${calendarDay.isCurrentMonth ? '' : 'outside-month'} ${isInSelectedWeek ? 'selected-week' : ''} ${isToday ? 'today' : ''} ${isSelectedDay ? 'selected-day' : ''} ${hasAppointment ? 'has-appointment' : ''}`}
+                    aria-label={calendarDay.date.toLocaleDateString(locale, {
+                      weekday: 'long',
+                      day: 'numeric',
+                      month: 'long',
+                      year: 'numeric',
+                    })}
+                    aria-pressed={isSelectedDay}
+                    onClick={() => selectCalendarDate(calendarDay.date)}
                   >
                     <span className="day-number">{calendarDay.day}</span>
-                  </div>
+                    {hasAppointment && <span className="appointment-dot" aria-hidden="true" />}
+                  </button>
                 );
               })}
             </div>
@@ -524,7 +569,11 @@ const PersonnelDashboard: React.FC = () => {
               </Link>
             }
           >
-              {orderedAvailabilityDateKeys.length > 0 ? (
+              {availabilityWeekLoading ? (
+                <p className="mb-0" role="status">{t('Laster tilgjengelighet...')}</p>
+              ) : availabilityWeekError ? (
+                <p className="text-danger mb-0" role="alert">{availabilityWeekError}</p>
+              ) : (
                 <div className="availability-day-planner">
                   <div className="availability-days-nav">
                     <div className="availability-days-strip">
@@ -570,8 +619,6 @@ const PersonnelDashboard: React.FC = () => {
                     <EmptyState icon="calendar-x" text={t('Ingen tilgjengelige tider for valgt dag.')} />
                   )}
                 </div>
-              ) : (
-                <EmptyState icon="calendar-x" text={t('Ingen planlagt tilgjengelighet.')} />
               )}
           </SectionCard>
 

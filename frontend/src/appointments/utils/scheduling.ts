@@ -25,13 +25,17 @@ const TASK_DURATIONS: Record<string, number> = {
 const VISIT_BUFFER_MINUTES = 10;
 const FALLBACK_TRAVEL_MINUTES = 25;
 
+export function getTaskDurationMinutes(task: string): number {
+  return TASK_DURATIONS[task.trim().toLocaleLowerCase()] ?? 0;
+}
+
 export function calculateVisitDurationMinutes(
   tasks: string[],
   additionalMinutes: number,
 ): number {
   const uniqueTasks = new Set(tasks.map((task) => task.trim().toLocaleLowerCase()));
   const taskMinutes = [...uniqueTasks].reduce(
-    (total, task) => total + (TASK_DURATIONS[task] ?? 0),
+    (total, task) => total + getTaskDurationMinutes(task),
     0,
   );
   return VISIT_BUFFER_MINUTES + taskMinutes + additionalMinutes;
