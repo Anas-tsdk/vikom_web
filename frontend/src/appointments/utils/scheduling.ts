@@ -135,9 +135,9 @@ export function recommendSlots(
   }
 
   return candidates.sort((left, right) =>
-    left.distanceScore - right.distanceScore ||
     left.date.localeCompare(right.date) ||
-    left.startTime.localeCompare(right.startTime),
+    left.startTime.localeCompare(right.startTime) ||
+    left.distanceScore - right.distanceScore,
   );
 }
 

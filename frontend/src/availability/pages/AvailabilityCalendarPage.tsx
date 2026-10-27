@@ -213,10 +213,10 @@ const AvailabilityCalendarPage: React.FC = () => {
       )}
 
       <PageHeader
-        title={t('Kalender')}
+        title={t('Tilgjengelighet')}
         subtitle={isHeadNurse && selectedNurse
-          ? t('Administrer kalenderen til {{name}}.', { name: selectedNurse.fullName })
-          : t('Administrer din ukentlige og daglige tilgjengelighetsplan.')}
+          ? t('Administrer tilgjengeligheten til {{name}}.', { name: selectedNurse.fullName })
+          : t('Administrer ukentlig og daglig tilgjengelighet.')}
         actions={(
           <>
             {isHeadNurse && (
@@ -239,7 +239,7 @@ const AvailabilityCalendarPage: React.FC = () => {
               </select>
             )}
             <button className="btn btn-outline-primary" type="button" onClick={() => setShowWeeklySchedule(true)}>
-              <i className="bi bi-calendar-week me-2" aria-hidden="true"></i>{t('Standarduke')}
+              <i className="bi bi-calendar-week me-2" aria-hidden="true"></i>{t('Fast ukeplan')}
             </button>
           </>
         )}
@@ -275,9 +275,6 @@ const AvailabilityCalendarPage: React.FC = () => {
           {/* navigates to current date */}
           <button type="button" className="btn btn-outline-secondary btn-sm" onClick={handleToday}>
             {t('I dag')}
-          </button>
-          <button type="button" className="btn btn-outline-secondary btn-sm" onClick={loadData} disabled={loading}>
-            {t('Oppdater')}
           </button>
         </div>
 

@@ -161,6 +161,7 @@ const EditPatientModal: React.FC<EditPatientModalProps> = ({ show, onHide, patie
           </Form.Group>
 
           <AddressAutocomplete
+            key={`${patient.id}-${show}`}
             idPrefix="editPatient"
             value={address}
             onChange={(nextAddress, nextLatitude, nextLongitude) => {

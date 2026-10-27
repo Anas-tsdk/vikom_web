@@ -6,8 +6,8 @@ writing new CSS, and prefer Bootstrap utilities over bespoke styles.
 
 Stack: React + TypeScript + Vite · Bootstrap 5.3 · react-bootstrap · bootstrap-icons.
 
-> Status: this doc is maintained incrementally alongside the design-system
-> refactor (see `~/.claude/plans/please-do-a-thorough-cozy-robin.md`).
+> Status: this is the living reference for the completed design-system refactor
+> and should be kept in sync with shared components and UI conventions.
 > **Increment 1 (done):** design tokens, tamed globals, shared error alert.
 > **Increment 2 (done):** `PageHeader` + `Tabs` components; `AppointmentCard`
 > extended with subject/actions/footer slots; **Appointments** refactored onto
@@ -40,7 +40,9 @@ Stack: React + TypeScript + Vite · Bootstrap 5.3 · react-bootstrap · bootstra
 > **Increment 7 (done):** button-sizing standard + personnel density. The base
 > `.btn` now matches the Patient Details button (the app-wide standard);
 > `.btn-sm` / `.btn-lg` are re-asserted in `index.css` so `size="sm"`/`"lg"`
-> work again (compact row actions finally shrink). Personnel base font dropped
+> worked at this stage (compact row actions could shrink). This sizing behavior
+> was later superseded by Increment 9, which normalizes button sizes app-wide.
+> Personnel base font dropped
 > to **14px** (`body.role-personnel`); personnel appointment row actions
 > (Start/Fullfør) marked `btn-sm`.
 > **Increment 8 (done):** typography coherence. Headings now sized from the type
@@ -58,6 +60,12 @@ Stack: React + TypeScript + Vite · Bootstrap 5.3 · react-bootstrap · bootstra
 > header `InfoChip` was merged into it (deleted), and every ad-hoc `<Badge>` /
 > bespoke badge class (TV `vk-tv-status-connected`, `task-type-badge`,
 > `area-badge`, `status-badge`, `vk-status-planned`) was migrated/removed.
+>
+> **Increment 10 (done):** appointment and patient workflow updates. The
+> personnel dashboard now presents planned visits on a horizontally scrollable,
+> time-scaled schedule track so busy days remain navigable. Appointment cards
+> expose their information action consistently, and patient clinical section
+> cards use the `SectionCard.action` slot for localized edit controls.
 
 ---
 
@@ -178,7 +186,7 @@ pattern each one replaces.
 | `SectionCard`                            | Standard card (bordered, light header w/ icon + optional action) | `title`, `icon`, `action`, `bodyClassName`                                   | `.card`/`.appointments-card` + manual header markup |
 | `EmptyState`                             | Centered empty placeholder                                       | `icon`, `text`, `action`                                                     | `text-center py-4` empty blocks / custom `.empty-*` |
 | `Badge`                                  | **The** badge — fixed size/shape; only `bg` + border vary        | `bg` (BadgeColor), `bordered`, `icon`                                        | react-bootstrap `<Badge>`, `InfoChip`, bespoke badge CSS |
-| `StatusBadge`                            | Status → coloured `Badge` + Norwegian label                      | `status`                                                                     | Inline `<Badge>` with manual variant/label mapping  |
+| `StatusBadge`                            | Status → coloured `Badge` + localized label                      | `status`                                                                     | Inline `<Badge>` with manual variant/label mapping  |
 | `TaskBadges`                             | Comma-separated tasks → `Badge`s                                 | `tasks`, `variant`                                                           | Splitting + mapping badges inline                   |
 | `InfoRow`                                | Label/value row (icon, empty fallback)                           | `label`, `value`, `icon`, `emptyText`                                        | `ListGroup.Item d-flex justify-content-between`     |
 | `StatTile`                               | Compact KPI tile (icon + value + label)                          | `label`, `value`, `icon`                                                     | Custom stat-card markup                             |
@@ -188,6 +196,10 @@ pattern each one replaces.
 | `Tabs`                                   | Pill tab bar w/ count badges                                     | `tabs` (`{key,label,icon?,count?}[]`), `activeKey`, `onChange`               | Page-specific `.tab-navigation` markup              |
 | `PageHeader`                             | Page title + subtitle + right-aligned actions                    | `title`, `subtitle`, `actions`                                               | Inline `<h1>` + subtitle + action-row per page      |
 | `AppointmentCard`                        | Appointment card (date/time, subject, status, tasks, actions)    | `appointment`, `taskVariant`, `dateTimeText`, `subject`, `footerNote`, `actions` | Inline appointment-item markup                  |
+
+Use the `SectionCard.action` slot for a card-level action such as editing the
+section. Prefer `IconButton` with a localized `title` for icon-only actions so
+their accessible name follows the selected UI language.
 
 **Still underused (target for upcoming refactors):** the shared components are
 wired into the patient feature, the Appointments page, and both dashboards. The

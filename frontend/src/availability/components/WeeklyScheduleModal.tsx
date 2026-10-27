@@ -82,11 +82,11 @@ const WeeklyScheduleModal: React.FC<WeeklyScheduleModalProps> = ({
     <Modal show={show} onHide={onClose} centered size="lg">
       <Modal.Header closeButton>
         <Modal.Title>{personnelName
-          ? t('Standarduke for {{name}}', { name: personnelName })
-          : t('Standarduke')}</Modal.Title>
+          ? t('Fast ukeplan for {{name}}', { name: personnelName })
+          : t('Fast ukeplan')}</Modal.Title>
       </Modal.Header>
       <Modal.Body>
-        <p className="text-muted">{t('Disse tidene gjentas hver uke. Endringer på enkeltdager i kalenderen overstyrer standarduken.')}</p>
+        <p className="text-muted">{t('Disse tidene gjentas hver uke. Endringer på enkeltdager i kalenderen overstyrer ukeplanen.')}</p>
         {error && <Alert variant="danger">{error}</Alert>}
         {loading ? (
           <div className="text-center py-4"><Spinner animation="border" /></div>
@@ -141,7 +141,7 @@ const WeeklyScheduleModal: React.FC<WeeklyScheduleModalProps> = ({
       <Modal.Footer>
         <Button variant="outline-secondary" onClick={onClose} disabled={saving}>{t('Avbryt')}</Button>
         <Button variant="primary" onClick={save} disabled={loading || saving || rules.length !== 7}>
-          {saving ? t('Lagrer...') : t('Lagre standarduke')}
+          {saving ? t('Lagrer...') : t('Lagre fast ukeplan')}
         </Button>
       </Modal.Footer>
     </Modal>

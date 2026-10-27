@@ -55,11 +55,11 @@ const PatientProfileHeader: React.FC<PatientProfileHeaderProps> = ({
               {/* Whether this patient can be reached on the TV at all: without a
                   Supabase link the TV app cannot resolve them. */}
               <Badge
-                icon="tv"
+                icon="person-check"
                 bg={patient.supabaseProfileId ? 'connected' : 'light'}
                 bordered={!patient.supabaseProfileId}
               >
-                {patient.supabaseProfileId ? t('TV tilkoblet') : t('Ingen TV-kobling')}
+                {patient.supabaseProfileId ? t('Account linked') : t('No account linked')}
               </Badge>
             </div>
           </div>
@@ -76,7 +76,7 @@ const PatientProfileHeader: React.FC<PatientProfileHeaderProps> = ({
             variant="primary"
             onClick={onAudioCall}
             disabled={!patient.supabaseProfileId}
-            title={!patient.supabaseProfileId ? t('Pasienten har ingen TV-profil koblet til seg') : undefined}
+            title={!patient.supabaseProfileId ? t('No account is linked to this patient') : undefined}
           >
             <i className="bi bi-telephone-outbound me-2" aria-hidden="true"></i>
             {t('Ring')}
@@ -85,7 +85,7 @@ const PatientProfileHeader: React.FC<PatientProfileHeaderProps> = ({
             variant="outline-primary"
             onClick={onVideoCall}
             disabled={!patient.supabaseProfileId}
-            title={!patient.supabaseProfileId ? t('Pasienten har ingen TV-profil koblet til seg') : undefined}
+            title={!patient.supabaseProfileId ? t('No account is linked to this patient') : undefined}
           >
             <i className="bi bi-camera-video me-2" aria-hidden="true"></i>
             {t('Videoanrop')}

@@ -6,6 +6,7 @@ import { useTranslation } from 'react-i18next';
 interface TreatmentPlanCardProps {
   treatmentPlan?: string | null;
   conditionFlags: string[];
+  action?: React.ReactNode;
   className?: string;
 }
 
@@ -13,11 +14,12 @@ interface TreatmentPlanCardProps {
 const TreatmentPlanCard: React.FC<TreatmentPlanCardProps> = ({
   treatmentPlan,
   conditionFlags,
+  action,
   className,
 }) => {
   const { t } = useTranslation();
   return (
-    <SectionCard title={t('Daglige gjøremål')} icon="journal-medical" className={className}>
+    <SectionCard title={t('Daglige gjøremål')} icon="journal-medical" action={action} className={className}>
       {treatmentPlan?.trim() ? (
         <p className="mb-0" style={{ whiteSpace: 'pre-wrap' }}>{treatmentPlan}</p>
       ) : (

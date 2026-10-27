@@ -24,9 +24,9 @@ src/
 ├── auth/                  # AuthService.ts, LoginPage, RegisterPage,
 │   └── guards/            # PersonnelOnlyRoute.tsx, PublicOnlyRoute.tsx
 ├── appointments/          # pages/, components/, services/, types/
-├── availability/          # Calendar page + slot/window forms and views
-├── dashboard/             # DashboardPage → PersonnelDashboard
-├── patients/              # Roster, clinical profile pages + cards
+├── availability/          # Availability page + slot/window forms and views
+├── dashboard/             # DashboardPage → PersonnelDashboard with schedule timeline
+├── patients/              # Roster, linked accounts, clinical profile pages + cards
 ├── visits/                # VisitExecutionPage (Besøk), VisitArchivePage,
 │                          # PlanningOverviewPage (pages sit flat here)
 ├── components/common/     # 16 reusable components (CallModal, DataTable,
@@ -61,14 +61,14 @@ Other scripts: `npm run build` (type-check + production build to `dist/`), `npm 
 
 - **Service layer:** every feature has its own service module (`AppointmentService.ts`, `VisitService.ts`, …) that wraps `fetch` and attaches the JWT via `AuthService.getAuthHeader()`. Components never call `fetch` directly.
 - **Auth:** login stores the backend-issued JWT in `localStorage` (`jwt`) plus a `userInfo` object; `PersonnelOnlyRoute` guards every non-public route. Public registration creates a normal Nurse. Head Nurses can create staff accounts and plan across nurses.
-- **Languages:** Norwegian, English, German, Finnish, and Swedish are selected from **Languages** in the profile menu and persisted locally.
+- **Languages:** Norwegian, English, German, Finnish, Swedish, French, and Dutch are selected from **Languages** in the profile menu and persisted locally. New UI strings should be added for all seven supported languages.
 - **Styling:** one co-located plain CSS file per page/component (no CSS modules); design tokens from `index.css`; Bootstrap Icons (`bi-*`) for all icons.
 - **Reuse first:** check `components/common/` and the design system before writing a new component.
 
 ## Routes
 
 - Public: `/`, `/login`, `/register`
-- Personnel-only: `/dashboard`, `/appointments`, `/appointments/archive`, `/availability`, `/patients`, `/patients/:username`, `/besok/:appointmentId` (the visit workspace; `?type=Digital` starts a digital visit), `/planning`
+- Personnel-only: `/dashboard`, `/appointments` (Planned is the default tab; includes All and Patient declined), `/appointments/archive`, `/availability` (weekly/daily views and recurring weekly schedule), `/patients`, `/patients/:username`, `/besok/:appointmentId` (the visit workspace; `?type=Digital` starts a digital visit), `/planning`
 - Head-Nurse-only UI: `/nurses` (staff registration and role overview)
 
 ## Troubleshooting

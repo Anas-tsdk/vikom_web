@@ -1,6 +1,7 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useSearchParams, useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
+import { Button, Modal } from 'react-bootstrap';
 import * as AuthService from '../../auth/AuthService';
 import AppointmentService from '../services/AppointmentService';
 import AppointmentModal from '../components/AppointmentModal';
@@ -65,13 +66,18 @@ const AppointmentListPage: React.FC = () => {
   const [detailsVisitId, setDetailsVisitId] = useState<number | null>(null);
   const [plannedAppointment, setPlannedAppointment] = useState<Appointment | null>(null);
   const [acceptingProposalId, setAcceptingProposalId] = useState<number | null>(null);
+  const [proposalError, setProposalError] = useState<string>('');
 
   const [patientFilter, setPatientFilter] = useState<string>('');
   const [dateFilter, setDateFilter] = useState<string>('');
 
   // Active tab state
   const [activeTab, setActiveTab] = useState<PersonnelTab>(
-    () => (tabParam as PersonnelTab) || 'all',
+    () => (
+      tabParam === 'all' || tabParam === 'inprogress' || tabParam === 'completed'
+        ? tabParam
+        : 'scheduled'
+    ),
   );
 
   // loads the logged-in nurse's appointments
@@ -161,14 +167,13 @@ const AppointmentListPage: React.FC = () => {
     if (!appointment.id) return;
 
     setAcceptingProposalId(appointment.id);
-    setError('');
     try {
       const accepted = await AppointmentService.acceptProposal(appointment.id);
       setAppointments((current) =>
         current.map((item) => item.id === accepted.id ? accepted : item),
       );
     } catch (acceptError) {
-      setError(acceptError instanceof Error
+      setProposalError(acceptError instanceof Error
         ? t(acceptError.message)
         : t('Could not accept the proposed time'));
     } finally {
@@ -176,10 +181,26 @@ const AppointmentListPage: React.FC = () => {
     }
   };
 
-  // Personnel row actions. Each row gets one document icon: a read-only
-  // "Planlagt besøk" (pre-visit plan) before/while it's planned, or the
-  // post-visit "Besøksdetaljer" once the visit has ended. While a visit is
-  // Active the nurse documents inside the workspace, so no document icon shows.
+  const openAppointmentInfo = (appointment: Appointment) => {
+    if (appointment.visitId) {
+      setDetailsVisitId(appointment.visitId);
+      return;
+    }
+    setPlannedAppointment(appointment);
+  };
+
+  const renderInfoAction = (appointment: Appointment) => (
+    <button
+      className="btn btn-outline-secondary btn-sm"
+      type="button"
+      onClick={() => openAppointmentInfo(appointment)}
+    >
+      <i className="bi bi-info-circle me-1" aria-hidden="true"></i>
+      {t('Info')}
+    </button>
+  );
+
+  // Personnel row actions expose the same details view as clicking the card.
   const renderPersonnelActions = (appointment: Appointment) => {
     if (!appointment.id) return null;
     const id = appointment.id;
@@ -192,6 +213,7 @@ const AppointmentListPage: React.FC = () => {
     if (hasPatientProposal) {
       return isHeadNurse ? (
         <>
+          {renderInfoAction(appointment)}
           <button
             className="btn btn-success btn-sm"
             disabled={acceptingProposalId === id}
@@ -207,21 +229,18 @@ const AppointmentListPage: React.FC = () => {
             {t('Planlegg et nytt tidspunkt')}
           </button>
         </>
-      ) : null;
+      ) : renderInfoAction(appointment);
     }
 
-    const visitDone =
-      !!appointment.visitId &&
-      (appointment.visitStatus === 'Completed' ||
-        appointment.visitStatus === 'Incomplete' ||
-        appointment.visitStatus === 'Cancelled');
-
-    // Active visit: the nurse documents inside the workspace — no document icon.
+    // Active visits are documented in the workspace; details remain available here.
     if (appointment.visitStatus === 'Active' && canExecuteVisit) {
       return (
-        <button className="btn btn-warning btn-sm" onClick={() => navigate(`/besok/${id}`)}>
-          <i className="bi bi-arrow-right-circle me-1" aria-hidden="true"></i>{t('Fortsett besøk')}
-        </button>
+        <>
+          {renderInfoAction(appointment)}
+          <button className="btn btn-warning btn-sm" onClick={() => navigate(`/besok/${id}`)}>
+            <i className="bi bi-arrow-right-circle me-1" aria-hidden="true"></i>{t('Fortsett besøk')}
+          </button>
+        </>
       );
     }
 
@@ -242,11 +261,7 @@ const AppointmentListPage: React.FC = () => {
                 <i className="bi bi-camera-video me-1" aria-hidden="true"></i>{t('Start digitalt besøk')}
               </button>
             )}
-          <IconButton
-            icon="clipboard-check"
-            title={t('Planlagt besøk')}
-            onClick={() => setPlannedAppointment(appointment)}
-          />
+          {renderInfoAction(appointment)}
           {/* Booking upkeep on the patient's behalf. The backend rejects changes
               within 24 hours of the start time, so the buttons disable to match. */}
           {isHeadNurse && appointment.status === 'Booked' && (
@@ -277,14 +292,7 @@ const AppointmentListPage: React.FC = () => {
       );
     }
 
-    // Finished appointment: only the post-visit record, and only if one exists.
-    return visitDone ? (
-      <IconButton
-        icon="journal-text"
-        title={t('Besøksdetaljer')}
-        onClick={() => setDetailsVisitId(appointment.visitId ?? null)}
-      />
-    ) : null;
+    return renderInfoAction(appointment);
   };
 
   const patientOptions = useMemo(() => Array.from(
@@ -417,10 +425,10 @@ const AppointmentListPage: React.FC = () => {
 
   // Render UI for personnel (nurse) view
   const personnelTabs = [
-    { key: 'all', label: t('Alle'), count: allAppointments.length },
     { key: 'scheduled', label: t('Planlagt'), count: scheduledAppointments.length },
     { key: 'inprogress', label: t('Pågår'), count: inProgressAppointments.length },
     { key: 'completed', label: t('Fullført'), count: completedAppointments.length },
+    { key: 'all', label: t('Alle'), count: allAppointments.length },
   ];
 
   const showList = (tab: PersonnelTab) => {
@@ -451,21 +459,22 @@ const AppointmentListPage: React.FC = () => {
             dateTimeText={formatDateTime(appointment, locale)}
             subject={appointment.patientName ? t('Pasient: {{name}}', { name: appointment.patientName }) : null}
             footerNote={
-              appointment.status === 'Booked' && isWithin24Hours(appointment) ? (
-                <span className="d-inline-flex align-items-center gap-2 text-danger small">
-                  <i className="bi bi-exclamation-triangle" aria-hidden="true"></i>
-                  {t('Endring og avbestilling må skje minst 24 timer før')}
+              <>
+                <span className="text-muted small d-block">
+                  {appointment.personnelName
+                    ? t('Sykepleier: {{name}}', { name: appointment.personnelName })
+                    : t('Sykepleier ikke oppgitt')}
                 </span>
-              ) : undefined
+                {appointment.status === 'Booked' && isWithin24Hours(appointment) ? (
+                  <span className="d-inline-flex align-items-center gap-2 text-danger small">
+                    <i className="bi bi-exclamation-triangle" aria-hidden="true"></i>
+                    {t('Endring og avbestilling må skje minst 24 timer før')}
+                  </span>
+                ) : null}
+              </>
             }
             actions={renderPersonnelActions(appointment)}
-            onClick={
-              selectedPersonnelId === userId &&
-              appointment.id &&
-              (appointment.status === 'InProgress' || appointment.visitStatus === 'Active')
-                ? () => navigate(`/besok/${appointment.id}`)
-                : undefined
-            }
+            onClick={() => openAppointmentInfo(appointment)}
           />
         ))}
       </div>
@@ -488,11 +497,14 @@ const AppointmentListPage: React.FC = () => {
                 <i className="bi bi-calendar-plus me-2" aria-hidden="true"></i>{t('Ny avtale')}
               </button>
             )}
-            <IconButton
-              icon="journals"
-              title={t('Besøksarkiv')}
+            <button
+              className="btn btn-outline-secondary"
+              type="button"
               onClick={() => navigate('/appointments/archive')}
-            />
+            >
+              <i className="bi bi-journals me-2" aria-hidden="true"></i>
+              {t('Arkiv')}
+            </button>
           </div>
         }
       />
@@ -586,6 +598,18 @@ const AppointmentListPage: React.FC = () => {
         onConfirm={handleConfirmDelete}
         appointmentDescription={appointmentToDelete?.description}
       />
+
+      <Modal show={!!proposalError} onHide={() => setProposalError('')} centered>
+        <Modal.Header closeButton>
+          <Modal.Title>{t('Kunne ikke godta det foreslåtte tidspunktet')}</Modal.Title>
+        </Modal.Header>
+        <Modal.Body>{proposalError}</Modal.Body>
+        <Modal.Footer>
+          <Button variant="secondary" onClick={() => setProposalError('')}>
+            {t('Lukk')}
+          </Button>
+        </Modal.Footer>
+      </Modal>
     </div>
   );
 };

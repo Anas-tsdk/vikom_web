@@ -553,34 +553,104 @@
   color: var(--bs-dark);
 }
 
-.personnel-dashboard .availability-slots-grid {
-  display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 0.7rem;
+.personnel-dashboard .availability-appointments {
+  min-width: 0;
 }
 
-.personnel-dashboard .availability-slot-card {
-  border-radius: var(--radius-default);
-  border: 1px solid var(--bs-dark);
-  background-color: var(--bs-white);
-  min-height: 3.9rem;
+.personnel-dashboard .availability-timeline-heading {
+  margin: 0 0 0.75rem;
+  font-size: var(--fs-sm);
+  font-weight: 600;
+  color: var(--bs-secondary);
+}
+
+.personnel-dashboard .availability-timeline-scroll {
+  overflow-x: auto;
+  padding: 0.5rem 0 0.75rem;
+  scrollbar-width: thin;
+}
+
+.personnel-dashboard .availability-schedule {
+  min-width: 100%;
+}
+
+.personnel-dashboard .availability-time-ruler {
+  position: relative;
+  height: 1.75rem;
+  border-bottom: 1px solid var(--border-color);
+}
+
+.personnel-dashboard .availability-time-mark {
+  position: absolute;
+  bottom: 0.3rem;
+  transform: translateX(-50%);
+  color: var(--text-muted);
+  font-size: var(--fs-xs);
+  font-variant-numeric: tabular-nums;
+}
+
+.personnel-dashboard .availability-time-mark:first-child {
+  transform: none;
+}
+
+.personnel-dashboard .availability-time-mark:last-child {
+  transform: translateX(-100%);
+}
+
+.personnel-dashboard .availability-schedule-track {
+  position: relative;
+  height: 4.5rem;
+  background-image: repeating-linear-gradient(
+    to right,
+    transparent 0,
+    transparent 74px,
+    rgba(var(--bs-secondary-rgb), 0.15) 74px,
+    rgba(var(--bs-secondary-rgb), 0.15) 75px
+  );
+}
+
+.personnel-dashboard .availability-schedule-event {
+  position: absolute;
+  height: 3rem;
+  overflow: hidden;
+  border: 1px solid var(--bs-primary);
+  border-radius: var(--radius-sm);
+  background-color: rgba(var(--bs-primary-rgb), 0.14);
+  padding: 0.3rem 0.45rem;
   display: flex;
-  align-items: center;
-  justify-content: center;
+  flex-direction: column;
+  gap: 0.1rem;
+  line-height: 1.2;
 }
 
-.personnel-dashboard .availability-slot-card.booked {
-  opacity: 0.42;
-}
-
-.personnel-dashboard .availability-slot-card.available {
-  opacity: 1;
-}
-
-.personnel-dashboard .availability-slot-time {
-  font-size: var(--fs-2xl);
+.personnel-dashboard .availability-schedule-event-time {
+  color: var(--bs-primary);
+  font-size: var(--fs-xs);
   font-weight: 700;
+  white-space: nowrap;
+}
+
+.personnel-dashboard .availability-schedule-event.compact {
+  padding: 0;
+  border-width: 2px;
+  background-color: var(--bs-primary);
+}
+
+.personnel-dashboard .availability-schedule-event.compact > * {
+  display: none;
+}
+
+.personnel-dashboard .availability-schedule-event-patient {
+  overflow: hidden;
   color: var(--bs-dark);
+  font-size: var(--fs-xs);
+  font-weight: 600;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.personnel-dashboard .availability-schedule-empty {
+  padding-top: 0.75rem;
 }
 
 /* ===== MEDIA QUERIES ===== */
@@ -676,15 +746,6 @@
 
   .personnel-dashboard .availability-days-strip {
     grid-template-columns: repeat(4, minmax(0, 1fr));
-  }
-
-  .personnel-dashboard .availability-slots-grid {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-    gap: 0.6rem;
-  }
-
-  .personnel-dashboard .availability-slot-time {
-    font-size: var(--fs-2xl);
   }
 
   .personnel-dashboard .quick-action-btn {

@@ -51,7 +51,7 @@ const Sidebar: React.FC = () => {
               className={isActive('/availability') ? 'active' : ''}
             >
               <i className="bi bi-calendar4" aria-hidden="true"></i>
-              {t('Kalender')}
+              {t('Tilgjengelighet')}
             </Nav.Link>
             <Nav.Link 
               as={Link} 
@@ -81,7 +81,7 @@ const Sidebar: React.FC = () => {
                 className={isActive('/appointments/cancelled') ? 'active' : ''}
               >
                 <i className="bi bi-calendar-x" aria-hidden="true"></i>
-                {t('Avlyste avtaler')}
+                {t('Patient declined')}
               </Nav.Link>
             )}
             <Nav.Link 

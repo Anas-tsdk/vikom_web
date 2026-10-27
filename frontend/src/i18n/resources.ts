@@ -16,6 +16,38 @@ export const norwegian = {
   'Cannot book appointments in the past': 'Avtaler kan ikke bookes tilbake i tid',
   'Appointment not found': 'Fant ikke avtalen',
   'Could not accept the proposed time': 'Kunne ikke godta det foreslåtte tidspunktet',
+  'The nurse or patient already has an overlapping appointment':
+    'Sykepleieren eller pasienten har allerede en overlappende avtale',
+  'Linked account': 'Tilknyttet konto',
+  'Account linked': 'Konto tilkoblet',
+  'No account linked': 'Ingen tilknyttet konto',
+  'Account ID': 'Konto-ID',
+  'Not linked': 'Ikke tilkoblet',
+  'No account is linked to this patient': 'Ingen konto er tilknyttet denne pasienten',
+  'The system recommends the earliest suitable available time based on the nurse schedule, visit duration, existing appointments, and travel time.':
+    'Systemet anbefaler den tidligste passende ledige tiden basert på sykepleierens arbeidsplan, besøksvarighet, eksisterende avtaler og reisetid.',
+  'Each selected task adds its estimated time. Additional minutes are added to the task time, along with a 10-minute visit buffer.':
+    'Hver valgte oppgave legger til den beregnede tiden som vises. Ekstra minutter legges til oppgavetiden, sammen med en buffer på 10 minutter.',
+  'Estimated driving time is reserved between consecutive appointments using patient addresses. If coordinates are missing, a 25-minute estimate is used.':
+    'Beregnet kjøretid reserveres mellom påfølgende avtaler basert på pasientenes adresser. Hvis koordinater mangler, brukes et estimat på 25 minutter.',
+  'Planned visit duration: {{minutes}} minutes, including the 10-minute visit buffer.':
+    'Planlagt besøksvarighet: {{minutes}} minutter, inkludert en buffer på 10 minutter.',
+  'Patient declined': 'Pasientavslag',
+  'Viser avtaler pasienten har avslått og eventuelle foreslåtte tidspunkter.':
+    'Viser avtaler pasienten har avslått og eventuelle foreslåtte tidspunkter.',
+  'Ingen pasientavslåtte avtaler trenger ny planlegging.': 'Ingen pasientavslåtte avtaler trenger ny planlegging.',
+  'Kun ledende sykepleiere kan planlegge pasientavslåtte avtaler på nytt.':
+    'Kun ledende sykepleiere kan planlegge pasientavslåtte avtaler på nytt.',
+  'Laster pasientavslåtte avtaler...': 'Laster pasientavslåtte avtaler…',
+  'Kunne ikke laste pasientavslåtte avtaler': 'Kunne ikke laste pasientavslåtte avtaler',
+  'Åpne pasientavslåtte avtaler': 'Åpne pasientavslåtte avtaler',
+  'Velg et annet tidspunkt og planlegg avtalen på nytt.':
+    'Velg et annet tidspunkt og planlegg avtalen på nytt.',
+  'Kunne ikke lagre avtalen': 'Kunne ikke lagre avtalen',
+  'Info': 'Info',
+  'Arkiv': 'Arkiv',
+  'Sykepleier: {{name}}': 'Sykepleier: {{name}}',
+  'Sykepleier ikke oppgitt': 'Sykepleier ikke oppgitt',
   'Appointments cannot be modified less than 24 hours before the scheduled time':
     'Avtaler kan ikke endres mindre enn 24 timer før planlagt tidspunkt',
   'Appointments cannot be cancelled less than 24 hours before the scheduled time':
@@ -42,6 +74,12 @@ export const norwegian = {
   'Cancel': 'Avbryt',
   'Save': 'Lagre',
   'Availability': 'Tilgjengelighet',
+  'Tilgjengelighet': 'Tilgjengelighet',
+  'Fast ukeplan': 'Fast ukeplan',
+  'Fast ukeplan for {{name}}': 'Fast ukeplan for {{name}}',
+  'Lagre fast ukeplan': 'Lagre fast ukeplan',
+  'Disse tidene gjentas hver uke. Endringer på enkeltdager i kalenderen overstyrer ukeplanen.':
+    'Disse tidene gjentas hver uke. Endringer på enkeltdager i kalenderen overstyrer ukeplanen.',
   'Time Range': 'Tidsrom',
   'Status': 'Status',
   'Slots': 'Tidsluker',
@@ -194,7 +232,7 @@ export const norwegian = {
   'Minst 8 tegn, stor og liten bokstav og ett tall': 'Minst 8 tegn, stor og liten bokstav og ett tall',
   'Du registrerer deg som sykepleier.': 'Du registrerer deg som sykepleier.',
   'Standarduke for {{name}}': 'Standarduke for {{name}}',
-  'Administrer kalenderen til {{name}}.': 'Administrer kalenderen til {{name}}.',
+  'Administrer tilgjengeligheten til {{name}}.': 'Administrer tilgjengeligheten til {{name}}.',
   'Velg sykepleier': 'Velg sykepleier',
   'Planlegg avtaler og følg arbeidslisten til hver sykepleier.': 'Planlegg avtaler og følg arbeidslisten til hver sykepleier.',
   'Vis {{name}} på kartet': 'Vis {{name}} på kartet',
@@ -228,6 +266,7 @@ export const norwegian = {
   'Pasienten har det okay': 'Pasienten har det okay',
   'Supabase-oppslag er ikke tilgjengelig': 'Supabase-oppslag er ikke tilgjengelig',
   'Supabase-oppslag må konfigureres før en TV-konto kan kobles til en pasient.': 'Supabase-oppslag må konfigureres før en TV-konto kan kobles til en pasient.',
+  'Planlagte besøk': 'Planlagte besøk',
 } as const;
 
 export const english = {
@@ -249,6 +288,37 @@ export const english = {
   'Cannot book appointments in the past': 'Appointments cannot be booked in the past',
   'Appointment not found': 'Appointment not found',
   'Could not accept the proposed time': 'Could not accept the proposed time',
+  'The nurse or patient already has an overlapping appointment':
+    'The nurse or patient already has an overlapping appointment',
+  'Linked account': 'Linked account',
+  'Account linked': 'Account linked',
+  'No account linked': 'No account linked',
+  'Account ID': 'Account ID',
+  'Not linked': 'Not linked',
+  'No account is linked to this patient': 'No account is linked to this patient',
+  'The system recommends the earliest suitable available time based on the nurse schedule, visit duration, existing appointments, and travel time.':
+    'The system recommends the earliest suitable available time based on the nurse schedule, visit duration, existing appointments, and travel time.',
+  'Each selected task adds its estimated time. Additional minutes are added to the task time, along with a 10-minute visit buffer.':
+    'Each selected task adds its estimated time. Additional minutes are added to the task time, along with a 10-minute visit buffer.',
+  'Estimated driving time is reserved between consecutive appointments using patient addresses. If coordinates are missing, a 25-minute estimate is used.':
+    'Estimated driving time is reserved between consecutive appointments using patient addresses. If coordinates are missing, a 25-minute estimate is used.',
+  'Patient declined': 'Patient declined',
+  'Viser avtaler pasienten har avslått og eventuelle foreslåtte tidspunkter.':
+    'Appointments declined by patients and any times they proposed.',
+  'Ingen pasientavslåtte avtaler trenger ny planlegging.':
+    'No patient-declined appointments need rescheduling.',
+  'Kun ledende sykepleiere kan planlegge pasientavslåtte avtaler på nytt.':
+    'Only head nurses can reschedule patient-declined appointments.',
+  'Laster pasientavslåtte avtaler...': 'Loading patient-declined appointments…',
+  'Kunne ikke laste pasientavslåtte avtaler': 'Could not load patient-declined appointments',
+  'Åpne pasientavslåtte avtaler': 'Open patient-declined appointments',
+  'Velg et annet tidspunkt og planlegg avtalen på nytt.':
+    'Choose a different time and reschedule the appointment.',
+  'Kunne ikke lagre avtalen': 'Could not save the appointment',
+  'Info': 'Info',
+  'Arkiv': 'Archive',
+  'Sykepleier: {{name}}': 'Nurse: {{name}}',
+  'Sykepleier ikke oppgitt': 'Nurse not specified',
   'Appointments cannot be modified less than 24 hours before the scheduled time':
     'Appointments cannot be changed less than 24 hours before the scheduled time',
   'Appointments cannot be cancelled less than 24 hours before the scheduled time':
@@ -290,6 +360,12 @@ export const english = {
   'Cancel': 'Cancel',
   'Save': 'Save',
   'Availability': 'Availability',
+  'Tilgjengelighet': 'Availability',
+  'Fast ukeplan': 'Recurring weekly schedule',
+  'Fast ukeplan for {{name}}': 'Recurring weekly schedule for {{name}}',
+  'Lagre fast ukeplan': 'Save weekly schedule',
+  'Disse tidene gjentas hver uke. Endringer på enkeltdager i kalenderen overstyrer ukeplanen.':
+    'These times repeat every week. Changes to individual calendar days override the weekly schedule.',
   'Time Range': 'Time Range',
   'Slots': 'Slots',
   'Notes': 'Notes',
@@ -538,8 +614,8 @@ export const english = {
   'Støtte til avtaler og ærender': 'Assistance with appointments and errands',
   'Ekstra minutter': 'Additional minutes',
   'Ekstra minutter må være et heltall på minst 0.': 'Additional minutes must be a whole number of 0 or more.',
-  'Planlagt varighet: {{minutes}} minutter (inkludert 5 minutters buffer før og etter)':
-    'Planned duration: {{minutes}} minutes (including 5-minute buffers before and after)',
+  'Planned visit duration: {{minutes}} minutes, including the 10-minute visit buffer.':
+    'Planned visit duration: {{minutes}} minutes, including the 10-minute visit buffer.',
   'Anbefalt': 'Recommended',
   'Anbefalt tidspunkt: {{date}} kl. {{start}}': 'Recommended time: {{date}} at {{start}}',
   'Kunne ikke laste planleggingsdata. Prøv igjen.':
@@ -634,8 +710,8 @@ export const english = {
   'Kunne ikke laste tilgjengelighetsdata': 'Could not load availability data',
   'Kunne ikke slette tilgjengelighetsvinduet': 'Could not delete the availability window',
   'Laster tilgjengelighet...': 'Loading availability…',
-  'Administrer din ukentlige og daglige tilgjengelighetsplan.':
-    'Manage your weekly and daily availability schedule.',
+  'Administrer ukentlig og daglig tilgjengelighet.':
+    'Manage weekly and daily availability.',
   'Visningsmodus': 'View mode',
   'Dag': 'Day',
   'Uke': 'Week',
@@ -667,6 +743,7 @@ export const english = {
   'Oppdater tilgjengelighet': 'Update availability',
   'Vis kart': 'View map',
   'Kommende tilgjengelighet': 'Upcoming availability',
+  'Planlagte besøk': 'Planned appointments',
   'Se tilgjengelighet': 'View availability',
   'Ingen tilgjengelige tider for valgt dag.': 'No available times on the selected day.',
   'Ingen planlagt tilgjengelighet.': 'No availability planned.',
@@ -906,7 +983,7 @@ export const english = {
   'Minst 8 tegn, stor og liten bokstav og ett tall': 'At least 8 characters, with uppercase and lowercase letters and a number',
   'Du registrerer deg som sykepleier.': 'You are registering as a nurse.',
   'Standarduke for {{name}}': 'Standard week for {{name}}',
-  'Administrer kalenderen til {{name}}.': "Manage {{name}}’s calendar.",
+  'Administrer tilgjengeligheten til {{name}}.': "Manage {{name}}’s availability.",
   'Velg sykepleier': 'Select nurse',
   'Planlegg avtaler og følg arbeidslisten til hver sykepleier.': "Plan appointments and follow each nurse’s worklist.",
   'Vis {{name}} på kartet': 'Show {{name}} on the map',
@@ -959,6 +1036,38 @@ export const german = {
   'Cannot book appointments in the past': 'Termine können nicht in der Vergangenheit gebucht werden',
   'Appointment not found': 'Termin nicht gefunden',
   'Could not accept the proposed time': 'Der vorgeschlagene Zeitpunkt konnte nicht angenommen werden',
+  'The nurse or patient already has an overlapping appointment':
+    'Die Pflegekraft oder der Patient hat bereits einen sich überschneidenden Termin',
+  'Linked account': 'Verknüpftes Konto',
+  'Account linked': 'Konto verknüpft',
+  'No account linked': 'Kein Konto verknüpft',
+  'Account ID': 'Konto-ID',
+  'Not linked': 'Nicht verknüpft',
+  'No account is linked to this patient': 'Mit diesem Patienten ist kein Konto verknüpft',
+  'The system recommends the earliest suitable available time based on the nurse schedule, visit duration, existing appointments, and travel time.':
+    'Das System empfiehlt den frühestmöglichen passenden verfügbaren Termin anhand des Dienstplans, der Besuchsdauer, bestehender Termine und der Fahrzeit.',
+  'Each selected task adds its estimated time. Additional minutes are added to the task time, along with a 10-minute visit buffer.':
+    'Jede ausgewählte Aufgabe erhöht die geschätzte Dauer um die angegebene Zeit. Zusätzliche Minuten kommen zur Aufgabenzeit und einem Besuchspuffer von 10 Minuten hinzu.',
+  'Estimated driving time is reserved between consecutive appointments using patient addresses. If coordinates are missing, a 25-minute estimate is used.':
+    'Zwischen aufeinanderfolgenden Terminen wird anhand der Patientenadressen geschätzte Fahrzeit eingeplant. Fehlen Koordinaten, werden 25 Minuten angesetzt.',
+  'Patient declined': 'Vom Patienten abgelehnt',
+  'Viser avtaler pasienten har avslått og eventuelle foreslåtte tidspunkter.':
+    'Termine, die der Patient abgelehnt hat, und gegebenenfalls vorgeschlagene Zeiten.',
+  'Ingen pasientavslåtte avtaler trenger ny planlegging.':
+    'Keine vom Patienten abgelehnten Termine müssen neu geplant werden.',
+  'Kun ledende sykepleiere kan planlegge pasientavslåtte avtaler på nytt.':
+    'Nur leitende Pflegekräfte können vom Patienten abgelehnte Termine neu planen.',
+  'Laster pasientavslåtte avtaler...': 'Vom Patienten abgelehnte Termine werden geladen…',
+  'Kunne ikke laste pasientavslåtte avtaler':
+    'Vom Patienten abgelehnte Termine konnten nicht geladen werden',
+  'Åpne pasientavslåtte avtaler': 'Vom Patienten abgelehnte Termine öffnen',
+  'Velg et annet tidspunkt og planlegg avtalen på nytt.':
+    'Wählen Sie einen anderen Zeitpunkt und planen Sie den Termin neu.',
+  'Kunne ikke lagre avtalen': 'Der Termin konnte nicht gespeichert werden',
+  'Info': 'Info',
+  'Arkiv': 'Archiv',
+  'Sykepleier: {{name}}': 'Pflegekraft: {{name}}',
+  'Sykepleier ikke oppgitt': 'Pflegekraft nicht angegeben',
   'Appointments cannot be modified less than 24 hours before the scheduled time':
     'Termine können weniger als 24 Stunden vor dem geplanten Zeitpunkt nicht geändert werden',
   'Appointments cannot be cancelled less than 24 hours before the scheduled time':
@@ -1206,8 +1315,8 @@ export const german = {
   'Andre oppgaver uten fastsatt tidsbruk': 'Weitere Aufgaben ohne feste Zeitvorgabe',
   'Ekstra minutter': 'Zusätzliche Minuten',
   'Ekstra minutter må være et heltall på minst 0.': 'Zusätzliche Minuten müssen eine ganze Zahl ab 0 sein.',
-  'Planlagt varighet: {{minutes}} minutter (inkludert 5 minutters buffer før og etter)':
-    'Geplante Dauer: {{minutes}} Minuten (einschließlich 5 Minuten Puffer davor und danach)',
+  'Planned visit duration: {{minutes}} minutes, including the 10-minute visit buffer.':
+    'Geplante Besuchsdauer: {{minutes}} Minuten, einschließlich eines Besuchspuffers von 10 Minuten.',
   'Anbefalt': 'Empfohlen',
   'Anbefalt tidspunkt: {{date}} kl. {{start}}': 'Empfohlene Zeit: {{date}} um {{start}}',
   'Kunne ikke laste planleggingsdata. Prøv igjen.':
@@ -1302,7 +1411,7 @@ export const german = {
   'Kunne ikke laste tilgjengelighetsdata': 'Verfügbarkeitsdaten konnten nicht geladen werden',
   'Kunne ikke slette tilgjengelighetsvinduet': 'Das Verfügbarkeitsfenster konnte nicht gelöscht werden',
   'Laster tilgjengelighet...': 'Verfügbarkeit wird geladen…',
-  'Administrer din ukentlige og daglige tilgjengelighetsplan.':
+  'Administrer ukentlig og daglig tilgjengelighet.':
     'Verwalten Sie Ihre wöchentliche und tägliche Verfügbarkeit.',
   'Visningsmodus': 'Ansichtsmodus',
   'Dag': 'Tag',
@@ -1335,6 +1444,7 @@ export const german = {
   'Oppdater tilgjengelighet': 'Verfügbarkeit aktualisieren',
   'Vis kart': 'Karte anzeigen',
   'Kommende tilgjengelighet': 'Anstehende Verfügbarkeit',
+  'Planlagte besøk': 'Geplante Besuche',
   'Se tilgjengelighet': 'Verfügbarkeit anzeigen',
   'Ingen tilgjengelige tider for valgt dag.': 'Am ausgewählten Tag sind keine Zeiten verfügbar.',
   'Ingen planlagt tilgjengelighet.': 'Keine Verfügbarkeit geplant.',
@@ -1355,6 +1465,12 @@ export const german = {
   'Cancel': 'Abbrechen',
   'Save': 'Speichern',
   'Availability': 'Verfügbarkeit',
+  'Tilgjengelighet': 'Verfügbarkeit',
+  'Fast ukeplan': 'Wiederkehrender Wochenplan',
+  'Fast ukeplan for {{name}}': 'Wiederkehrender Wochenplan für {{name}}',
+  'Lagre fast ukeplan': 'Wochenplan speichern',
+  'Disse tidene gjentas hver uke. Endringer på enkeltdager i kalenderen overstyrer ukeplanen.':
+    'Diese Zeiten wiederholen sich jede Woche. Änderungen an einzelnen Kalendertagen überschreiben den Wochenplan.',
   'Time Range': 'Zeitraum',
   'Slots': 'Zeitfenster',
   'Notes': 'Notizen',
@@ -1616,7 +1732,7 @@ export const german = {
   'Minst 8 tegn, stor og liten bokstav og ett tall': 'Mindestens 8 Zeichen mit Groß- und Kleinbuchstaben und einer Zahl',
   'Du registrerer deg som sykepleier.': 'Sie registrieren sich als Pflegekraft.',
   'Standarduke for {{name}}': 'Standardwoche für {{name}}',
-  'Administrer kalenderen til {{name}}.': 'Kalender von {{name}} verwalten.',
+  'Administrer tilgjengeligheten til {{name}}.': 'Verfügbarkeit von {{name}} verwalten.',
   'Velg sykepleier': 'Pflegekraft auswählen',
   'Planlegg avtaler og følg arbeidslisten til hver sykepleier.': 'Termine planen und die Arbeitsliste jeder Pflegekraft verfolgen.',
   'Vis {{name}} på kartet': '{{name}} auf der Karte anzeigen',

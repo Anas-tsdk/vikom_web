@@ -1,15 +1,17 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
+import { Button, Modal } from 'react-bootstrap';
 import PageHeader from '../../components/common/PageHeader';
 import EmptyState from '../../components/common/EmptyState';
 import AppointmentCard from '../components/AppointmentCard';
 import AppointmentModal from '../components/AppointmentModal';
 import AppointmentService from '../services/AppointmentService';
 import type { Appointment } from '../types/appointment';
+import PlannedVisitModal from '../../visits/components/PlannedVisitModal';
 import { getUserInfo } from '../../auth/AuthService';
 import { isHeadNurseRole } from '../../auth/roles';
-import { localeForLanguage } from '../../i18n';
+import { localeForLanguage, translateApiMessage } from '../../i18n';
 import { isSupabaseConfigured, signalingService } from '../../services/SupabaseSignalingService';
 import './AppointmentListPage.css';
 
@@ -20,10 +22,14 @@ const CancelledAppointmentsPage: React.FC = () => {
   const locale = localeForLanguage(i18n.resolvedLanguage);
   const [appointments, setAppointments] = useState<Appointment[]>([]);
   const [selected, setSelected] = useState<Appointment>();
+  const [infoAppointment, setInfoAppointment] = useState<Appointment | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+  const [proposalError, setProposalError] = useState('');
+  const [proposalFailedAppointment, setProposalFailedAppointment] = useState<Appointment | null>(null);
   const [acceptingProposalId, setAcceptingProposalId] = useState<number | null>(null);
   const appointmentRequestRef = useRef(0);
+  const rescheduledAppointmentIds = useRef(new Set<number>());
 
   const loadAppointments = useCallback(async (silent = false) => {
     const requestId = ++appointmentRequestRef.current;
@@ -35,14 +41,21 @@ const CancelledAppointmentsPage: React.FC = () => {
       if (!silent) setLoading(true);
       const all = await AppointmentService.getAll();
       if (requestId === appointmentRequestRef.current) {
-        setAppointments(all.filter((appointment) =>
+        const declined = all.filter((appointment) =>
           appointment.status === 'Cancelled' &&
-          appointment.patientResponseStatus === 'Declined'));
+          appointment.patientResponseStatus === 'Declined');
+        const declinedIds = new Set(declined.flatMap((appointment) =>
+          appointment.id ? [appointment.id] : []));
+        for (const id of rescheduledAppointmentIds.current) {
+          if (!declinedIds.has(id)) rescheduledAppointmentIds.current.delete(id);
+        }
+        setAppointments(declined.filter((appointment) =>
+          !appointment.id || !rescheduledAppointmentIds.current.has(appointment.id)));
         setError('');
       }
     } catch {
       if (requestId === appointmentRequestRef.current) {
-        setError(t('Kunne ikke laste avlyste avtaler'));
+        setError(t('Kunne ikke laste pasientavslåtte avtaler'));
       }
     } finally {
       if (!silent && requestId === appointmentRequestRef.current) setLoading(false);
@@ -91,7 +104,9 @@ const CancelledAppointmentsPage: React.FC = () => {
   const submitReschedule = async (appointment: Appointment) => {
     if (!appointment.id) return;
     await AppointmentService.update(appointment.id, appointment);
-    await loadAppointments(true);
+    rescheduledAppointmentIds.current.add(appointment.id);
+    appointmentRequestRef.current += 1;
+    setAppointments((current) => current.filter((item) => item.id !== appointment.id));
   };
 
   const acceptProposal = async (appointment: Appointment) => {
@@ -107,20 +122,27 @@ const CancelledAppointmentsPage: React.FC = () => {
         current.filter((item) => item.id !== appointment.id),
       );
     } catch (acceptError) {
-      setError(acceptError instanceof Error
-        ? t(acceptError.message)
-        : t('Could not accept the proposed time'));
+      setProposalFailedAppointment(appointment);
+      setProposalError(translateApiMessage(
+        t,
+        acceptError instanceof Error ? acceptError.message : 'Could not accept the proposed time',
+      ));
     } finally {
       setAcceptingProposalId(null);
     }
   };
 
+  const closeProposalError = () => {
+    setProposalError('');
+    setProposalFailedAppointment(null);
+  };
+
   if (!authorized) {
     return (
       <div className="appointment-list-page">
-        <PageHeader title={t('Avlyste avtaler')} />
+        <PageHeader title={t('Patient declined')} />
         <div className="alert alert-danger" role="alert">
-          {t('Kun ledende sykepleiere kan planlegge avlyste avtaler på nytt.')}
+          {t('Kun ledende sykepleiere kan planlegge pasientavslåtte avtaler på nytt.')}
         </div>
       </div>
     );
@@ -129,8 +151,8 @@ const CancelledAppointmentsPage: React.FC = () => {
   return (
     <div className="appointment-list-page personnel-page">
       <PageHeader
-        title={t('Avlyste avtaler')}
-        subtitle={t('Se pasientens svar og planlegg et nytt tidspunkt.')}
+        title={t('Patient declined')}
+        subtitle={t('Viser avtaler pasienten har avslått og eventuelle foreslåtte tidspunkter.')}
         actions={(
           <Link className="btn btn-outline-primary" to="/appointments">
             <i className="bi bi-arrow-left me-2" aria-hidden="true"></i>{t('Tilbake til avtaler')}
@@ -140,11 +162,11 @@ const CancelledAppointmentsPage: React.FC = () => {
 
       {error && <div className="vk-error-alert" role="alert">{error}</div>}
       {loading ? (
-        <p>{t('Laster avlyste avtaler...')}</p>
+        <p>{t('Laster pasientavslåtte avtaler...')}</p>
       ) : sortedAppointments.length === 0 ? (
         <EmptyState
           icon="calendar-check"
-          text={t('Ingen avlyste avtaler trenger ny planlegging.')}
+          text={t('Ingen pasientavslåtte avtaler trenger ny planlegging.')}
         />
       ) : (
         <div className="d-flex flex-column gap-3">
@@ -162,7 +184,17 @@ const CancelledAppointmentsPage: React.FC = () => {
                 key={appointment.id}
                 appointment={appointment}
                 dateTimeText={`${originalDate} · ${appointment.startTime}–${appointment.endTime}`}
-                subject={t('Pasient: {{name}}', { name: appointment.patientName || t('Ukjent pasient') })}
+                onClick={() => setInfoAppointment(appointment)}
+                subject={(
+                  <>
+                    <div>{t('Pasient: {{name}}', { name: appointment.patientName || t('Ukjent pasient') })}</div>
+                    <div>
+                      {appointment.personnelName
+                        ? t('Sykepleier: {{name}}', { name: appointment.personnelName })
+                        : t('Sykepleier ikke oppgitt')}
+                    </div>
+                  </>
+                )}
                 footerNote={(
                   <span className="text-muted small">
                     <i className="bi bi-lock me-2" aria-hidden="true"></i>
@@ -171,6 +203,14 @@ const CancelledAppointmentsPage: React.FC = () => {
                 )}
                 actions={(
                   <>
+                    <button
+                      className="btn btn-outline-secondary"
+                      type="button"
+                      onClick={() => setInfoAppointment(appointment)}
+                    >
+                      <i className="bi bi-info-circle me-2" aria-hidden="true"></i>
+                      {t('Info')}
+                    </button>
                     {hasProposal && (
                       <button
                         className="btn btn-success"
@@ -203,6 +243,41 @@ const CancelledAppointmentsPage: React.FC = () => {
         defaultPersonnelId={selected?.personnelId}
         onSubmit={submitReschedule}
       />
+
+      <PlannedVisitModal
+        show={infoAppointment !== null}
+        onClose={() => setInfoAppointment(null)}
+        appointment={infoAppointment}
+      />
+
+      <Modal show={!!proposalError} onHide={closeProposalError} centered>
+        <Modal.Header closeButton>
+          <Modal.Title>{t('Could not accept the proposed time')}</Modal.Title>
+        </Modal.Header>
+        <Modal.Body>
+          <p>{proposalError}</p>
+          <p className="mb-0">{t('Velg et annet tidspunkt og planlegg avtalen på nytt.')}</p>
+        </Modal.Body>
+        <Modal.Footer>
+          <Button
+            variant="primary"
+            onClick={() => {
+              const appointment = proposalFailedAppointment;
+              closeProposalError();
+              if (appointment) openReschedule(appointment);
+            }}
+          >
+            <i className="bi bi-calendar2-plus me-2" aria-hidden="true"></i>
+            {t('Planlegg et nytt tidspunkt')}
+          </Button>
+          <Button
+            variant="secondary"
+            onClick={closeProposalError}
+          >
+            {t('Lukk')}
+          </Button>
+        </Modal.Footer>
+      </Modal>
     </div>
   );
 };

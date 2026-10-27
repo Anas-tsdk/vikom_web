@@ -123,7 +123,7 @@ const AppointmentStaffNotification: React.FC = () => {
           to={isHeadNurse ? '/appointments/cancelled' : '/appointments'}
           onClick={() => setNotice(null)}
         >
-          {isHeadNurse ? t('Åpne avlyste avtaler') : t('Åpne avtaler')}
+          {isHeadNurse ? t('Patient declined') : t('Åpne avtaler')}
         </Link>
       </div>
       <button

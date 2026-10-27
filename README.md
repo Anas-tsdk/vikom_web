@@ -376,6 +376,10 @@ Linking changes only the patient's Supabase profile ID. It never touches their U
 
 ```bash
 dotnet test backend.Tests/backend.Tests.csproj
+
+cd frontend
+npm run lint
+npm run build
 ```
 
 ## Hosting and production safety
@@ -425,19 +429,22 @@ The durable call/missed-call/TURN deployment is maintained in `vikom_app-main/su
 
 ## Features
 
-- Role-based authentication (Patient, Personnel)
+- Role-based authentication for Nurses and Head Nurses (the web portal is personnel-only)
 - Personnel availability management with weekly and daily calendar views
-- Appointment booking with task-based duration, nurse-added extra minutes, and conflict/travel-aware time recommendations
+- Appointment planning with a planned-first work list, appointment archive, patient-declined appointments, task-based duration, and conflict/travel-aware time recommendations
+- Patient profiles with linked-account status and editable clinical overview, diagnoses, medications, and daily tasks
+- Dashboard schedule timeline showing planned visits and gaps on a horizontally scrollable time scale
 - Visit ("Besøk") execution workspace with task tracking and visit records
 - WebRTC audio and video calling from the portal to a patient's TV app, including answer/reject, an accepted in-call audio-to-video upgrade, managed TURN support, and durable missed-call recovery
 - Realtime appointment events emitted toward the patient's TV app on create, update and cancel (both ends are wired, but delivery is not yet verified; see the hand-off guide)
 - User-specific dashboards
 - Responsive design for mobile and desktop
+- Web UI translations in Norwegian, English, German, Finnish, Swedish, French, and Dutch
 
 ### Visit duration and schedule planning
 
-New appointments include a five-minute buffer at the start and end of each
-visit. The selected activities add:
+New appointments include a 10-minute visit buffer in addition to the selected
+care tasks and any additional minutes. The selected activities add:
 
 | Activity | Minutes |
 |----------|---------|
@@ -448,13 +455,15 @@ visit. The selected activities add:
 | Digital Assistance | 15 |
 | Others | 0 |
 
-Head Nurses can add any non-negative whole number of extra minutes; the visit
-must still fit the nurse's availability and calendar day. Candidate start times
-are offered at 15-minute intervals, and the server calculates the actual appointment end
-from the selected activities and extra time. It rejects appointments that run
-outside the nurse's availability, overlap another nurse or patient appointment,
-or leave too little time to travel to the preceding or following visit. SQLite
-also guards against overlapping persisted bookings.
+Head Nurses can add any non-negative whole number of extra minutes. The
+recommended slot is the earliest suitable candidate, based on the nurse's
+availability, existing bookings, and travel-time requirements. Candidate start
+times are offered at 15-minute intervals. The server calculates the actual
+appointment end from the task durations, additional minutes, and visit buffer.
+It rejects appointments that run outside the nurse's availability, overlap
+another appointment for the nurse or patient, or leave too little time to travel
+between consecutive visits. SQLite also guards against overlapping persisted
+bookings.
 
 Travel estimates stay on the backend/browser and do not send patient
 coordinates to a route provider. When both patients have coordinates, the
@@ -462,7 +471,8 @@ scheduler uses a great-circle distance estimate with an assumed road detour and
 urban speed, then adds a 25% traffic reserve and five minutes. If coordinates
 are unavailable, it reserves 25 minutes. These are planning estimates, not
 live road-route or traffic calculations; the map's separate route display may
-use its configured OSRM service.
+use its configured OSRM service. There is no nurse home/start-location model,
+so travel before the first or after the last appointment is not included.
 
 Existing booked appointments keep their current end times when this feature is
 deployed. Their duration is recalculated when they are edited or rescheduled,

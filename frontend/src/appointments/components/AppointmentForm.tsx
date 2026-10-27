@@ -626,6 +626,11 @@ const AppointmentForm: React.FC<AppointmentFormProps> = ({ initialData, defaultP
               end: selectedSlot.endTime,
             })}
           </small>
+          <ul className="small mb-0 mt-2 ps-4">
+            <li>{t('The system recommends the earliest suitable available time based on the nurse schedule, visit duration, existing appointments, and travel time.')}</li>
+            <li>{t('Each selected task adds its estimated time. Additional minutes are added to the task time, along with a 10-minute visit buffer.')}</li>
+            <li>{t('Estimated driving time is reserved between consecutive appointments using patient addresses. If coordinates are missing, a 25-minute estimate is used.')}</li>
+          </ul>
         </Alert>
       )}
 
@@ -671,7 +676,7 @@ const AppointmentForm: React.FC<AppointmentFormProps> = ({ initialData, defaultP
           onChange={handleAdditionalDurationChange}
         />
         <Form.Text>
-          {t('Planlagt varighet: {{minutes}} minutter (inkludert 5 minutters buffer før og etter)', {
+          {t('Planned visit duration: {{minutes}} minutes, including the 10-minute visit buffer.', {
             minutes: visitDurationMinutes,
           })}
         </Form.Text>

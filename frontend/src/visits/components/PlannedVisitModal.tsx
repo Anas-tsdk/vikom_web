@@ -8,6 +8,7 @@ import { localeForLanguage } from '../../i18n';
 /** Minimal plan shape — satisfied by both Appointment and AppointmentSummary. */
 export interface PlannedVisitData {
   patientName?: string;
+  personnelName?: string;
   patientAddress?: string | null;
   date?: string;
   startTime?: string;
@@ -59,6 +60,11 @@ const PlannedVisitModal: React.FC<PlannedVisitModalProps> = ({ show, onClose, ap
 
             <InfoRow icon="calendar-event" label={t('Dato')} value={formatDate(appointment.date, localeForLanguage(i18n.resolvedLanguage))} />
             <InfoRow icon="clock" label={t('Tidspunkt')} value={timeText} />
+            <InfoRow
+              icon="person-badge"
+              label={t('Sykepleier')}
+              value={appointment.personnelName || t('Sykepleier ikke oppgitt')}
+            />
             <InfoRow
               icon={appointment.visitType === 'Digital' ? 'camera-video' : 'house-door'}
               label={t('Type')}

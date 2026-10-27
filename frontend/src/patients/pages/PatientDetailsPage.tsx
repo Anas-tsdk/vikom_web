@@ -125,10 +125,10 @@ const PatientDetailsPage: React.FC = () => {
     }
 
     if (patient.supabaseProfileId) {
-      return { label: t('Koblet til TV-profil'), color: 'connected', bordered: true };
+      return { label: t('Account linked'), color: 'connected', bordered: true };
     }
 
-    return { label: t('Ikke koblet til TV-profil'), color: 'warning', bordered: false };
+    return { label: t('No account linked'), color: 'warning', bordered: false };
   }, [patient, t]);
 
   const handleCallClick = (mediaType: 'audio' | 'video') => {
@@ -140,6 +140,11 @@ const PatientDetailsPage: React.FC = () => {
     setShowCallModal(false);
     refreshPatient();
   };
+
+  const renderPatientEditAction = () =>
+    isHeadNurse
+      ? <IconButton icon="pencil" title={t('Rediger')} onClick={() => setShowEditModal(true)} />
+      : undefined;
 
   if (loading) {
     return (
@@ -268,7 +273,7 @@ const PatientDetailsPage: React.FC = () => {
         <Col lg={4}>
           <div className="vk-card-stack">
 
-            <SectionCard title={t('TV-profil')} icon="tv">
+            <SectionCard title={t('Linked account')} icon="person-check">
               <InfoRow
                 label={t('Status')}
                 value={
@@ -278,18 +283,28 @@ const PatientDetailsPage: React.FC = () => {
                 }
               />
               <InfoRow
-                label={t('Profil-ID')}
+                label={t('Account ID')}
                 value={patient.supabaseProfileId}
-                emptyText={t('Ikke koblet')}
+                emptyText={t('Not linked')}
               />
             </SectionCard>
 
-            <ClinicalOverviewCard clinical={patient.clinical} />
-            <DiagnosesCard diagnoses={patient.clinical.diagnoses} />
-            <MedicationsCard medications={patient.clinical.medications} />
+            <ClinicalOverviewCard
+              clinical={patient.clinical}
+              action={renderPatientEditAction()}
+            />
+            <DiagnosesCard
+              diagnoses={patient.clinical.diagnoses}
+              action={renderPatientEditAction()}
+            />
+            <MedicationsCard
+              medications={patient.clinical.medications}
+              action={renderPatientEditAction()}
+            />
             <TreatmentPlanCard
               treatmentPlan={patient.clinical.treatmentPlan}
               conditionFlags={patient.clinical.conditionFlags}
+              action={renderPatientEditAction()}
             />
 
             <PatientNotesCard

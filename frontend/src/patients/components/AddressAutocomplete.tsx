@@ -17,10 +17,16 @@ const AddressAutocomplete: React.FC<AddressAutocompleteProps> = ({ idPrefix, val
   const [open, setOpen] = useState(false);
   const [lookupFailed, setLookupFailed] = useState(false);
   const skipNextSearch = useRef(false);
+  const confirmedAddress = useRef(value.trim());
 
   useEffect(() => {
     if (skipNextSearch.current) {
       skipNextSearch.current = false;
+      return;
+    }
+    if (value.trim() === confirmedAddress.current) {
+      setSuggestions([]);
+      setOpen(false);
       return;
     }
     if (value.trim().length < 3) {
@@ -55,6 +61,7 @@ const AddressAutocomplete: React.FC<AddressAutocompleteProps> = ({ idPrefix, val
 
   const select = (suggestion: AddressSuggestion) => {
     skipNextSearch.current = true;
+    confirmedAddress.current = suggestion.address;
     onChange(suggestion.address, suggestion.latitude, suggestion.longitude);
     setSuggestions([]);
     setOpen(false);
@@ -74,7 +81,11 @@ const AddressAutocomplete: React.FC<AddressAutocompleteProps> = ({ idPrefix, val
           placeholder={t('Begynn å skrive en norsk gateadresse')}
           onFocus={() => suggestions.length > 0 && setOpen(true)}
           onBlur={() => window.setTimeout(() => setOpen(false), 150)}
-          onChange={(event) => onChange(event.target.value, null, null)}
+          onChange={(event) => {
+            const nextAddress = event.target.value;
+            if (nextAddress !== confirmedAddress.current) confirmedAddress.current = '';
+            onChange(nextAddress, null, null);
+          }}
         />
         {loading && <Spinner animation="border" size="sm" className="position-absolute top-50 end-0 translate-middle-y me-3" />}
       </div>

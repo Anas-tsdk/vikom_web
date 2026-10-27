@@ -75,12 +75,20 @@ export const localeForLanguage = (language = i18n.resolvedLanguage): string => {
 };
 
 export const translateApiMessage = (t: TFunction, message: string): string => {
-  const linkedProfile = message.match(/^Supabase-profilen er allerede koblet til (.+)\.$/);
+  const normalizedMessage = message.trim().replace(/^"(.*)"$/, '$1');
+  const linkedProfile = normalizedMessage.match(/^Supabase-profilen er allerede koblet til (.+)\.$/);
   if (linkedProfile) {
     return t('Supabase-profilen er allerede koblet til {{name}}.', { name: linkedProfile[1] });
   }
 
-  return t(message);
+  const apiMessageKeys: Record<string, string> = {
+    'ingen ledig tid hos sykepleieren passer med det foreslåtte tidspunktet':
+      'No available nurse slot fits the proposed time',
+    'sykepleieren eller pasienten har allerede en overlappende avtale':
+      'The nurse or patient already has an overlapping appointment',
+  };
+  const normalizedKey = apiMessageKeys[normalizedMessage.replace(/[.!?]+$/, '').toLowerCase()];
+  return t(normalizedKey ?? normalizedMessage);
 };
 
 export default i18n;

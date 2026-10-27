@@ -27,7 +27,7 @@
   align-items: center;
 }
 
-/* Toolbar controls (view toggle, today/refresh, prev/next) use standard
+/* Toolbar controls (view toggle, today, prev/next) use standard
    Bootstrap buttons — see the btn-group / btn-outline-secondary in the page. */
 
 /* ===== DATE HEADER ===== */

@@ -142,7 +142,7 @@ const VisitArchivePage: React.FC = () => {
                 <td className="text-muted">{outcomeText(visit, t)}</td>
                 <td className="text-end">
                   <IconButton
-                    icon="journal-text"
+                    icon="info-circle"
                     title={t('Besøksdetaljer')}
                     onClick={() => setDetailsVisitId(visit.id)}
                   />
@@ -169,12 +169,13 @@ const VisitArchivePage: React.FC = () => {
       <PageHeader
         title={t('Besøksarkiv')}
         subtitle={t('Fullstendig historikk over dokumenterte besøk.')}
-        actions={
-          <button className="btn btn-outline-secondary" onClick={() => navigate('/appointments')}>
-            <i className="bi bi-arrow-left me-2" aria-hidden="true"></i>{t('Tilbake til avtaler')}
-          </button>
-        }
       />
+
+      <div className="d-flex justify-content-end mb-3">
+        <button className="btn btn-outline-secondary" onClick={() => navigate('/appointments')}>
+          <i className="bi bi-arrow-left me-2" aria-hidden="true"></i>{t('Tilbake til avtaler')}
+        </button>
+      </div>
 
       <Tabs tabs={tabs} activeKey={filter} onChange={(key) => setFilter(key as ArchiveFilter)} card>
         <div className="d-flex justify-content-end mb-3">

@@ -24,6 +24,7 @@ dotnet run --project backend --launch-profile http
 
 # Terminal 2 - build the latest frontend and serve it
 cd /Users/sam/Developer/vikom_web/frontend
+npm run lint
 npm run build
 
 env __VITE_ADDITIONAL_SERVER_ALLOWED_HOSTS=vikom-demo.framenex.com npm run preview -- --host 127.0.0.1 --port 4173 --strictPort
@@ -35,6 +36,10 @@ env __VITE_ADDITIONAL_SERVER_ALLOWED_HOSTS=vikom-demo.framenex.com npm run previ
 # permanent fix, change the Cloudflare Browser Cache TTL to "Respect Existing
 # Headers" (or use a Cache Rule for HTML with Browser TTL set to "Respect
 # origin"). Vite Preview already sends no-cache for the HTML document.
+#
+# Before committing backend changes, run the backend test suite from the repo:
+#   cd /Users/sam/Developer/vikom_web
+#   dotnet test backend.Tests/backend.Tests.csproj
 
 # Terminal 3 - public HTTPS tunnel
 # The tunnel config selects HTTP/2 because this network blocks QUIC/UDP.

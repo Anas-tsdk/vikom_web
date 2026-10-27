@@ -7,6 +7,7 @@ import type { PatientClinical } from '../types/patient';
 
 interface ClinicalOverviewCardProps {
   clinical: PatientClinical;
+  action?: React.ReactNode;
   className?: string;
 }
 
@@ -29,7 +30,7 @@ const calcAge = (iso?: string | null): number | null => {
 };
 
 /** "Pasientoversikt" — DOB + age, next of kin, GP, allergies. */
-const ClinicalOverviewCard: React.FC<ClinicalOverviewCardProps> = ({ clinical, className }) => {
+const ClinicalOverviewCard: React.FC<ClinicalOverviewCardProps> = ({ clinical, action, className }) => {
   const { t, i18n } = useTranslation();
   const dob = formatDob(clinical.dateOfBirth, localeForLanguage(i18n.resolvedLanguage));
   const age = calcAge(clinical.dateOfBirth);
@@ -39,7 +40,7 @@ const ClinicalOverviewCard: React.FC<ClinicalOverviewCardProps> = ({ clinical, c
     : undefined;
 
   return (
-    <SectionCard title={t('Pasientoversikt')} icon="person" className={className}>
+    <SectionCard title={t('Pasientoversikt')} icon="person" action={action} className={className}>
       <InfoRow icon="calendar-heart" label={t('Født')} value={dobValue} />
       <InfoRow icon="people" label={t('Pårørende')} value={kin} />
       <InfoRow icon="hospital" label={t('Fastlege')} value={clinical.generalPractitioner} />

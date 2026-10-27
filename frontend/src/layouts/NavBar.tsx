@@ -142,7 +142,7 @@ const NavBar: React.FC = () => {
                           onClick={closeMobileMenu}
                           className={isActive('/appointments/cancelled') ? 'active' : ''}
                         >
-                          {t('Avlyste avtaler')}
+                          {t('Patient declined')}
                         </Nav.Link>
                       )}
                       <Nav.Link

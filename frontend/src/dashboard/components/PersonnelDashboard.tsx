@@ -4,7 +4,7 @@ import { useTranslation } from 'react-i18next';
 import { Link, useNavigate } from 'react-router-dom';
 import { fetchPersonnelDashboard } from '../services/DashboardService';
 import { fetchWeekAvailability } from '../../availability/services/AvailabilityService';
-import type { AvailabilitySummary } from '../../availability/types/availability';
+import type { AvailabilitySummary, WeekAvailability } from '../../availability/types/availability';
 import TaskBadges from '../../components/common/TaskBadges';
 import PageHeader from '../../components/common/PageHeader';
 import SectionCard from '../../components/common/SectionCard';
@@ -47,7 +47,7 @@ const PersonnelDashboard: React.FC = () => {
   const [error, setError] = useState<string | null>(null);
   const [selectedAvailabilityDateKey, setSelectedAvailabilityDateKey] = useState<string>('');
   const [selectedAvailabilityWeekStart, setSelectedAvailabilityWeekStart] = useState<Date>(() => getMonday(new Date()));
-  const [availabilityWeek, setAvailabilityWeek] = useState<AvailabilitySummary[]>([]);
+  const [availabilityWeek, setAvailabilityWeek] = useState<WeekAvailability | null>(null);
   const [availabilityWeekLoading, setAvailabilityWeekLoading] = useState(false);
   const [availabilityWeekError, setAvailabilityWeekError] = useState<string | null>(null);
   const [timelineFilter, setTimelineFilter] = useState<'alle' | 'fysisk' | 'digitalt'>('alle');
@@ -83,22 +83,11 @@ const PersonnelDashboard: React.FC = () => {
     fetchWeekAvailability(dashboard.personnelId, formatDateISO(selectedAvailabilityWeekStart))
       .then((week) => {
         if (!active) return;
-        setAvailabilityWeek(week.days.flatMap((day) =>
-          day.windows.flatMap((window) =>
-            (window.slots ?? []).map((slot) => ({
-              id: slot.id,
-              date: day.date,
-              startTime: slot.startTime,
-              endTime: slot.endTime,
-              notes: window.notes ?? '',
-              isBooked: slot.isBooked,
-            })),
-          ),
-        ));
+        setAvailabilityWeek(week);
       })
       .catch(() => {
         if (!active) return;
-        setAvailabilityWeek([]);
+        setAvailabilityWeek(null);
         setAvailabilityWeekError(t('Kunne ikke laste tilgjengelighet.'));
       })
       .finally(() => {
@@ -271,7 +260,19 @@ const PersonnelDashboard: React.FC = () => {
   });
 
   const todayDateKey = toDateKey(today);
-  const availabilityByDate = availabilityWeek
+  const availabilityByDate = (availabilityWeek?.days ?? [])
+    .flatMap((day) =>
+      day.windows.flatMap((window) =>
+        (window.slots ?? []).map((slot) => ({
+          id: slot.id,
+          date: day.date,
+          startTime: slot.startTime,
+          endTime: slot.endTime,
+          notes: window.notes ?? '',
+          isBooked: slot.isBooked,
+        })),
+      ),
+    )
     .reduce<Record<string, AvailabilitySummary[]>>((groupedAvailability, availability) => {
       const dateKey = availability.date;
 
@@ -321,15 +322,49 @@ const PersonnelDashboard: React.FC = () => {
 
   const currentMinutes = toMinutes(nowTimeLabel);
 
-  const selectedDaySlots = (availabilityByDate[activeAvailabilityDateKey] ?? [])
-    .filter((availability) => {
-      if (activeAvailabilityDateKey !== todayDateKey) {
-        return true;
-      }
+  const selectedAvailabilityDay = availabilityWeek?.days
+    .find((day) => day.date === activeAvailabilityDateKey);
+  const selectedDayAppointments = (selectedAvailabilityDay?.appointments ?? [])
+    .filter((appointment) => ['booked', 'inprogress'].includes(appointment.status.toLowerCase()))
+    .sort((firstAppointment, secondAppointment) =>
+      toMinutes(firstAppointment.startTime) - toMinutes(secondAppointment.startTime),
+    );
+  const availableWindowRanges = (selectedAvailabilityDay?.windows ?? [])
+    .filter((window) => window.isAvailable && toMinutes(window.endTime) > toMinutes(window.startTime))
+    .map((window) => ({
+      start: toMinutes(window.startTime),
+      end: toMinutes(window.endTime),
+    }));
+  const scheduleRanges = [
+    ...availableWindowRanges,
+    ...selectedDayAppointments.map((appointment) => ({
+      start: toMinutes(appointment.startTime),
+      end: toMinutes(appointment.endTime),
+    })),
+  ];
+  const scheduleStart = scheduleRanges.length > 0
+    ? Math.floor(Math.min(...scheduleRanges.map((range) => range.start)) / 60) * 60
+    : 8 * 60;
+  const scheduleEnd = scheduleRanges.length > 0
+    ? Math.ceil(Math.max(...scheduleRanges.map((range) => range.end)) / 60) * 60
+    : 18 * 60;
+  const scheduleEndMinutes = scheduleEnd > scheduleStart ? scheduleEnd : scheduleStart + 60;
+  const scheduleWidth = ((scheduleEndMinutes - scheduleStart) / 60) * 75;
+  const scheduleHourMarks = Array.from(
+    { length: Math.floor((scheduleEndMinutes - scheduleStart) / 60) + 1 },
+    (_, index) => scheduleStart + index * 60,
+  );
+  const positionedAppointments = selectedDayAppointments.map((appointment) => {
+    const start = toMinutes(appointment.startTime);
+    const end = toMinutes(appointment.endTime);
 
-      return toMinutes(availability.endTime) >= currentMinutes;
-    })
-    .sort((firstAvailability, secondAvailability) => toMinutes(firstAvailability.startTime) - toMinutes(secondAvailability.startTime));
+    return {
+      ...appointment,
+      left: ((start - scheduleStart) / 60) * 75,
+      width: Math.max(((end - start) / 60) * 75, 12),
+      label: `${appointment.startTime}–${appointment.endTime} · ${appointment.patientName}${appointment.tasks ? ` · ${appointment.tasks}` : ''}`,
+    };
+  });
 
   const timelineItemsWithState = timelineItems.map((item) => {
     const startMinutes = toMinutes(item.startTime);
@@ -569,7 +604,7 @@ const PersonnelDashboard: React.FC = () => {
               </Link>
             }
           >
-              {availabilityWeekLoading ? (
+            {availabilityWeekLoading ? (
                 <p className="mb-0" role="status">{t('Laster tilgjengelighet...')}</p>
               ) : availabilityWeekError ? (
                 <p className="text-danger mb-0" role="alert">{availabilityWeekError}</p>
@@ -579,6 +614,11 @@ const PersonnelDashboard: React.FC = () => {
                     <div className="availability-days-strip">
                       {availabilityWindowDays.map((day) => {
                         const hasSlots = Boolean(availabilityByDate[day.dateKey]);
+                        const hasAppointments = Boolean(availabilityWeek?.days
+                          .find((availabilityDay) => availabilityDay.date === day.dateKey)
+                          ?.appointments.some((appointment) =>
+                            ['booked', 'inprogress'].includes(appointment.status.toLowerCase()),
+                          ));
                         const isActive = day.dateKey === activeAvailabilityDateKey;
 
                         return (
@@ -586,6 +626,12 @@ const PersonnelDashboard: React.FC = () => {
                             key={day.dateKey}
                             type="button"
                             className={`availability-day-chip ${isActive ? 'active' : ''}`}
+                            aria-pressed={isActive}
+                            aria-label={day.date.toLocaleDateString(locale, {
+                              weekday: 'long',
+                              day: 'numeric',
+                              month: 'long',
+                            })}
                             onClick={() => setSelectedAvailabilityDateKey(day.dateKey)}
                           >
                             <span className="availability-day-chip-label">{day.label}</span>
@@ -593,7 +639,7 @@ const PersonnelDashboard: React.FC = () => {
                             <span className="availability-day-chip-month">
                               {day.date.toLocaleDateString(locale, { month: 'short' })}
                             </span>
-                            {hasSlots && <span className="availability-day-dot"></span>}
+                            {(hasSlots || hasAppointments) && <span className="availability-day-dot"></span>}
                           </button>
                         );
                       })}
@@ -604,20 +650,58 @@ const PersonnelDashboard: React.FC = () => {
                     <p className="availability-active-date">{activeAvailabilityDateLabel}</p>
                   )}
 
-                  {selectedDaySlots.length > 0 ? (
-                    <div className="availability-slots-grid">
-                      {selectedDaySlots.map((availability) => (
-                        <div
-                          key={availability.id}
-                          className={`availability-slot-card ${availability.isBooked ? 'booked' : 'available'}`}
-                        >
-                          <span className="availability-slot-time">{availability.startTime}</span>
+                  <section className="availability-appointments" aria-label={t('Planlagte besøk')}>
+                    <h4 className="availability-timeline-heading">{t('Planlagte besøk')}</h4>
+                    <div className="availability-timeline-scroll">
+                      <div className="availability-schedule" style={{ width: `${scheduleWidth}px` }}>
+                        <div className="availability-time-ruler" aria-hidden="true">
+                          {scheduleHourMarks.map((minute) => (
+                            <span
+                              className="availability-time-mark"
+                              key={minute}
+                              style={{ left: `${((minute - scheduleStart) / 60) * 75}px` }}
+                            >
+                              {`${String(Math.floor(minute / 60) % 24).padStart(2, '0')}:00`}
+                            </span>
+                          ))}
                         </div>
-                      ))}
+                        {positionedAppointments.length > 0 ? (
+                          <div
+                            className="availability-schedule-track"
+                            style={{ height: '4.5rem' }}
+                            role="list"
+                          >
+                            {positionedAppointments.map((appointment) => (
+                              <article
+                                className={`availability-schedule-event ${appointment.width < 48 ? 'compact' : ''}`}
+                                key={appointment.id}
+                                style={{
+                                  left: `${appointment.left}px`,
+                                  width: `${appointment.width}px`,
+                                }}
+                                title={appointment.label}
+                                aria-label={appointment.label}
+                                role="listitem"
+                              >
+                                <span className="availability-schedule-event-time">
+                                  {appointment.startTime}
+                                </span>
+                                {appointment.width >= 76 && (
+                                  <span className="availability-schedule-event-patient">
+                                    {appointment.patientName}
+                                  </span>
+                                )}
+                              </article>
+                            ))}
+                          </div>
+                        ) : (
+                          <div className="availability-schedule-empty">
+                            <EmptyState icon="calendar-x" text={t('Ingen planlagte avtaler denne dagen.')} />
+                          </div>
+                        )}
+                      </div>
                     </div>
-                  ) : (
-                    <EmptyState icon="calendar-x" text={t('Ingen tilgjengelige tider for valgt dag.')} />
-                  )}
+                  </section>
                 </div>
               )}
           </SectionCard>
