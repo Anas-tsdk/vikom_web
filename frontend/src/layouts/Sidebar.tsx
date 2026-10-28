@@ -98,7 +98,7 @@ const Sidebar: React.FC = () => {
               className={isActive('/planning') ? 'active' : ''}
             >
               <i className="bi bi-list-ul" aria-hidden="true"></i>
-              {t('Planlegging')}
+              {t('Daily route')}
             </Nav.Link>
             {isHeadNurseRole(role) && (
               <Nav.Link

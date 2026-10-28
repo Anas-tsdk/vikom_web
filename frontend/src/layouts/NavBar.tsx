@@ -151,7 +151,7 @@ const NavBar: React.FC = () => {
                         onClick={closeMobileMenu}
                         className={isActive('/planning') ? 'active' : ''}
                       >
-                        {t('Planlegging')}
+                        {t('Daily route')}
                       </Nav.Link>
                       {isHeadNurseRole(role) && (
                         <Nav.Link

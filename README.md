@@ -431,9 +431,10 @@ The durable call/missed-call/TURN deployment is maintained in `vikom_app-main/su
 
 - Role-based authentication for Nurses and Head Nurses (the web portal is personnel-only)
 - Personnel availability management with weekly and daily calendar views
-- Appointment planning with a planned-first work list, appointment archive, patient-declined appointments, task-based duration, and conflict/travel-aware time recommendations
+- Appointment planning with an upcoming-first work list, appointment archive, patient-declined appointments, task-based duration, and conflict/travel-aware time recommendations
 - Patient profiles with linked-account status and editable clinical overview, diagnoses, medications, and daily tasks
-- Dashboard schedule timeline showing planned visits and gaps on a horizontally scrollable time scale
+- Dashboard availability timeline showing planned visits and gaps on a responsive 06–22 time scale
+- Daily route page with the nurse's ordered visits and driving map
 - Visit ("Besøk") execution workspace with task tracking and visit records
 - WebRTC audio and video calling from the portal to a patient's TV app, including answer/reject, an accepted in-call audio-to-video upgrade, managed TURN support, and durable missed-call recovery
 - Realtime appointment events emitted toward the patient's TV app on create, update and cancel (both ends are wired, but delivery is not yet verified; see the hand-off guide)

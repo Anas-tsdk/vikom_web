@@ -425,7 +425,7 @@ const AppointmentListPage: React.FC = () => {
 
   // Render UI for personnel (nurse) view
   const personnelTabs = [
-    { key: 'scheduled', label: t('Planlagt'), count: scheduledAppointments.length },
+    { key: 'scheduled', label: t('Upcoming'), count: scheduledAppointments.length },
     { key: 'inprogress', label: t('Pågår'), count: inProgressAppointments.length },
     { key: 'completed', label: t('Fullført'), count: completedAppointments.length },
     { key: 'all', label: t('Alle'), count: allAppointments.length },

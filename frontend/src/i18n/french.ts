@@ -163,6 +163,8 @@ export const french = {
   "Ingen aktivitet å vise.": "Aucune activité à afficher.",
   "Ingen oppgaver": "Aucune tâche",
   "Planlagt": "Planifié",
+  "Upcoming": "À venir",
+  "Daily route": "Itinéraire quotidien",
   "Pågår": "En cours",
   "Fullført": "Terminé",
   "Avlyst": "Annulé",

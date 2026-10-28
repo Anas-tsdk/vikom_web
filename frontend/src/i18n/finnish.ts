@@ -163,6 +163,8 @@ export const finnish = {
   "Ingen aktivitet å vise.": "Ei näytettävää toimintaa.",
   "Ingen oppgaver": "Ei tehtäviä",
   "Planlagt": "Suunniteltu",
+  "Upcoming": "Tulevat",
+  "Daily route": "Päivittäinen reitti",
   "Pågår": "Meneillään",
   "Fullført": "Valmis",
   "Avlyst": "Peruutettu",

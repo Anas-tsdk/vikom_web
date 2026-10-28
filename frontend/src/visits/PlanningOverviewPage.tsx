@@ -317,7 +317,7 @@ const PlanningOverviewPage: React.FC = () => {
 
       <PageHeader
         className="planning-header"
-        title={t('Dagsruter og kjøreplan')}
+        title={t('Daily route')}
         subtitle={isHeadNurse && selectedNurse
           ? t('Viser kjøreplanen til {{name}}.', { name: selectedNurse.fullName })
           : t('Se alle planlagte avtaler i tidsrekkefølge og kjøreruten mellom hjemmebesøkene.')}

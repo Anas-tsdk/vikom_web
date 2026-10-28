@@ -25,7 +25,7 @@ src/
 │   └── guards/            # PersonnelOnlyRoute.tsx, PublicOnlyRoute.tsx
 ├── appointments/          # pages/, components/, services/, types/
 ├── availability/          # Availability page + slot/window forms and views
-├── dashboard/             # DashboardPage → PersonnelDashboard with schedule timeline
+├── dashboard/             # DashboardPage → PersonnelDashboard with 06–22 schedule timeline
 ├── patients/              # Roster, linked accounts, clinical profile pages + cards
 ├── visits/                # VisitExecutionPage (Besøk), VisitArchivePage,
 │                          # PlanningOverviewPage (pages sit flat here)
@@ -68,7 +68,7 @@ Other scripts: `npm run build` (type-check + production build to `dist/`), `npm 
 ## Routes
 
 - Public: `/`, `/login`, `/register`
-- Personnel-only: `/dashboard`, `/appointments` (Planned is the default tab; includes All and Patient declined), `/appointments/archive`, `/availability` (weekly/daily views and recurring weekly schedule), `/patients`, `/patients/:username`, `/besok/:appointmentId` (the visit workspace; `?type=Digital` starts a digital visit), `/planning`
+- Personnel-only: `/dashboard`, `/appointments` (Upcoming is the default tab; includes All and Patient declined), `/appointments/archive`, `/availability` (weekly/daily views and recurring weekly schedule), `/patients`, `/patients/:username`, `/besok/:appointmentId` (the visit workspace; `?type=Digital` starts a digital visit), `/planning` (Daily route)
 - Head-Nurse-only UI: `/nurses` (staff registration and role overview)
 
 ## Troubleshooting

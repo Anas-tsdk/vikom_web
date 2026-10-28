@@ -163,6 +163,8 @@ export const swedish = {
   "Ingen aktivitet å vise.": "Ingen aktivitet att visa.",
   "Ingen oppgaver": "Inga uppgifter",
   "Planlagt": "Planerad",
+  "Upcoming": "Kommande",
+  "Daily route": "Daglig rutt",
   "Pågår": "Pågår",
   "Fullført": "Avslutad",
   "Avlyst": "Inställd",

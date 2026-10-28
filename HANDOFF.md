@@ -758,17 +758,17 @@ Heads-up: the Supabase `profiles` table also has an `fcm_token` column that `FCM
 
 **Staff-only (wrapped in `PersonnelOnlyRoute`):**
 - `/dashboard`: the signed-in nurse's homepage
-- `/appointments`: Planned is the default tab, with In progress, Completed, and All views; a Nurse sees their own work list, while a Head Nurse selects a nurse and creates, reschedules, or cancels assignments. Appointment information opens from the card or its info action; the patient-declined view supports accepting a proposal or replanning.
+- `/appointments`: Upcoming is the default tab, with In progress, Completed, and All views; a Nurse sees their own work list, while a Head Nurse selects a nurse and creates, reschedules, or cancels assignments. Appointment information opens from the card or its info action; the patient-declined view supports accepting a proposal or replanning.
 - `/appointments/archive`: historical visits (reached from buttons on the appointments page; there is no sidebar link)
 - `/availability`: availability calendar (weekly/daily views, recurring weekly schedule, manual day/week overrides, and Head-Nurse staff selection)
 - `/patients` and `/patients/:username`: roster and clinical profile (the URL uses the patient's profile username, falling back to their GUID)
 - `/besok/:appointmentId`: the Besøk visit workspace (append `?type=Digital` to start a digital visit)
-- `/planning`: responsive daily itinerary and interactive driving map; Head Nurses select whose route to inspect
+- `/planning` (Daily route): responsive daily itinerary and interactive driving map; Head Nurses select whose route to inspect
 - `/nurses`: Head-Nurse-only staff list and Nurse/Head-Nurse account registration
 
 ### Key Components
 
-- **Dashboard**: [frontend/src/dashboard/components/PersonnelDashboard.tsx](frontend/src/dashboard/components/PersonnelDashboard.tsx), fed by `GET /api/dashboard/personnel`. Welcome header, stat tiles, month calendar, today's timeline, a horizontally scrollable, time-scaled upcoming-visit schedule that shows open gaps, and recently concluded appointments with links to their visit records. The schedule track is a single lane; overlapping bookings are rejected by scheduling validation rather than rendered on top of each other.
+- **Dashboard**: [frontend/src/dashboard/components/PersonnelDashboard.tsx](frontend/src/dashboard/components/PersonnelDashboard.tsx), fed by `GET /api/dashboard/personnel`. Welcome header, stat tiles, month calendar, Upcoming appointments, a responsive 06–22 time-scaled availability schedule with hour-only labels that shows planned visits and open gaps, and recently concluded appointments with links to their visit records. The schedule track is a single lane; overlapping bookings are rejected by scheduling validation rather than rendered on top of each other.
 - **Appointments**: [frontend/src/appointments/pages/AppointmentListPage.tsx](frontend/src/appointments/pages/AppointmentListPage.tsx) with form/modal components for create, edit, and delete.
 - **Visits**: [frontend/src/visits/VisitExecutionPage.tsx](frontend/src/visits/VisitExecutionPage.tsx) (Section 5), plus `VisitArchivePage` (filter tabs) and modals for planned-visit preview and post-visit details.
 - **Patients**: roster and clinical profile assembled from cards (`ClinicalOverviewCard`, `DiagnosesCard`, `MedicationsCard`, `TreatmentPlanCard`, `PatientNotesCard`, `EditPatientModal`). The profile uses linked-account wording, and Head Nurses can edit the patient or open the edit modal from the clinical overview, diagnoses, medications, or daily tasks card. When editing, an unchanged saved address remains confirmed rather than requiring the user to select it again. The profile header hosts the "Ring pasient" button and linked-account status. `CreatePatientModal` (from "Ny pasient" on the roster) registers a patient, and both modals embed `SupabaseProfileField`, which searches Supabase `profiles` via `GET /api/patients/supabase-profiles` so the TV link is picked from real accounts. That search goes through the backend on purpose — portal users hold a backend JWT and have no Supabase session, so a browser-side query would run as `anon` and force `profiles` to allow anonymous SELECT. Linking writes **only** `SupabaseProfileId`; the patient's `ProfileUsername` (their `/patients/{username}` URL handle) is a separate local value that the portal never touches.
@@ -1210,9 +1210,11 @@ adb reverse tcp:5084 tcp:5084
 ./gradlew installDebug
 ```
 
-**Document Version:** 2.1
+**Document Version:** 2.2
 
-**Last Updated:** October 27, 2026
+**Last Updated:** October 28, 2026
+
+**Revision note (v2.2):** Updated the dashboard availability scale to 06:00–22:00, renamed its daily timeline to Upcoming appointments, changed the appointment default-tab label to Upcoming, and renamed the Planning page to Daily route. All labels are localized in the seven supported web UI languages.
 
 **Revision note (v2.1):** Updated the web-portal feature status and UI descriptions for the dashboard schedule timeline, planned-first appointment workflow, patient-declined/rescheduling flow, availability wording, patient linked-account and editing behavior, travel-aware scheduling and visit duration, and the seven supported web UI languages. The scheduling guide now documents the 10-minute visit buffer and clarifies that travel before the first visit is not modeled.
 

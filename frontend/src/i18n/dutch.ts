@@ -163,6 +163,8 @@ export const dutch = {
   "Ingen aktivitet å vise.": "Geen activiteit om weer te geven.",
   "Ingen oppgaver": "Geen taken",
   "Planlagt": "Gepland",
+  "Upcoming": "Aankomend",
+  "Daily route": "Dagelijkse route",
   "Pågår": "Bezig",
   "Fullført": "Voltooid",
   "Avlyst": "Geannuleerd",

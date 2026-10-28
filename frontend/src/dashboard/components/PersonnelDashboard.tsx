@@ -11,7 +11,6 @@ import SectionCard from '../../components/common/SectionCard';
 import StatTile from '../../components/common/StatTile';
 import AppointmentCard from '../../appointments/components/AppointmentCard';
 import EmptyState from '../../components/common/EmptyState';
-import IconButton from '../../components/common/IconButton';
 import VisitDetailsModal from '../../visits/components/VisitDetailsModal';
 import type { PersonnelViewModel } from '../types/dashboard';
 import type { AppointmentSummary } from '../../appointments/types/appointment';
@@ -27,6 +26,10 @@ const TIMELINE_FILTER_LABELS: Record<'alle' | 'fysisk' | 'digitalt', string> = {
   fysisk: 'Fysisk',
   digitalt: 'Digitalt',
 };
+
+const SCHEDULE_START_MINUTES = 6 * 60;
+const SCHEDULE_END_MINUTES = 22 * 60;
+const SCHEDULE_DURATION_MINUTES = SCHEDULE_END_MINUTES - SCHEDULE_START_MINUTES;
 
 // "<weekday> <month> <day> • <start> - <end>" line for the recent appointments list.
 const formatRecentDateTime = (appointment: AppointmentSummary, locale: string) => {
@@ -329,41 +332,24 @@ const PersonnelDashboard: React.FC = () => {
     .sort((firstAppointment, secondAppointment) =>
       toMinutes(firstAppointment.startTime) - toMinutes(secondAppointment.startTime),
     );
-  const availableWindowRanges = (selectedAvailabilityDay?.windows ?? [])
-    .filter((window) => window.isAvailable && toMinutes(window.endTime) > toMinutes(window.startTime))
-    .map((window) => ({
-      start: toMinutes(window.startTime),
-      end: toMinutes(window.endTime),
-    }));
-  const scheduleRanges = [
-    ...availableWindowRanges,
-    ...selectedDayAppointments.map((appointment) => ({
-      start: toMinutes(appointment.startTime),
-      end: toMinutes(appointment.endTime),
-    })),
-  ];
-  const scheduleStart = scheduleRanges.length > 0
-    ? Math.floor(Math.min(...scheduleRanges.map((range) => range.start)) / 60) * 60
-    : 8 * 60;
-  const scheduleEnd = scheduleRanges.length > 0
-    ? Math.ceil(Math.max(...scheduleRanges.map((range) => range.end)) / 60) * 60
-    : 18 * 60;
-  const scheduleEndMinutes = scheduleEnd > scheduleStart ? scheduleEnd : scheduleStart + 60;
-  const scheduleWidth = ((scheduleEndMinutes - scheduleStart) / 60) * 75;
   const scheduleHourMarks = Array.from(
-    { length: Math.floor((scheduleEndMinutes - scheduleStart) / 60) + 1 },
-    (_, index) => scheduleStart + index * 60,
+    { length: SCHEDULE_DURATION_MINUTES / 60 + 1 },
+    (_, index) => SCHEDULE_START_MINUTES + index * 60,
   );
-  const positionedAppointments = selectedDayAppointments.map((appointment) => {
+  const positionedAppointments = selectedDayAppointments.flatMap((appointment) => {
     const start = toMinutes(appointment.startTime);
     const end = toMinutes(appointment.endTime);
+    const visibleStart = Math.max(start, SCHEDULE_START_MINUTES);
+    const visibleEnd = Math.min(end, SCHEDULE_END_MINUTES);
 
-    return {
+    if (visibleEnd <= visibleStart) return [];
+
+    return [{
       ...appointment,
-      left: ((start - scheduleStart) / 60) * 75,
-      width: Math.max(((end - start) / 60) * 75, 12),
+      left: ((visibleStart - SCHEDULE_START_MINUTES) / SCHEDULE_DURATION_MINUTES) * 100,
+      width: ((visibleEnd - visibleStart) / SCHEDULE_DURATION_MINUTES) * 100,
       label: `${appointment.startTime}–${appointment.endTime} · ${appointment.patientName}${appointment.tasks ? ` · ${appointment.tasks}` : ''}`,
-    };
+    }];
   });
 
   const timelineItemsWithState = timelineItems.map((item) => {
@@ -485,7 +471,7 @@ const PersonnelDashboard: React.FC = () => {
           </SectionCard>
 
           <SectionCard
-            title={t('Dagens tidslinje')}
+            title={t('Kommende avtaler')}
             icon="clock"
             className="timeline-overview"
             action={
@@ -590,7 +576,7 @@ const PersonnelDashboard: React.FC = () => {
               onClick={() => navigate('/planning')}
             >
               <i className="bi bi-geo-alt"></i>
-              <span>{t('Vis kart')}</span>
+              <span>{t('Daily route')}</span>
             </button>
           </div>
 
@@ -613,12 +599,6 @@ const PersonnelDashboard: React.FC = () => {
                   <div className="availability-days-nav">
                     <div className="availability-days-strip">
                       {availabilityWindowDays.map((day) => {
-                        const hasSlots = Boolean(availabilityByDate[day.dateKey]);
-                        const hasAppointments = Boolean(availabilityWeek?.days
-                          .find((availabilityDay) => availabilityDay.date === day.dateKey)
-                          ?.appointments.some((appointment) =>
-                            ['booked', 'inprogress'].includes(appointment.status.toLowerCase()),
-                          ));
                         const isActive = day.dateKey === activeAvailabilityDateKey;
 
                         return (
@@ -639,7 +619,6 @@ const PersonnelDashboard: React.FC = () => {
                             <span className="availability-day-chip-month">
                               {day.date.toLocaleDateString(locale, { month: 'short' })}
                             </span>
-                            {(hasSlots || hasAppointments) && <span className="availability-day-dot"></span>}
                           </button>
                         );
                       })}
@@ -653,15 +632,17 @@ const PersonnelDashboard: React.FC = () => {
                   <section className="availability-appointments" aria-label={t('Planlagte besøk')}>
                     <h4 className="availability-timeline-heading">{t('Planlagte besøk')}</h4>
                     <div className="availability-timeline-scroll">
-                      <div className="availability-schedule" style={{ width: `${scheduleWidth}px` }}>
+                      <div className="availability-schedule">
                         <div className="availability-time-ruler" aria-hidden="true">
                           {scheduleHourMarks.map((minute) => (
                             <span
                               className="availability-time-mark"
                               key={minute}
-                              style={{ left: `${((minute - scheduleStart) / 60) * 75}px` }}
+                              style={{
+                                left: `${((minute - SCHEDULE_START_MINUTES) / SCHEDULE_DURATION_MINUTES) * 100}%`,
+                              }}
                             >
-                              {`${String(Math.floor(minute / 60) % 24).padStart(2, '0')}:00`}
+                              {String(Math.floor(minute / 60) % 24).padStart(2, '0')}
                             </span>
                           ))}
                         </div>
@@ -673,11 +654,11 @@ const PersonnelDashboard: React.FC = () => {
                           >
                             {positionedAppointments.map((appointment) => (
                               <article
-                                className={`availability-schedule-event ${appointment.width < 48 ? 'compact' : ''}`}
+                                className={`availability-schedule-event ${appointment.width < 4.2 ? 'compact' : ''}`}
                                 key={appointment.id}
                                 style={{
-                                  left: `${appointment.left}px`,
-                                  width: `${appointment.width}px`,
+                                  left: `${appointment.left}%`,
+                                  width: `${appointment.width}%`,
                                 }}
                                 title={appointment.label}
                                 aria-label={appointment.label}
@@ -686,7 +667,7 @@ const PersonnelDashboard: React.FC = () => {
                                 <span className="availability-schedule-event-time">
                                   {appointment.startTime}
                                 </span>
-                                {appointment.width >= 76 && (
+                                {appointment.width >= 6.3 && (
                                   <span className="availability-schedule-event-patient">
                                     {appointment.patientName}
                                   </span>
@@ -725,11 +706,14 @@ const PersonnelDashboard: React.FC = () => {
                       subject={appointment.patientName ? t('Pasient: {{name}}', { name: appointment.patientName }) : null}
                       actions={
                         appointment.visitId ? (
-                          <IconButton
-                            icon="journal-text"
-                            title={t('Besøksdetaljer')}
+                          <button
+                            type="button"
+                            className="btn btn-secondary btn-sm"
                             onClick={() => setDetailsVisitId(appointment.visitId ?? null)}
-                          />
+                          >
+                            <i className="bi bi-info-circle me-1" aria-hidden="true"></i>
+                            {t('Info')}
+                          </button>
                         ) : undefined
                       }
                     />

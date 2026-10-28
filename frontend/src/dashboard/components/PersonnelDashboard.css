@@ -533,19 +533,6 @@
   text-transform: capitalize;
 }
 
-.personnel-dashboard .availability-day-dot {
-  width: 4px;
-  height: 4px;
-  border-radius: 50%;
-  background-color: var(--bs-primary);
-  position: absolute;
-  bottom: 0.22rem;
-}
-
-.personnel-dashboard .availability-day-chip.active .availability-day-dot {
-  background-color: var(--bs-white);
-}
-
 .personnel-dashboard .availability-active-date {
   margin: 0;
   font-size: var(--fs-base);
@@ -565,13 +552,12 @@
 }
 
 .personnel-dashboard .availability-timeline-scroll {
-  overflow-x: auto;
+  overflow: hidden;
   padding: 0.5rem 0 0.75rem;
-  scrollbar-width: thin;
 }
 
 .personnel-dashboard .availability-schedule {
-  min-width: 100%;
+  width: 100%;
 }
 
 .personnel-dashboard .availability-time-ruler {
@@ -591,10 +577,12 @@
 
 .personnel-dashboard .availability-time-mark:first-child {
   transform: none;
+  text-align: left;
 }
 
 .personnel-dashboard .availability-time-mark:last-child {
   transform: translateX(-100%);
+  text-align: right;
 }
 
 .personnel-dashboard .availability-schedule-track {
@@ -603,9 +591,9 @@
   background-image: repeating-linear-gradient(
     to right,
     transparent 0,
-    transparent 74px,
-    rgba(var(--bs-secondary-rgb), 0.15) 74px,
-    rgba(var(--bs-secondary-rgb), 0.15) 75px
+    transparent calc(6.25% - 1px),
+    rgba(var(--bs-secondary-rgb), 0.15) calc(6.25% - 1px),
+    rgba(var(--bs-secondary-rgb), 0.15) 6.25%
   );
 }
 
