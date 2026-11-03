@@ -1,4 +1,5 @@
 import React, { useCallback, useState, useEffect, useRef } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { getUserInfo } from '../../auth/AuthService';
 import { isHeadNurseRole } from '../../auth/roles';
@@ -37,9 +38,12 @@ type ViewMode = 'week' | 'day';
 
 const AvailabilityCalendarPage: React.FC = () => {
   const { t } = useTranslation();
+  const [searchParams] = useSearchParams();
   const userInfo = getUserInfo();
   const isHeadNurse = isHeadNurseRole(userInfo?.role);
-  const [personnelId, setPersonnelId] = useState(userInfo?.userId || '');
+  const [personnelId, setPersonnelId] = useState(
+    (isHeadNurse ? searchParams.get('personnelId') : null) || userInfo?.userId || '',
+  );
   const [nurses, setNurses] = useState<NurseSummary[]>([]);
 
   // State

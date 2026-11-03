@@ -14,7 +14,9 @@ import CallModal from '../../components/common/CallModal';
 import VisitDetailsModal from '../../visits/components/VisitDetailsModal';
 import PlannedVisitModal, { type PlannedVisitData } from '../../visits/components/PlannedVisitModal';
 import AppointmentCard from '../../appointments/components/AppointmentCard';
-import type { AppointmentSummary } from '../../appointments/types/appointment';
+import AppointmentModal from '../../appointments/components/AppointmentModal';
+import AppointmentService from '../../appointments/services/AppointmentService';
+import type { Appointment, AppointmentSummary } from '../../appointments/types/appointment';
 import Breadcrumb from '../../components/common/Breadcrumb';
 import PatientProfileHeader from '../components/PatientProfileHeader';
 import PatientNotesCard from '../components/PatientNotesCard';
@@ -75,6 +77,7 @@ const PatientDetailsPage: React.FC = () => {
   const [error, setError] = useState<string>('');
   const [infoMessage, setInfoMessage] = useState<string>('');
   const [showCallModal, setShowCallModal] = useState<boolean>(false);
+  const [showAppointmentModal, setShowAppointmentModal] = useState(false);
   const [callMediaType, setCallMediaType] = useState<'audio' | 'video'>('audio');
   const [showEditModal, setShowEditModal] = useState<boolean>(false);
   const [showAllPast, setShowAllPast] = useState<boolean>(false);
@@ -139,6 +142,20 @@ const PatientDetailsPage: React.FC = () => {
   const handleCallModalHide = () => {
     setShowCallModal(false);
     refreshPatient();
+  };
+
+  const handleCreateAppointment = async (appointment: Appointment) => {
+    if (!patient) return;
+    await AppointmentService.create({
+      patientId: patient.id,
+      availabilityId: appointment.availabilityId,
+      tasks: appointment.tasks,
+      additionalDurationMinutes: appointment.additionalDurationMinutes ?? 0,
+      startTime: appointment.startTime,
+      endTime: appointment.endTime,
+    });
+    setActiveTab('upcoming');
+    await refreshPatient();
   };
 
   const renderPatientEditAction = () =>
@@ -350,20 +367,29 @@ const PatientDetailsPage: React.FC = () => {
 
             <div className="vk-tabs-content">
               {activeTab === 'upcoming' &&
-                (patient.upcomingAppointments.length === 0 ? (
-                  <EmptyState icon="calendar-x" text={t('Ingen kommende avtaler.')} />
-                ) : (
-                  <div className="d-grid gap-3">
-                    {patient.upcomingAppointments.map((appointment) => (
-                      <AppointmentCard
-                        key={appointment.id}
-                        appointment={appointment}
-                        actions={renderVisitDoc(appointment)}
-                        onClick={visitRowOnClick(appointment)}
-                      />
-                    ))}
-                  </div>
-                ))}
+                <>
+                  {isHeadNurse && (
+                    <div className="d-flex justify-content-end mb-3">
+                      <Button onClick={() => setShowAppointmentModal(true)}>
+                        <i className="bi bi-calendar-plus me-2" aria-hidden="true"></i>{t('Ny avtale')}
+                      </Button>
+                    </div>
+                  )}
+                  {patient.upcomingAppointments.length === 0 ? (
+                    <EmptyState icon="calendar-x" text={t('Ingen kommende avtaler.')} />
+                  ) : (
+                    <div className="d-grid gap-3">
+                      {patient.upcomingAppointments.map((appointment) => (
+                        <AppointmentCard
+                          key={appointment.id}
+                          appointment={appointment}
+                          actions={renderVisitDoc(appointment)}
+                          onClick={visitRowOnClick(appointment)}
+                        />
+                      ))}
+                    </div>
+                  )}
+                </>}
 
               {activeTab === 'past' &&
                 (pastAppointments.length === 0 ? (
@@ -423,6 +449,17 @@ const PatientDetailsPage: React.FC = () => {
           onHide={() => setShowEditModal(false)}
           patient={patient}
           onSaved={(updated) => setPatient(updated)}
+        />
+      )}
+
+      {isHeadNurse && (
+        <AppointmentModal
+          key={patient.id}
+          show={showAppointmentModal}
+          onClose={() => setShowAppointmentModal(false)}
+          defaultPatientId={patient.id}
+          lockPatientSelection
+          onSubmit={handleCreateAppointment}
         />
       )}
 

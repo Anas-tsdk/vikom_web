@@ -15,6 +15,8 @@ import { calculateVisitDurationMinutes, getTaskDurationMinutes, recommendSlots }
 interface AppointmentFormProps {
   initialData?: Appointment;
   defaultPersonnelId?: string;
+  defaultPatientId?: string;
+  lockPatientSelection?: boolean;
   onSubmit: (data: Appointment) => void;
   onCancel: () => void;
 }
@@ -30,7 +32,14 @@ const ALL_TASKS = [
 
 const BOOKING_WEEKS = 12;
 
-const AppointmentForm: React.FC<AppointmentFormProps> = ({ initialData, defaultPersonnelId, onSubmit, onCancel }) => {
+const AppointmentForm: React.FC<AppointmentFormProps> = ({
+  initialData,
+  defaultPersonnelId,
+  defaultPatientId,
+  lockPatientSelection = false,
+  onSubmit,
+  onCancel,
+}) => {
   const { t, i18n } = useTranslation();
   const locale = localeForLanguage(i18n.resolvedLanguage);
 
@@ -41,7 +50,7 @@ const AppointmentForm: React.FC<AppointmentFormProps> = ({ initialData, defaultP
   // Form state
   const [formData, setFormData] = useState<Appointment>({
     id: initialData?.id,
-    patientId: initialData?.patientId || '',
+    patientId: initialData?.patientId || defaultPatientId || '',
     availabilityId: initialData?.availabilityId || 0,
     tasks: initialData?.tasks || '',
     additionalDurationMinutes: initialData?.additionalDurationMinutes ?? 0,
@@ -504,7 +513,7 @@ const AppointmentForm: React.FC<AppointmentFormProps> = ({ initialData, defaultP
           value={formData.patientId}
           onChange={handlePatientChange}
           isInvalid={!!errors.patientId}
-          disabled={Boolean(initialData?.id)}
+          disabled={Boolean(initialData?.id) || lockPatientSelection}
         >
           <option value="">{t('-- Velg pasient --')}</option>
           {patients.map((patient) => (

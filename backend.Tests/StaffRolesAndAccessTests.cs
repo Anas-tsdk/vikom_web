@@ -515,18 +515,53 @@ public sealed class StaffRolesAndAccessTests : IDisposable
             StartTime = TimeSpan.FromHours(12),
             EndTime = TimeSpan.FromHours(13)
         };
+        var completedTodaySlot = new Availability
+        {
+            PersonnelId = otherNurse.Id,
+            Date = DateTime.Today,
+            StartTime = TimeSpan.FromHours(9),
+            EndTime = TimeSpan.FromHours(10)
+        };
+        var cancelledTodaySlot = new Availability
+        {
+            PersonnelId = otherNurse.Id,
+            Date = DateTime.Today,
+            StartTime = TimeSpan.FromHours(14),
+            EndTime = TimeSpan.FromHours(15)
+        };
+        var declinedTodaySlot = new Availability
+        {
+            PersonnelId = otherNurse.Id,
+            Date = DateTime.Today,
+            StartTime = TimeSpan.FromHours(13),
+            EndTime = TimeSpan.FromHours(14)
+        };
         _context.Availabilities.AddRange(
             ownPastSlot,
             otherPastSlot,
             ownUpcomingSlot,
-            otherUpcomingSlot);
+            otherUpcomingSlot,
+            completedTodaySlot,
+            cancelledTodaySlot,
+            declinedTodaySlot);
         await _context.SaveChangesAsync();
 
         var ownPast = AppointmentFor(patient.Id, ownPastSlot, "Completed");
         var otherPast = AppointmentFor(patient.Id, otherPastSlot, "Completed");
         var ownUpcoming = AppointmentFor(patient.Id, ownUpcomingSlot, "Booked");
         var otherUpcoming = AppointmentFor(patient.Id, otherUpcomingSlot, "Booked");
-        _context.Appointments.AddRange(ownPast, otherPast, ownUpcoming, otherUpcoming);
+        var completedToday = AppointmentFor(patient.Id, completedTodaySlot, "Completed");
+        var cancelledToday = AppointmentFor(patient.Id, cancelledTodaySlot, "Cancelled");
+        var patientDeclinedToday = AppointmentFor(patient.Id, declinedTodaySlot, "Cancelled");
+        patientDeclinedToday.PatientResponseStatus = "Declined";
+        _context.Appointments.AddRange(
+            ownPast,
+            otherPast,
+            ownUpcoming,
+            otherUpcoming,
+            completedToday,
+            cancelledToday,
+            patientDeclinedToday);
         await _context.SaveChangesAsync();
 
         var ownVisit = new Visit
@@ -607,12 +642,18 @@ public sealed class StaffRolesAndAccessTests : IDisposable
         var headResponse = await PatientsControllerFor(head).GetPatientById(patient.Id);
         var headDetails = Assert.IsType<PatientDetailsDto>(
             Assert.IsType<OkObjectResult>(headResponse.Result).Value);
-        Assert.Equal(4, headDetails.TotalAppointments);
+        Assert.Equal(7, headDetails.TotalAppointments);
         Assert.Equal(
             otherUpcomingSlot.Date.ToString("dd/MM/yyyy"),
             headDetails.LastAppointmentDate);
         Assert.Equal(2, headDetails.UpcomingAppointments.Count);
-        Assert.Equal(2, headDetails.PastAppointments.Count);
+        Assert.Equal(4, headDetails.PastAppointments.Count);
+        Assert.Equal(
+            new[] { cancelledToday.Id, completedToday.Id, otherPast.Id, ownPast.Id },
+            headDetails.PastAppointments.Select(item => item.Id));
+        Assert.DoesNotContain(
+            headDetails.PastAppointments,
+            item => item.Id == patientDeclinedToday.Id);
         Assert.Equal(2, headDetails.RecentCalls.Count);
         Assert.Contains(headDetails.PastAppointments, item => item.VisitId == otherVisit.Id);
 

@@ -605,7 +605,7 @@ export const finnish = {
   "Kjørestopp": "Ajokohteet",
   "Kjørelengde": "Ajomatka",
   "Estimert kjøretid": "Arvioitu ajoaika",
-  "Åpne hele ruten": "Avaa koko reitti",
+  "Åpne hele ruten": "Avaa Google Mapsissa",
   "Dagens kjøreplan": "Päivän ajosuunnitelma",
   "Hjemmebesøk": "Kotikäynti",
   "Ingen kjøretur nødvendig": "Ajomatkaa ei tarvita",

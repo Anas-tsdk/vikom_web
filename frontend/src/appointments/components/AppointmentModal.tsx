@@ -10,6 +10,8 @@ interface AppointmentModalProps {
   onClose: () => void;
   initialData?: Appointment;
   defaultPersonnelId?: string;
+  defaultPatientId?: string;
+  lockPatientSelection?: boolean;
   onSubmit: (data: Appointment) => Promise<void>;
 }
 
@@ -18,6 +20,8 @@ const AppointmentModal: React.FC<AppointmentModalProps> = ({
   onClose,
   initialData,
   defaultPersonnelId,
+  defaultPatientId,
+  lockPatientSelection,
   onSubmit,
 }) => {
   const { t } = useTranslation();
@@ -62,6 +66,8 @@ const AppointmentModal: React.FC<AppointmentModalProps> = ({
           <AppointmentForm
             initialData={initialData}
             defaultPersonnelId={defaultPersonnelId}
+            defaultPatientId={defaultPatientId}
+            lockPatientSelection={lockPatientSelection}
             onSubmit={handleSubmit}
             onCancel={handleClose}
           />

@@ -1,6 +1,6 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { Alert, Button, Form, Modal, Spinner } from 'react-bootstrap';
-import { Navigate } from 'react-router-dom';
+import { Link, Navigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { getUserInfo } from '../../auth/AuthService';
 import { isHeadNurseRole } from '../../auth/roles';
@@ -130,7 +130,12 @@ const NurseManagementPage: React.FC = () => {
       ) : (
         <div className="nurse-grid">
           {sortedNurses.map((nurse) => (
-            <article className="nurse-card" key={nurse.id}>
+            <Link
+              className="nurse-card"
+              key={nurse.id}
+              to={`/availability?personnelId=${encodeURIComponent(nurse.id)}`}
+              aria-label={t('Administrer tilgjengeligheten til {{name}}.', { name: nurse.fullName })}
+            >
               <span className="nurse-avatar" aria-hidden="true"><i className="bi bi-person"></i></span>
               <div className="nurse-card__body">
                 <div className="nurse-card__heading">
@@ -142,7 +147,7 @@ const NurseManagementPage: React.FC = () => {
                 <span><i className="bi bi-envelope me-2" aria-hidden="true"></i>{nurse.email}</span>
                 {nurse.phoneNumber && <span><i className="bi bi-telephone me-2" aria-hidden="true"></i>{nurse.phoneNumber}</span>}
               </div>
-            </article>
+            </Link>
           ))}
         </div>
       )}

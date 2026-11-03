@@ -151,8 +151,13 @@ namespace backend.Services
                 .Take(10)
                 .ToList();
             var pastAppointments = appointments
-                .Where(appointment => appointment.Availability.Date < today)
-                .OrderByDescending(appointment => appointment.Availability.Date)
+                .Where(appointment =>
+                    appointment.Availability.Date.Date < today ||
+                    appointment.Status == "Completed" ||
+                    appointment.Status == "NotCompleted" ||
+                    (appointment.Status == "Cancelled" &&
+                     appointment.PatientResponseStatus != "Declined"))
+                .OrderByDescending(appointment => appointment.Availability.Date.Date)
                 .ThenByDescending(appointment => appointment.StartTime)
                 .ToList();
             var recentCalls = (await _callLogService.GetRecentByPatientAsync(

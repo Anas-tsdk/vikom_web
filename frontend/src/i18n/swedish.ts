@@ -605,7 +605,7 @@ export const swedish = {
   "Kjørestopp": "Körstopp",
   "Kjørelengde": "Körsträcka",
   "Estimert kjøretid": "Beräknad körtid",
-  "Åpne hele ruten": "Öppna hela rutten",
+  "Åpne hele ruten": "Öppna i Google Maps",
   "Dagens kjøreplan": "Dagens körschema",
   "Hjemmebesøk": "Hembesök",
   "Ingen kjøretur nødvendig": "Ingen körning behövs",

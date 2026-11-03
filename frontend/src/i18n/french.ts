@@ -605,7 +605,7 @@ export const french = {
   "Kjørestopp": "Arrêts de conduite",
   "Kjørelengde": "Distance en voiture",
   "Estimert kjøretid": "Temps de conduite estimé",
-  "Åpne hele ruten": "Voie ouverte complète",
+  "Åpne hele ruten": "Ouvrir dans Google Maps",
   "Dagens kjøreplan": "Itinéraire du jour",
   "Hjemmebesøk": "Visite à domicile",
   "Ingen kjøretur nødvendig": "Aucun trajet nécessaire",

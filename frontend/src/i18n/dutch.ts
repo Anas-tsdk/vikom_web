@@ -605,7 +605,7 @@ export const dutch = {
   "Kjørestopp": "Rijstops",
   "Kjørelengde": "Rijafstand",
   "Estimert kjøretid": "Geschatte rijtijd",
-  "Åpne hele ruten": "Volledige route openen",
+  "Åpne hele ruten": "Openen in Google Maps",
   "Dagens kjøreplan": "Het schema van vandaag",
   "Hjemmebesøk": "Huisbezoek",
   "Ingen kjøretur nødvendig": "Rijgedrag is niet nodig",
