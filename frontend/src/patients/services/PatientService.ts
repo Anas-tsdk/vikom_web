@@ -96,6 +96,18 @@ const PatientService = {
     }
   },
 
+  // updates the patient-facing daily tasks without changing other patient details
+  async updateTreatmentPlan(id: string, treatmentPlan: string): Promise<void> {
+    const response = await fetch(`${API_URL}/api/patients/${id}/treatment-plan`, {
+      method: 'PUT',
+      headers: { ...headers, ...getAuthHeader() },
+      body: JSON.stringify({ treatmentPlan }),
+    });
+    if (!response.ok) {
+      throw new Error(await readErrorMessage(response));
+    }
+  },
+
   // records a new call to the patient, returns the created log entry
   async createCall(id: string): Promise<CallLogDto> {
     const response = await fetch(`${API_URL}/api/patients/${id}/calls`, {

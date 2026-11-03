@@ -280,6 +280,20 @@ namespace backend.Services
             return true;
         }
 
+        public async Task<bool> UpdatePatientTreatmentPlanAsync(string patientId, string? treatmentPlan)
+        {
+            var patient = await _userRepository.GetByProfileUsernameWithMedicationsAsync(patientId)
+                ?? await _userRepository.GetByIdWithMedicationsAsync(patientId);
+            if (patient == null || !string.Equals(patient.Role, "Patient", StringComparison.OrdinalIgnoreCase))
+            {
+                return false;
+            }
+
+            patient.TreatmentPlan = Clean(treatmentPlan);
+            await _userRepository.UpdateAsync(patient);
+            return true;
+        }
+
         public async Task<PatientDetailsDto?> UpdatePatientAsync(string patientId, PatientUpdateDto dto)
         {
             // Medication updates replace the current list. Load that navigation

@@ -446,6 +446,17 @@ public sealed class StaffRolesAndAccessTests : IDisposable
             patient.Id, new PatientNotesUpdateDto { Notes = "Visited today" });
         Assert.IsType<NoContentResult>(notes);
 
+        var treatmentPlan = await patients.UpdatePatientTreatmentPlan(
+            patient.Id,
+            new PatientTreatmentPlanUpdateDto { TreatmentPlan = "Daily hydration and exercise" });
+        Assert.IsType<NoContentResult>(treatmentPlan);
+
+        var otherNurse = await AddUserAsync("restricted.other-nurse@example.test", UserRoles.Nurse);
+        var deniedTreatmentPlan = await PatientsControllerFor(otherNurse).UpdatePatientTreatmentPlan(
+            patient.Id,
+            new PatientTreatmentPlanUpdateDto { TreatmentPlan = "Unauthorized change" });
+        Assert.IsType<ForbidResult>(deniedTreatmentPlan);
+
         var links = PatientUserLinksControllerFor(nurse);
         Assert.IsType<ForbidResult>((await links.GetAll()).Result);
         Assert.IsType<ForbidResult>((await links.Create(new CreatePatientUserLinkRequest
@@ -458,6 +469,7 @@ public sealed class StaffRolesAndAccessTests : IDisposable
         var savedPatient = await _context.Users.SingleAsync(user => user.Id == patient.Id);
         Assert.Equal(patient.FullName, savedPatient.FullName);
         Assert.Equal("Visited today", savedPatient.Notes);
+        Assert.Equal("Daily hydration and exercise", savedPatient.TreatmentPlan);
         Assert.Single(await _context.PatientUserLinks.ToListAsync());
     }
 

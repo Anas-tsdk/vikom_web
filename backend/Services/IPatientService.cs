@@ -11,6 +11,7 @@ namespace backend.Services
             string? viewerPersonnelId = null);
         Task<PatientDetailsDto> CreatePatientAsync(PatientCreateDto dto, string creatingPersonnelId);
         Task<bool> UpdatePatientNotesAsync(string patientId, string? notes);
+        Task<bool> UpdatePatientTreatmentPlanAsync(string patientId, string? treatmentPlan);
         Task<PatientDetailsDto?> UpdatePatientAsync(string patientId, PatientUpdateDto dto);
     }
 }

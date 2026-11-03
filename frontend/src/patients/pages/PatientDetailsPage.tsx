@@ -302,9 +302,17 @@ const PatientDetailsPage: React.FC = () => {
               action={renderPatientEditAction()}
             />
             <TreatmentPlanCard
+              patientId={patient.id}
               treatmentPlan={patient.clinical.treatmentPlan}
               conditionFlags={patient.clinical.conditionFlags}
-              action={renderPatientEditAction()}
+              canEdit={isPersonnel}
+              onSaved={(treatmentPlan) =>
+                setPatient((prev) =>
+                  prev
+                    ? { ...prev, clinical: { ...prev.clinical, treatmentPlan } }
+                    : prev,
+                )
+              }
             />
 
             <PatientNotesCard

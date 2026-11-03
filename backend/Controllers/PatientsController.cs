@@ -282,6 +282,32 @@ namespace backend.Controllers
             }
         }
 
+        // PUT: api/patients/{id}/treatment-plan
+        [HttpPut("{id}/treatment-plan")]
+        public async Task<IActionResult> UpdatePatientTreatmentPlan(
+            string id,
+            [FromBody] PatientTreatmentPlanUpdateDto dto)
+        {
+            try
+            {
+                if (!ModelState.IsValid)
+                    return BadRequest(ModelState);
+
+                if (!await _access.CanAccessPatientAsync(User, id)) return Forbid();
+
+                var updated = await _patientService.UpdatePatientTreatmentPlanAsync(id, dto.TreatmentPlan);
+                if (!updated)
+                    return NotFound();
+
+                return NoContent();
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error updating daily tasks for patient {PatientId}", id);
+                return StatusCode(500, "An error occurred while updating the patient's daily tasks");
+            }
+        }
+
         // POST: api/patients/{id}/calls
         [HttpPost("{id}/calls")]
         public async Task<ActionResult<CallLogDto>> LogCall(string id)
