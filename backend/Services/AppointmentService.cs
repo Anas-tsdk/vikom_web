@@ -390,6 +390,7 @@ namespace backend.Services
                 appointment.EndTime = selectedEnd;
                 appointment.Status = "Booked";
                 appointment.PatientResponseStatus = "Accepted";
+                appointment.PatientRespondedAt = DateTime.UtcNow;
                 appointment.PatientProposedDate = null;
                 appointment.PatientProposedStartTime = null;
                 appointment.PatientProposedEndTime = null;
@@ -421,93 +422,101 @@ namespace backend.Services
             string? proposedStartTime = null,
             string? proposedEndTime = null)
         {
-            var appointment = await _appointmentRepository.GetByIdAsync(id);
-            if (appointment == null || appointment.PatientId != patientId)
-                return null;
-
-            var normalizedResponse = response.Trim();
-            if (normalizedResponse != "Accepted" && normalizedResponse != "Declined")
-                throw new InvalidOperationException("Response must be Accepted or Declined");
-
-            var hasAnyProposal =
-                !string.IsNullOrWhiteSpace(proposedDate) ||
-                !string.IsNullOrWhiteSpace(proposedStartTime) ||
-                !string.IsNullOrWhiteSpace(proposedEndTime);
-            if (normalizedResponse == "Accepted" && hasAnyProposal)
-                throw new InvalidOperationException("An accepted appointment cannot include an alternative time");
-
-            DateTime? parsedProposedDate = null;
-            TimeSpan? parsedProposedStart = null;
-            TimeSpan? parsedProposedEnd = null;
-            if (hasAnyProposal)
+            await BookingLock.WaitAsync();
+            try
             {
-                if (string.IsNullOrWhiteSpace(proposedDate) ||
-                    string.IsNullOrWhiteSpace(proposedStartTime) ||
-                    string.IsNullOrWhiteSpace(proposedEndTime))
-                    throw new InvalidOperationException("A proposed date, start time and end time are all required");
+                var appointment = await _appointmentRepository.GetByIdAsync(id);
+                if (appointment == null || appointment.PatientId != patientId)
+                    return null;
 
-                if (!DateTime.TryParseExact(
-                        proposedDate,
-                        "yyyy-MM-dd",
-                        CultureInfo.InvariantCulture,
-                        DateTimeStyles.None,
-                        out var dateValue) ||
-                    !TimeSpan.TryParseExact(
-                        proposedStartTime,
-                        @"hh\:mm",
-                        CultureInfo.InvariantCulture,
-                        out var startValue) ||
-                    !TimeSpan.TryParseExact(
-                        proposedEndTime,
-                        @"hh\:mm",
-                        CultureInfo.InvariantCulture,
-                        out var endValue))
-                    throw new InvalidOperationException("The proposed date or time is invalid");
+                var normalizedResponse = response.Trim();
+                if (normalizedResponse != "Accepted" && normalizedResponse != "Declined")
+                    throw new InvalidOperationException("Response must be Accepted or Declined");
 
-                if (dateValue.Date + startValue <= DateTime.Now || endValue <= startValue)
-                    throw new InvalidOperationException("The proposed time must be in the future and end after it starts");
+                var hasAnyProposal =
+                    !string.IsNullOrWhiteSpace(proposedDate) ||
+                    !string.IsNullOrWhiteSpace(proposedStartTime) ||
+                    !string.IsNullOrWhiteSpace(proposedEndTime);
+                if (normalizedResponse == "Accepted" && hasAnyProposal)
+                    throw new InvalidOperationException("An accepted appointment cannot include an alternative time");
 
-                parsedProposedDate = dateValue.Date;
-                parsedProposedStart = startValue;
-                parsedProposedEnd = endValue;
+                DateTime? parsedProposedDate = null;
+                TimeSpan? parsedProposedStart = null;
+                TimeSpan? parsedProposedEnd = null;
+                if (hasAnyProposal)
+                {
+                    if (string.IsNullOrWhiteSpace(proposedDate) ||
+                        string.IsNullOrWhiteSpace(proposedStartTime) ||
+                        string.IsNullOrWhiteSpace(proposedEndTime))
+                        throw new InvalidOperationException("A proposed date, start time and end time are all required");
+
+                    if (!DateTime.TryParseExact(
+                            proposedDate,
+                            "yyyy-MM-dd",
+                            CultureInfo.InvariantCulture,
+                            DateTimeStyles.None,
+                            out var dateValue) ||
+                        !TimeSpan.TryParseExact(
+                            proposedStartTime,
+                            @"hh\:mm",
+                            CultureInfo.InvariantCulture,
+                            out var startValue) ||
+                        !TimeSpan.TryParseExact(
+                            proposedEndTime,
+                            @"hh\:mm",
+                            CultureInfo.InvariantCulture,
+                            out var endValue))
+                        throw new InvalidOperationException("The proposed date or time is invalid");
+
+                    if (dateValue.Date + startValue <= DateTime.Now || endValue <= startValue)
+                        throw new InvalidOperationException("The proposed time must be in the future and end after it starts");
+
+                    parsedProposedDate = dateValue.Date;
+                    parsedProposedStart = startValue;
+                    parsedProposedEnd = endValue;
+                }
+
+                // Repeating the same response is safe for mobile/TV retry logic.
+                if (appointment.PatientResponseStatus == normalizedResponse)
+                    return MapToDto(appointment);
+
+                if (appointment.PatientResponseStatus != "Pending")
+                    throw new InvalidOperationException("This appointment invitation has already been answered");
+
+                var appointmentStart = appointment.Availability.Date.Date + appointment.StartTime;
+                if (appointmentStart <= DateTime.Now || appointment.Status != "Booked")
+                    throw new InvalidOperationException("This appointment invitation can no longer be answered");
+
+                appointment.PatientResponseStatus = normalizedResponse;
+                appointment.PatientRespondedAt = DateTime.UtcNow;
+                appointment.PatientProposedDate = parsedProposedDate;
+                appointment.PatientProposedStartTime = parsedProposedStart;
+                appointment.PatientProposedEndTime = parsedProposedEnd;
+                if (normalizedResponse == "Declined")
+                {
+                    await _appointmentRepository.RecordDeclinedSlotAsync(
+                        new DeclinedAppointmentSlot
+                        {
+                            PatientId = appointment.PatientId,
+                            Date = appointment.Availability.Date.Date,
+                            StartTime = appointment.StartTime,
+                            EndTime = appointment.EndTime,
+                            RecordedAt = DateTime.UtcNow
+                        });
+                    appointment.Status = "Cancelled";
+                }
+
+                await _appointmentRepository.UpdateAsync(appointment);
+                var result = await _appointmentRepository.GetByIdAsync(id);
+                if (result != null)
+                    await EmitAppointmentRealtimeEventAsync(result, normalizedResponse.ToLowerInvariant());
+
+                return result == null ? null : MapToDto(result);
             }
-
-            // Repeating the same response is safe for mobile/TV retry logic.
-            if (appointment.PatientResponseStatus == normalizedResponse)
-                return MapToDto(appointment);
-
-            if (appointment.PatientResponseStatus != "Pending")
-                throw new InvalidOperationException("This appointment invitation has already been answered");
-
-            var appointmentStart = appointment.Availability.Date.Date + appointment.StartTime;
-            if (appointmentStart <= DateTime.Now || appointment.Status != "Booked")
-                throw new InvalidOperationException("This appointment invitation can no longer be answered");
-
-            appointment.PatientResponseStatus = normalizedResponse;
-            appointment.PatientRespondedAt = DateTime.UtcNow;
-            appointment.PatientProposedDate = parsedProposedDate;
-            appointment.PatientProposedStartTime = parsedProposedStart;
-            appointment.PatientProposedEndTime = parsedProposedEnd;
-            if (normalizedResponse == "Declined")
+            finally
             {
-                await _appointmentRepository.RecordDeclinedSlotAsync(
-                    new DeclinedAppointmentSlot
-                    {
-                        PatientId = appointment.PatientId,
-                        Date = appointment.Availability.Date.Date,
-                        StartTime = appointment.StartTime,
-                        EndTime = appointment.EndTime,
-                        RecordedAt = DateTime.UtcNow
-                    });
-                appointment.Status = "Cancelled";
+                BookingLock.Release();
             }
-
-            await _appointmentRepository.UpdateAsync(appointment);
-            var result = await _appointmentRepository.GetByIdAsync(id);
-            if (result != null)
-                await EmitAppointmentRealtimeEventAsync(result, normalizedResponse.ToLowerInvariant());
-
-            return result == null ? null : MapToDto(result);
         }
 
         public async Task<bool> DeleteAsync(int id)

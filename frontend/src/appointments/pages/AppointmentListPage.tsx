@@ -67,7 +67,6 @@ const AppointmentListPage: React.FC = () => {
   const [plannedAppointment, setPlannedAppointment] = useState<Appointment | null>(null);
   const [acceptingProposalId, setAcceptingProposalId] = useState<number | null>(null);
   const [proposalError, setProposalError] = useState<string>('');
-
   const [patientFilter, setPatientFilter] = useState<string>('');
   const [dateFilter, setDateFilter] = useState<string>('');
 
@@ -491,7 +490,7 @@ const AppointmentListPage: React.FC = () => {
           ? t('Planlegg avtaler og følg arbeidslisten til hver sykepleier.')
           : t('Start og fullfør oppgaver for pasientene dine direkte her.')}
         actions={
-          <div className="d-flex align-items-center gap-2">
+          <div className="d-flex flex-wrap align-items-center justify-content-end gap-2">
             {isHeadNurse && (
               <button className="btn btn-primary" type="button" onClick={handleCreate}>
                 <i className="bi bi-calendar-plus me-2" aria-hidden="true"></i>{t('Ny avtale')}

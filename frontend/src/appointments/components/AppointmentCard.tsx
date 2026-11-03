@@ -65,7 +65,7 @@ const AppointmentCard: React.FC<AppointmentCardProps> = ({
       return <Badge bg="warning">{t('Venter på pasientens svar')}</Badge>;
     }
     if (appointment.patientResponseStatus === 'Accepted' && appointment.status === 'Booked') {
-      return <Badge bg="success">{t('Bekreftet av pasient')}</Badge>;
+      return <Badge bg="success">{t('Bekreftet')}</Badge>;
     }
     if (appointment.patientResponseStatus === 'Declined') {
       return <Badge bg="danger">{t('Avvist av pasient')}</Badge>;

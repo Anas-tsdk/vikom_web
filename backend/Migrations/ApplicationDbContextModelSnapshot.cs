@@ -151,13 +151,13 @@ namespace backend.Migrations
                         .ValueGeneratedOnAdd()
                         .HasColumnType("INTEGER");
 
-                    b.Property<int>("AvailabilityId")
-                        .HasColumnType("INTEGER");
-
                     b.Property<int>("AdditionalDurationMinutes")
                         .ValueGeneratedOnAdd()
                         .HasColumnType("INTEGER")
                         .HasDefaultValue(0);
+
+                    b.Property<int>("AvailabilityId")
+                        .HasColumnType("INTEGER");
 
                     b.Property<TimeSpan>("EndTime")
                         .HasColumnType("TEXT");
@@ -429,16 +429,16 @@ namespace backend.Migrations
                     b.Property<string>("ConditionFlags")
                         .HasColumnType("TEXT");
 
-                    b.Property<DateTime?>("DateOfBirth")
-                        .HasColumnType("TEXT");
-
-                    b.Property<string>("Diagnoses")
-                        .HasColumnType("TEXT");
-
                     b.Property<bool>("DailyCheckInEnabled")
                         .HasColumnType("INTEGER");
 
                     b.Property<DateTime?>("DailyCheckInStartedAt")
+                        .HasColumnType("TEXT");
+
+                    b.Property<DateTime?>("DateOfBirth")
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("Diagnoses")
                         .HasColumnType("TEXT");
 
                     b.Property<string>("Email")
@@ -455,6 +455,15 @@ namespace backend.Migrations
                     b.Property<string>("GeneralPractitioner")
                         .HasColumnType("TEXT");
 
+                    b.Property<DateTime?>("LastDailyCheckInAt")
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("LastDailyCheckInConfirmedByUserId")
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("LastDailyCheckInSource")
+                        .HasColumnType("TEXT");
+
                     b.Property<double?>("Latitude")
                         .HasColumnType("REAL");
 
@@ -466,15 +475,6 @@ namespace backend.Migrations
 
                     b.Property<double?>("Longitude")
                         .HasColumnType("REAL");
-
-                    b.Property<DateTime?>("LastDailyCheckInAt")
-                        .HasColumnType("TEXT");
-
-                    b.Property<string>("LastDailyCheckInConfirmedByUserId")
-                        .HasColumnType("TEXT");
-
-                    b.Property<string>("LastDailyCheckInSource")
-                        .HasColumnType("TEXT");
 
                     b.Property<string>("NextOfKinName")
                         .HasColumnType("TEXT");

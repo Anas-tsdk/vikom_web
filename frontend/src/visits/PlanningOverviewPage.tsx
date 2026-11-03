@@ -37,8 +37,7 @@ type Position = { latitude: number; longitude: number };
 
 const isDigitalAppointment = (appointment: Appointment): boolean =>
   appointment.visitType === 'Digital'
-  || /^digital(t)?$/i.test(appointment.availabilityNotes?.trim() ?? '')
-  || /\bdigital(t)?\b/i.test(appointment.tasks);
+  || /^digital(t)?$/i.test(appointment.availabilityNotes?.trim() ?? '');
 
 // Older demo data put values such as "Sone A, Grensen 12" in an availability
 // note. A zone is not a destination, so only use its address part as a fallback.
