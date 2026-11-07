@@ -58,10 +58,10 @@ namespace backend.Services
                 PendingAppointments = pendingAppointments,
                 CancelledAppointments = cancelledAppointments,
                 UpcomingAppointments = upcomingAppointments
-                    .Select(appointment => MapToAppointmentSummary(appointment))
+                    .Select(appointment => AppointmentSummaryMapper.Map(appointment))
                     .ToList(),
                 RecentAppointments = recentAppointments
-                    .Select(appointment => MapToAppointmentSummary(appointment))
+                    .Select(appointment => AppointmentSummaryMapper.Map(appointment))
                     .ToList(),
                 UpcomingAvailability = upcomingAvailability.Select(MapToAvailabilitySummary).ToList()
             };
@@ -135,45 +135,16 @@ namespace backend.Services
                 TotalAppointments = totalAppointments,
                 CompletedAppointments = completedAppointments,
                 UpcomingAppointments = upcomingAppointments
-                    .Select(appointment => MapToAppointmentSummary(appointment, viewerPersonnelId))
+                    .Select(appointment => AppointmentSummaryMapper.Map(appointment, viewerPersonnelId))
                     .ToList(),
                 AppointmentHistory = appointmentHistory
-                    .Select(appointment => MapToAppointmentSummary(appointment, viewerPersonnelId))
+                    .Select(appointment => AppointmentSummaryMapper.Map(appointment, viewerPersonnelId))
                     .ToList(),
                 AvailableCaregivers = caregivers
             };
         }
 
-        private static AppointmentSummaryDto MapToAppointmentSummary(
-            Models.Appointment appointment,
-            string? viewerPersonnelId = null)
-        {
-            var canSeeVisit = viewerPersonnelId == null ||
-                appointment.Visit?.ResponsibleUserId == viewerPersonnelId;
 
-            return new AppointmentSummaryDto
-            {
-                Id = appointment.Id,
-                PatientName = appointment.Patient?.FullName ?? string.Empty,
-                PersonnelId = appointment.Availability?.PersonnelId ?? string.Empty,
-                PersonnelName = appointment.Availability?.Personnel?.FullName ?? string.Empty,
-                Tasks = appointment.Tasks,
-                Date = appointment.Availability?.Date ?? DateTime.MinValue,
-                StartTime = appointment.StartTime.ToString(@"hh\:mm"),
-                EndTime = appointment.EndTime.ToString(@"hh\:mm"),
-                Status = appointment.Status,
-                PatientResponseStatus = appointment.PatientResponseStatus,
-                PatientRespondedAt = appointment.PatientRespondedAt,
-                PatientProposedDate = appointment.PatientProposedDate?.ToString("yyyy-MM-dd"),
-                PatientProposedStartTime = appointment.PatientProposedStartTime?.ToString(@"hh\:mm"),
-                PatientProposedEndTime = appointment.PatientProposedEndTime?.ToString(@"hh\:mm"),
-                FormattedDateTime = $"{appointment.Availability?.Date:yyyy-MM-dd} {appointment.StartTime:hh\\:mm}-{appointment.EndTime:hh\\:mm}",
-                AvailabilityNotes = appointment.Availability?.Notes ?? string.Empty,
-                VisitId = canSeeVisit ? appointment.Visit?.Id : null,
-                VisitStatus = canSeeVisit ? appointment.Visit?.Status : null,
-                VisitType = canSeeVisit ? appointment.Visit?.VisitType : null
-            };
-        }
 
         private static AvailabilitySummaryDto MapToAvailabilitySummary(Models.Availability availability)
         {
