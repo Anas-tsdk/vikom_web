@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Form } from 'react-bootstrap';
+import { Alert, Button, Form, Modal } from 'react-bootstrap';
 import { useTranslation } from 'react-i18next';
 import SectionCard from '../../components/common/SectionCard';
 import IconButton from '../../components/common/IconButton';
@@ -40,7 +40,7 @@ const PatientNotesCard: React.FC<PatientNotesCardProps> = ({
   const [notes, setNotes] = useState<string>(initialNotes ?? '');
   const [savedNotes, setSavedNotes] = useState<string>(initialNotes ?? '');
   const [updatedAt, setUpdatedAt] = useState<string | null | undefined>(notesUpdatedAt);
-  const [editing, setEditing] = useState<boolean>(false);
+  const [showEditor, setShowEditor] = useState<boolean>(false);
   const [saving, setSaving] = useState<boolean>(false);
   const [error, setError] = useState<string>('');
 
@@ -49,13 +49,13 @@ const PatientNotesCard: React.FC<PatientNotesCardProps> = ({
   const handleEdit = () => {
     setNotes(savedNotes);
     setError('');
-    setEditing(true);
+    setShowEditor(true);
   };
 
   const handleSave = async () => {
     // Nothing changed — just leave edit mode without an API call.
     if (!isDirty) {
-      setEditing(false);
+      setShowEditor(false);
       return;
     }
 
@@ -66,7 +66,7 @@ const PatientNotesCard: React.FC<PatientNotesCardProps> = ({
       setSavedNotes(notes);
       setUpdatedAt(new Date().toISOString());
       onSaved?.(notes);
-      setEditing(false);
+      setShowEditor(false);
     } catch (err) {
       setError(t('Kunne ikke lagre notatet. Prøv igjen.'));
       console.error(err);
@@ -78,33 +78,15 @@ const PatientNotesCard: React.FC<PatientNotesCardProps> = ({
   const handleCancel = () => {
     setNotes(savedNotes);
     setError('');
-    setEditing(false);
+    setShowEditor(false);
   };
 
-  const action = editing ? (
-    <div className="d-flex gap-2">
-      <IconButton icon="check-lg" title={t('Lagre')} onClick={handleSave} loading={saving} />
-      <IconButton icon="x-lg" title={t('Avbryt')} onClick={handleCancel} disabled={saving} />
-    </div>
-  ) : (
-    <IconButton icon="pencil" title={t('Rediger')} onClick={handleEdit} />
-  );
+  const action = <IconButton icon="pencil" title={t('Rediger')} onClick={handleEdit} />;
 
   return (
-    <SectionCard title={t('Notater')} icon="journal-text" action={action}>
-      {editing ? (
-        <>
-          <Form.Control
-            as="textarea"
-            rows={5}
-            value={notes}
-            onChange={(e) => setNotes(e.target.value)}
-            placeholder={t('Skriv et notat om pasienten (oppdateres jevnlig)...')}
-            autoFocus
-          />
-          {error && <div className="text-danger small mt-2">{error}</div>}
-        </>
-      ) : savedNotes ? (
+    <>
+      <SectionCard title={t('Notater')} icon="journal-text" action={action}>
+      {savedNotes ? (
         <p className="vk-notes-text mb-0">{savedNotes}</p>
       ) : (
         <p className="text-muted mb-0">{t('Ingen notater enda.')}</p>
@@ -116,7 +98,32 @@ const PatientNotesCard: React.FC<PatientNotesCardProps> = ({
           })}
         </div>
       )}
-    </SectionCard>
+      </SectionCard>
+      <Modal show={showEditor} onHide={() => !saving && handleCancel()} centered>
+        <Modal.Header closeButton>
+          <Modal.Title>{t('Rediger notater')}</Modal.Title>
+        </Modal.Header>
+        <Modal.Body>
+          {error && <Alert variant="danger">{error}</Alert>}
+          <Form.Control
+            as="textarea"
+            rows={5}
+            value={notes}
+            onChange={(event) => setNotes(event.target.value)}
+            placeholder={t('Skriv et notat om pasienten (oppdateres jevnlig)...')}
+            autoFocus
+          />
+        </Modal.Body>
+        <Modal.Footer>
+          <Button variant="outline-secondary" onClick={handleCancel} disabled={saving}>
+            {t('Avbryt')}
+          </Button>
+          <Button variant="primary" onClick={() => void handleSave()} disabled={saving}>
+            {saving ? t('Lagrer...') : t('Lagre endringer')}
+          </Button>
+        </Modal.Footer>
+      </Modal>
+    </>
   );
 };
 

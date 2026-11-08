@@ -3,7 +3,7 @@ import { useSearchParams } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { getUserInfo } from '../../auth/AuthService';
 import { isHeadNurseRole } from '../../auth/roles';
-import PersonnelService, { type NurseSummary } from '../../personnel/services/PersonnelService';
+import PersonnelService, { type PersonnelScheduleOption } from '../../personnel/services/PersonnelService';
 import {
   fetchWeekAvailability,
   fetchDayAvailability,
@@ -44,7 +44,7 @@ const AvailabilityCalendarPage: React.FC = () => {
   const [personnelId, setPersonnelId] = useState(
     (isHeadNurse ? searchParams.get('personnelId') : null) || userInfo?.userId || '',
   );
-  const [nurses, setNurses] = useState<NurseSummary[]>([]);
+  const [nurses, setNurses] = useState<PersonnelScheduleOption[]>([]);
 
   // State
   const [viewMode, setViewMode] = useState<ViewMode>('week');
@@ -62,20 +62,19 @@ const AvailabilityCalendarPage: React.FC = () => {
   const availabilityRequestRef = useRef(0);
 
   useEffect(() => {
-    if (!isHeadNurse) return;
     let active = true;
-    void PersonnelService.getAll()
+    void PersonnelService.getScheduleOptions()
       .then((staff) => {
         if (!active) return;
         const ordered = [...staff].sort((a, b) => a.fullName.localeCompare(b.fullName));
         setNurses(ordered);
         setPersonnelId((current) => ordered.some((nurse) => nurse.id === current)
           ? current
-          : ordered[0]?.id ?? '');
+          : ordered.find((nurse) => nurse.id === userInfo?.userId)?.id ?? ordered[0]?.id ?? '');
       })
       .catch(() => { if (active) setError(t('Kunne ikke laste sykepleiere')); });
     return () => { active = false; };
-  }, [isHeadNurse, t]);
+  }, [t, userInfo?.userId]);
 
   // Load data based on view mode
   const loadData = useCallback(async () => {
@@ -133,6 +132,13 @@ const AvailabilityCalendarPage: React.FC = () => {
 
   // Day card click handler
   const handleDayClick = (date: string, window?: AvailabilityWindow) => {
+    if (!canEditAvailability) {
+      const [year, month, day] = date.split('-').map(Number);
+      setCurrentDate(new Date(year, month - 1, day));
+      setViewMode('day');
+      return;
+    }
+
     setSelectedDate(date);
     setSelectedWindow(window);
     setShowModal(true);
@@ -194,6 +200,7 @@ const AvailabilityCalendarPage: React.FC = () => {
   };
 
   const selectedNurse = nurses.find((nurse) => nurse.id === personnelId);
+  const canEditAvailability = isHeadNurse || personnelId === userInfo?.userId;
 
   // renders loading state while fetching availability data
   if (loading && !weekData && !dayData) {
@@ -220,31 +227,34 @@ const AvailabilityCalendarPage: React.FC = () => {
         title={t('Tilgjengelighet')}
         subtitle={isHeadNurse && selectedNurse
           ? t('Administrer tilgjengeligheten til {{name}}.', { name: selectedNurse.fullName })
-          : t('Administrer ukentlig og daglig tilgjengelighet.')}
+          : selectedNurse && personnelId !== userInfo?.userId
+            ? t('Du ser tilgjengeligheten til {{name}}. Du kan ikke endre kalenderen.', { name: selectedNurse.fullName })
+            : t('Administrer ukentlig og daglig tilgjengelighet.')}
         actions={(
           <>
-            {isHeadNurse && (
-              <select
-                className="form-select calendar-nurse-select"
-                aria-label={t('Velg sykepleier')}
-                value={personnelId}
-                onChange={(event) => {
-                  availabilityRequestRef.current += 1;
-                  setPersonnelId(event.target.value);
-                  setWeekData(null);
-                  setDayData(null);
-                  setSelectedWindow(undefined);
-                  setShowModal(false);
-                  setShowWeeklySchedule(false);
-                  setLoading(true);
-                }}
-              >
-                {nurses.map((nurse) => <option key={nurse.id} value={nurse.id}>{nurse.fullName}</option>)}
-              </select>
+            <select
+              className="form-select calendar-nurse-select"
+              aria-label={t('Velg sykepleier')}
+              value={personnelId}
+              onChange={(event) => {
+                availabilityRequestRef.current += 1;
+                setPersonnelId(event.target.value);
+                setWeekData(null);
+                setDayData(null);
+                setSelectedWindow(undefined);
+                setShowModal(false);
+                setShowWeeklySchedule(false);
+                setLoading(true);
+              }}
+              disabled={nurses.length === 0}
+            >
+              {nurses.map((nurse) => <option key={nurse.id} value={nurse.id}>{nurse.fullName}</option>)}
+            </select>
+            {canEditAvailability && (
+              <button className="btn btn-primary" type="button" onClick={() => setShowWeeklySchedule(true)}>
+                <i className="bi bi-calendar-week me-2" aria-hidden="true"></i>{t('Fast ukeplan')}
+              </button>
             )}
-            <button className="btn btn-outline-primary" type="button" onClick={() => setShowWeeklySchedule(true)}>
-              <i className="bi bi-calendar-week me-2" aria-hidden="true"></i>{t('Fast ukeplan')}
-            </button>
           </>
         )}
       />
@@ -296,7 +306,11 @@ const AvailabilityCalendarPage: React.FC = () => {
 
       {/* renders weekly calendar view with day cards */}
       {viewMode === 'week' && weekData && (
-        <WeeklyView weekData={weekData} onDayClick={handleDayClick} />
+        <WeeklyView
+          weekData={weekData}
+          onDayClick={handleDayClick}
+          readOnly={!canEditAvailability}
+        />
       )}
 
       {/* renders daily schedule view with time slots */}
@@ -306,12 +320,13 @@ const AvailabilityCalendarPage: React.FC = () => {
           onEdit={handleEditFromDailyView}
           onDelete={handleDeleteFromDailyView}
           onCreate={handleCreateFromDailyView}
+          readOnly={!canEditAvailability}
         />
       )}
 
       {/* shows modal for creating or editing availability windows */}
       <AvailabilityWindowModal
-        show={showModal}
+        show={showModal && canEditAvailability}
         onClose={() => {
           setShowModal(false);
           setSelectedWindow(undefined);
@@ -321,13 +336,15 @@ const AvailabilityCalendarPage: React.FC = () => {
         onSubmit={handleCreateOrUpdate}
         onDelete={selectedWindow ? handleDelete : undefined}
       />
-      <WeeklyScheduleModal
-        show={showWeeklySchedule}
-        onClose={() => setShowWeeklySchedule(false)}
-        onSaved={loadData}
-        personnelId={personnelId}
-        personnelName={selectedNurse?.fullName}
-      />
+      {canEditAvailability && (
+        <WeeklyScheduleModal
+          show={showWeeklySchedule}
+          onClose={() => setShowWeeklySchedule(false)}
+          onSaved={loadData}
+          personnelId={personnelId}
+          personnelName={selectedNurse?.fullName}
+        />
+      )}
     </div>
   );
 };

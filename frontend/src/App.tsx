@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
+import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import Layout from './layouts/Layout';
 import {
   LoginPage,
@@ -9,7 +9,7 @@ import {
 } from './auth';
 import HomePage from './home/HomePage';
 import { DashboardPage } from './dashboard';
-import { AppointmentListPage, CancelledAppointmentsPage } from './appointments';
+import { AppointmentListPage, AppointmentCreationPage, CancelledAppointmentsPage } from './appointments';
 import { AvailabilityCalendarPage } from './availability';
 import { PatientListPage, PatientDetailsPage } from './patients';
 import {
@@ -18,7 +18,6 @@ import {
   PlanningOverviewPage
 } from './visits';
 import NurseManagementPage from './personnel/pages/NurseManagementPage';
-import DailyCheckInAlertsPage from './checkins/pages/DailyCheckInAlertsPage';
 import * as AuthService from './auth/AuthService';
 
 const App: React.FC = () => {
@@ -53,15 +52,16 @@ const App: React.FC = () => {
           <Route path="/patients" element={<PersonnelOnlyRoute><PatientListPage /></PersonnelOnlyRoute>} />
           <Route path="/patients/:username" element={<PersonnelOnlyRoute><PatientDetailsPage /></PersonnelOnlyRoute>} />
           <Route path="/appointments" element={<PersonnelOnlyRoute><AppointmentListPage /></PersonnelOnlyRoute>} />
+          <Route path="/appointments/create" element={<PersonnelOnlyRoute><AppointmentCreationPage /></PersonnelOnlyRoute>} />
           <Route path="/appointments/cancelled" element={<PersonnelOnlyRoute><CancelledAppointmentsPage /></PersonnelOnlyRoute>} />
           <Route path="/appointments/archive" element={<PersonnelOnlyRoute><VisitArchivePage /></PersonnelOnlyRoute>} />
           <Route path="/availability" element={<PersonnelOnlyRoute><AvailabilityCalendarPage /></PersonnelOnlyRoute>} />
+          <Route path="/alerts" element={<Navigate to="/dashboard" replace />} />
 
           {/* New visit-related routes */}
           <Route path="/besok/:appointmentId" element={<PersonnelOnlyRoute><VisitExecutionPage /></PersonnelOnlyRoute>} />
           <Route path="/planning" element={<PersonnelOnlyRoute><PlanningOverviewPage /></PersonnelOnlyRoute>} />
           <Route path="/nurses" element={<PersonnelOnlyRoute><NurseManagementPage /></PersonnelOnlyRoute>} />
-          <Route path="/alerts" element={<PersonnelOnlyRoute><DailyCheckInAlertsPage /></PersonnelOnlyRoute>} />
         </Route>
       </Routes>
     </Router>

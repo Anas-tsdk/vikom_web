@@ -41,6 +41,19 @@
   
 }
 
+.vk-profile-national-id {
+  font-size: var(--fs-xl);
+  font-weight: 700;
+  margin: -0.35rem 0 0.6rem;
+  letter-spacing: 0.03em;
+  color: var(--bs-danger);
+}
+
+.vk-profile-national-id span {
+  font-size: var(--fs-sm);
+  letter-spacing: 0;
+}
+
 .vk-profile-chips {
   display: flex;
   flex-wrap: wrap;

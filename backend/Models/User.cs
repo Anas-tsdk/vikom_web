@@ -57,6 +57,8 @@ namespace backend.Models
         [Display(Name = "Notes")]
         public string? Notes { get; set; }
 
+        public string? SocialSecurityNumberProtected { get; set; }
+
         /// <summary>
         /// Timestamp (UTC) of the last time <see cref="Notes"/> was updated.
         /// </summary>
@@ -79,6 +81,10 @@ namespace backend.Models
 
         /// <summary>Known allergies (free text, e.g. "Penicillin").</summary>
         public string? Allergies { get; set; }
+
+        public string? AccessInstructions { get; set; }
+
+        public string? MedicationEquipmentNotes { get; set; }
 
         /// <summary>Comma-separated diagnoses (e.g. "Hypertensjon, Diabetes type 2").</summary>
         public string? Diagnoses { get; set; }

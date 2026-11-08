@@ -26,88 +26,28 @@ public sealed class DailyCheckInTests : IDisposable
     }
 
     [Fact]
-    public async Task Alert_appears_only_after_three_missed_care_days()
-    {
-        var patient = AddPatient(lastCheckIn: _clock.UtcNow);
-
-        _clock.UtcNow = _clock.UtcNow.AddDays(2);
-        Assert.Empty(await _service.GetAlertsAsync());
-
-        _clock.UtcNow = _clock.UtcNow.AddDays(1);
-        var alert = Assert.Single(await _service.GetAlertsAsync());
-        Assert.Equal(patient.Id, alert.PatientId);
-        Assert.Equal(3, alert.MissedDays);
-    }
-
-    [Fact]
-    public async Task Patient_confirmation_marks_today_and_clears_alert()
+    public async Task Patient_confirmation_marks_today()
     {
         var patient = AddPatient(lastCheckIn: _clock.UtcNow.AddDays(-3));
-        Assert.Single(await _service.GetAlertsAsync());
 
         var status = await _service.ConfirmByPatientAsync(patient);
 
         Assert.True(status.CheckedInToday);
         Assert.Equal("Patient", patient.LastDailyCheckInSource);
-        Assert.Empty(await _service.GetAlertsAsync());
     }
 
     [Fact]
-    public async Task Personnel_confirmation_is_audited_and_clears_alert()
+    public async Task Patient_confirmation_is_written_to_cloud_and_local_record()
     {
-        var patient = AddPatient(lastCheckIn: _clock.UtcNow.AddDays(-4));
-
-        Assert.True(await _service.ConfirmByPersonnelAsync(patient.Id, "head-nurse"));
-
-        Assert.Equal("Personnel", patient.LastDailyCheckInSource);
-        Assert.Equal("head-nurse", patient.LastDailyCheckInConfirmedByUserId);
-        Assert.Empty(await _service.GetAlertsAsync());
-    }
-
-    [Fact]
-    public async Task Patients_with_check_ins_disabled_are_never_alerted()
-    {
-        AddPatient(lastCheckIn: _clock.UtcNow.AddDays(-30), enabled: false);
-        Assert.Empty(await _service.GetAlertsAsync());
-    }
-
-    [Fact]
-    public async Task Cloud_confirmation_clears_a_stale_local_alert()
-    {
-        var patient = AddPatient(lastCheckIn: _clock.UtcNow.AddDays(-5));
-        var cloud = new FakeCloudStore(new CloudDailyCheckIn(
-            patient.SupabaseProfileId!,
-            _clock.UtcNow.AddDays(-30),
-            _clock.UtcNow,
-            "Patient"));
+        var patient = AddPatient(lastCheckIn: _clock.UtcNow.AddDays(-1));
+        var cloud = new FakeCloudStore();
         var service = new DailyCheckInService(_context, _clock, cloud);
 
-        Assert.Empty(await service.GetAlertsAsync());
-    }
+        var status = await service.ConfirmByPatientAsync(patient);
 
-    [Fact]
-    public async Task Missing_cloud_eligibility_row_does_not_gate_a_local_patient()
-    {
-        AddPatient(lastCheckIn: _clock.UtcNow.AddDays(-5));
-        var service = new DailyCheckInService(_context, _clock, new FakeCloudStore());
-
-        Assert.Empty(await service.GetAlertsAsync());
-    }
-
-    [Fact]
-    public async Task Personnel_confirmation_is_written_to_cloud_and_local_audit()
-    {
-        var patient = AddPatient(lastCheckIn: _clock.UtcNow.AddDays(-5));
-        var cloud = new FakeCloudStore(new CloudDailyCheckIn(
-            patient.SupabaseProfileId!,
-            _clock.UtcNow.AddDays(-30),
-            _clock.UtcNow.AddDays(-5),
-            "Patient"));
-        var service = new DailyCheckInService(_context, _clock, cloud);
-
-        Assert.True(await service.ConfirmByPersonnelAsync(patient.Id, "head-nurse"));
-        Assert.Equal((patient.SupabaseProfileId!, "Personnel"), cloud.LastConfirmation);
-        Assert.Equal("Personnel", patient.LastDailyCheckInSource);
+        Assert.True(status.CheckedInToday);
+        Assert.Equal((patient.SupabaseProfileId!, "Patient"), cloud.LastConfirmation);
+        Assert.Equal("Patient", patient.LastDailyCheckInSource);
     }
 
     private User AddPatient(DateTime? lastCheckIn, bool enabled = true)

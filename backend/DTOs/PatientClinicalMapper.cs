@@ -18,6 +18,8 @@ namespace backend.DTOs
                 NextOfKinRelation = patient.NextOfKinRelation,
                 GeneralPractitioner = patient.GeneralPractitioner,
                 Allergies = patient.Allergies,
+                AccessInstructions = patient.AccessInstructions,
+                MedicationEquipmentNotes = patient.MedicationEquipmentNotes,
                 Diagnoses = SplitList(patient.Diagnoses),
                 ConditionFlags = SplitList(patient.ConditionFlags),
                 TreatmentPlan = patient.TreatmentPlan,

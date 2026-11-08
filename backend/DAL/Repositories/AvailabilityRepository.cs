@@ -17,6 +17,7 @@ namespace backend.DAL.Repositories
             return await _context.Availabilities
                 .Include(a => a.Personnel)
                 .Include(a => a.Appointment)
+                .Where(a => !a.IsAppointmentArchive)
                 .ToListAsync();
         }
 
@@ -35,7 +36,7 @@ namespace backend.DAL.Repositories
                 .Include(a => a.Personnel)
                 .Include(a => a.AvailabilityWindow)
                 .Include(a => a.Appointment)
-                .Where(a => a.PersonnelId == personnelId)
+                .Where(a => a.PersonnelId == personnelId && !a.IsAppointmentArchive)
                 .ToListAsync();
         }
 
@@ -44,7 +45,7 @@ namespace backend.DAL.Repositories
             var availabilities = await _context.Availabilities
                 .Include(a => a.Personnel)
                 .Include(a => a.Appointment)
-                .Where(a => a.Appointment == null)
+                .Where(a => a.Appointment == null && !a.IsAppointmentArchive)
                 .OrderBy(a => a.Date)
                 .ToListAsync();
             
@@ -60,7 +61,9 @@ namespace backend.DAL.Repositories
             var availabilities = await _context.Availabilities
                 .Include(a => a.Personnel)
                 .Include(a => a.Appointment)
-                .Where(a => a.PersonnelId == personnelId && a.Date >= today)
+                .Where(a => a.PersonnelId == personnelId &&
+                            a.Date >= today &&
+                            !a.IsAppointmentArchive)
                 .OrderBy(a => a.Date)
                 .ToListAsync();
             

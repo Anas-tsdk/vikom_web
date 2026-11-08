@@ -9,6 +9,10 @@
   .patient-details-page {
     padding: var(--space-5);
   }
+
+  .patient-details-page .vk-card-stack {
+    grid-template-columns: 1fr;
+  }
 }
 
 @media (max-width: 767px) {
@@ -19,23 +23,27 @@
 
 /* Breadcrumb styling now lives in the shared Breadcrumb component. */
 
-/* Vertical stack of cards within a column — fills its column height so the
-   left and right columns stay equal height (no gap at the bottom). */
+/* Keep the patient facts in a compact desktop grid above the appointment tabs. */
 .patient-details-page .vk-card-stack {
-  display: flex;
-  flex-direction: column;
-  gap: 1.5rem;
-  height: 100%;
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 1rem;
+  align-items: start;
 }
 
-/* Cards inside a stack size to their content (override SectionCard height:100%) */
+/* Cards size to their content instead of stretching to fill the grid row. */
 .patient-details-page .vk-card-stack > .vk-section-card {
   height: auto;
 }
 
-/* The last card (Notater) grows to absorb any extra vertical space */
 .patient-details-page .vk-card-stack > :last-child {
-  flex: 1 1 auto;
+  min-height: 0;
+}
+
+@media (max-width: 1199px) {
+  .patient-details-page .vk-card-stack {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
 }
 
 /* Call log list */

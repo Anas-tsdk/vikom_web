@@ -13,9 +13,16 @@ interface DailyViewProps {
   onEdit: (window: AvailabilityWindow) => void;
   onDelete: (windowId: number) => void;
   onCreate: () => void;
+  readOnly?: boolean;
 }
 
-const DailyView: React.FC<DailyViewProps> = ({ dayData, onEdit, onDelete, onCreate }) => {
+const DailyView: React.FC<DailyViewProps> = ({
+  dayData,
+  onEdit,
+  onDelete,
+  onCreate,
+  readOnly = false,
+}) => {
   const { t } = useTranslation();
   return (
     <div>
@@ -32,7 +39,9 @@ const DailyView: React.FC<DailyViewProps> = ({ dayData, onEdit, onDelete, onCrea
                     <th className="fw-bold text-dark py-3 px-4 border-bottom border-dark">{t('Status')}</th>
                     <th className="fw-bold text-dark py-3 px-4 border-bottom border-dark">{t('Slots')}</th>
                     <th className="fw-bold text-dark py-3 px-4 border-bottom border-dark">{t('Notes')}</th>
-                    <th className="fw-bold text-dark py-3 px-4 border-bottom border-dark">{t('Actions')}</th>
+                    {!readOnly && (
+                      <th className="fw-bold text-dark py-3 px-4 border-bottom border-dark">{t('Actions')}</th>
+                    )}
                   </tr>
                 </thead>
                 <tbody>
@@ -62,30 +71,32 @@ const DailyView: React.FC<DailyViewProps> = ({ dayData, onEdit, onDelete, onCrea
                         <td className="py-3 px-4 text-dark">
                           {window.notes || <span className="text-muted">-</span>}
                         </td>
-                        <td className="py-3 px-4 text-dark">
-                          <div className="d-flex gap-2">
-                            <Button
-                              variant="secondary"
-                              size="sm"
-                              onClick={() => onEdit(window)}
-                            >
-                              <i className="bi bi-pencil me-1"></i>{t('Edit')}
-                            </Button>
-                            <Button
-                              variant="danger"
-                              size="sm"
-                              onClick={() => window.id && onDelete(window.id)}
-                              disabled={window.slots?.some(s => s.isBooked)}
-                            >
-                              <i className="bi bi-trash me-1"></i>{t('Delete')}
-                            </Button>
-                          </div>
-                        </td>
+                        {!readOnly && (
+                          <td className="py-3 px-4 text-dark">
+                            <div className="d-flex gap-2">
+                              <Button
+                                variant="secondary"
+                                size="sm"
+                                onClick={() => onEdit(window)}
+                              >
+                                <i className="bi bi-pencil me-1"></i>{t('Edit')}
+                              </Button>
+                              <Button
+                                variant="danger"
+                                size="sm"
+                                onClick={() => window.id && onDelete(window.id)}
+                                disabled={window.slots?.some(s => s.isBooked)}
+                              >
+                                <i className="bi bi-trash me-1"></i>{t('Delete')}
+                              </Button>
+                            </div>
+                          </td>
+                        )}
                       </tr>
                       {/* Show slots if any are booked */}
                       {window.slots && window.slots.some(s => s.isBooked) && (
                         <tr className="bg-light">
-                          <td colSpan={5} className="py-2 px-4">
+                          <td colSpan={readOnly ? 4 : 5} className="py-2 px-4">
                             <div className="small ps-4">
                               <strong>{t('Booked Slots:')}</strong>
                               {window.slots
@@ -151,11 +162,11 @@ const DailyView: React.FC<DailyViewProps> = ({ dayData, onEdit, onDelete, onCrea
         <EmptyState
           icon="calendar-x"
           text={t('You have no availability windows or appointments scheduled for this day.')}
-          action={
+          action={!readOnly ? (
             <button className="btn btn-primary" onClick={onCreate}>
               <i className="bi bi-calendar-plus me-2"></i>{t('Create Availability Window')}
             </button>
-          }
+          ) : undefined}
         />
       )}
     </div>

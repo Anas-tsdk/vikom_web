@@ -1,6 +1,6 @@
 import React, { useCallback, useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { Alert, Button, Spinner } from 'react-bootstrap';
+import { Alert, Button, Form, Spinner } from 'react-bootstrap';
 import { useTranslation } from 'react-i18next';
 import PatientService from '../services/PatientService';
 import type { PatientListDto } from '../types/patient';
@@ -18,6 +18,21 @@ const formatDate = (value: string | null | undefined, locale: string): string =>
   return Number.isNaN(date.getTime()) ? value : date.toLocaleDateString(locale);
 };
 
+const parseLastAppointmentDate = (value: string): number | null => {
+  const match = /^(\d{2})\/(\d{2})\/(\d{4})$/.exec(value);
+  if (!match) return null;
+  const [, dayText, monthText, yearText] = match;
+  const date = new Date(Number(yearText), Number(monthText) - 1, Number(dayText));
+  if (
+    date.getFullYear() !== Number(yearText) ||
+    date.getMonth() !== Number(monthText) - 1 ||
+    date.getDate() !== Number(dayText)
+  ) return null;
+  return date.getTime();
+};
+
+type PatientSort = 'name-asc' | 'name-desc' | 'appointments-desc' | 'appointments-asc' | 'last-visit-desc' | 'last-visit-asc';
+
 const PatientListPage: React.FC = () => {
   const navigate = useNavigate();
   const { t, i18n } = useTranslation();
@@ -28,6 +43,8 @@ const PatientListPage: React.FC = () => {
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string>('');
   const [showCreate, setShowCreate] = useState<boolean>(false);
+  const [search, setSearch] = useState('');
+  const [sortBy, setSortBy] = useState<PatientSort>('name-asc');
 
   const loadPatients = useCallback(async () => {
     try {
@@ -46,6 +63,40 @@ const PatientListPage: React.FC = () => {
   useEffect(() => {
     loadPatients();
   }, [loadPatients]);
+
+  const collator = new Intl.Collator(locale, { sensitivity: 'base', numeric: true });
+  const filteredPatients = patients
+    .filter((patient) => {
+      const query = search.trim().toLocaleLowerCase(locale);
+      if (!query) return true;
+      return [
+        patient.fullName,
+        patient.email,
+        patient.phoneNumber,
+        patient.address,
+      ].some((value) => value?.toLocaleLowerCase(locale).includes(query));
+    })
+    .sort((a, b) => {
+      const byName = collator.compare(a.fullName, b.fullName);
+      if (sortBy === 'name-asc') return byName;
+      if (sortBy === 'name-desc') return -byName;
+      if (sortBy === 'appointments-desc') {
+        return b.totalAppointments - a.totalAppointments || byName;
+      }
+      if (sortBy === 'appointments-asc') {
+        return a.totalAppointments - b.totalAppointments || byName;
+      }
+
+      const dateA = parseLastAppointmentDate(a.lastAppointmentDate);
+      const dateB = parseLastAppointmentDate(b.lastAppointmentDate);
+      if ((dateA === null) !== (dateB === null)) {
+        return dateA === null ? 1 : -1;
+      }
+      const timeA = dateA ?? 0;
+      const timeB = dateB ?? 0;
+      const dateOrder = sortBy === 'last-visit-desc' ? timeB - timeA : timeA - timeB;
+      return dateOrder || byName;
+    });
 
   const columns: DataTableColumn<PatientListDto>[] = [
     {
@@ -116,13 +167,47 @@ const PatientListPage: React.FC = () => {
         />
       )}
 
+      <div className="patient-list-controls">
+        <Form.Group>
+          <Form.Label htmlFor="patient-search">{t('Søk pasienter')}</Form.Label>
+          <Form.Control
+            id="patient-search"
+            type="search"
+            value={search}
+            onChange={(event) => setSearch(event.target.value)}
+            placeholder={t('Søk etter navn, e-post, telefon eller adresse')}
+          />
+        </Form.Group>
+        <Form.Group>
+          <Form.Label htmlFor="patient-sort">{t('Sorter etter')}</Form.Label>
+          <Form.Select
+            id="patient-sort"
+            value={sortBy}
+            onChange={(event) => setSortBy(event.target.value as PatientSort)}
+          >
+            <option value="name-asc">{t('Sort A-Z')}</option>
+            <option value="name-desc">{t('Sort Z-A')}</option>
+            <option value="appointments-desc">{t('Most appointments')}</option>
+            <option value="appointments-asc">{t('Fewest appointments')}</option>
+            <option value="last-visit-desc">{t('Latest appointment first')}</option>
+            <option value="last-visit-asc">{t('Oldest appointment first')}</option>
+          </Form.Select>
+        </Form.Group>
+        <div className="patient-list-count" aria-live="polite">
+          {t('Viser {{shown}} av {{total}} pasienter', {
+            shown: filteredPatients.length,
+            total: patients.length,
+          })}
+        </div>
+      </div>
+
       <DataTable
         columns={columns}
-        data={patients}
+        data={filteredPatients}
         rowKey={(patient) => patient.id}
         onRowClick={(patient) => navigate(`/patients/${encodeURIComponent(patient.username ?? patient.id)}`)}
         emptyIcon="people"
-        emptyText={t('Ingen pasienter funnet.')}
+        emptyText={search ? t('Ingen pasienter samsvarer med søket.') : t('Ingen pasienter funnet.')}
       />
     </div>
   );

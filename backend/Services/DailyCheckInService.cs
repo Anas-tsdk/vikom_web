@@ -1,7 +1,6 @@
 using backend.DAL;
 using backend.DTOs;
 using backend.Models;
-using Microsoft.EntityFrameworkCore;
 
 namespace backend.Services
 {
@@ -50,14 +49,10 @@ namespace backend.Services
     {
         DailyCheckInStatusDto GetStatus(User patient);
         Task<DailyCheckInStatusDto> ConfirmByPatientAsync(User patient);
-        Task<IReadOnlyList<DailyCheckInAlertDto>> GetAlertsAsync();
-        Task<bool> ConfirmByPersonnelAsync(string patientId, string personnelId);
     }
 
     public sealed class DailyCheckInService : IDailyCheckInService
     {
-        public const int AlertAfterMissedDays = 3;
-
         private readonly ApplicationDbContext _context;
         private readonly ICheckInClock _clock;
         private readonly ISupabaseDailyCheckInStore? _cloudStore;
@@ -111,89 +106,5 @@ namespace backend.Services
             return GetStatus(patient);
         }
 
-        public async Task<IReadOnlyList<DailyCheckInAlertDto>> GetAlertsAsync()
-        {
-            var patients = await _context.Users
-                .AsNoTracking()
-                .Where(user =>
-                    user.Role == UserRoles.Patient &&
-                    user.DailyCheckInEnabled &&
-                    user.SupabaseProfileId != null)
-                .ToListAsync();
-
-            var cloudRows = _cloudStore?.IsConfigured == true
-                ? await _cloudStore.GetAllAsync()
-                : null;
-
-            return patients
-                .Select(patient =>
-                {
-                    CloudDailyCheckIn? cloud = null;
-                    if (cloudRows != null)
-                    {
-                        cloudRows.TryGetValue(patient.SupabaseProfileId!, out cloud);
-                    }
-
-                    // A successful cloud read makes the Supabase table the source
-                    // of truth. If its row is absent, this account is not gated.
-                    var isEligible = cloudRows == null || cloud != null;
-                    var lastCheckIn = cloud?.LastCheckInAt ?? patient.LastDailyCheckInAt;
-                    var baseline = cloud != null
-                        ? cloud.LastCheckInAt ?? cloud.StartedAt
-                        : patient.LastDailyCheckInAt ?? patient.DailyCheckInStartedAt;
-
-                    return new
-                    {
-                        Patient = patient,
-                        IsEligible = isEligible,
-                        LastCheckIn = lastCheckIn,
-                        MissedDays = CalculateMissedDays(baseline)
-                    };
-                })
-                .Where(item => item.IsEligible)
-                .Where(item => item.MissedDays >= AlertAfterMissedDays)
-                .OrderByDescending(item => item.MissedDays)
-                .ThenBy(item => item.Patient.FullName)
-                .Select(item => new DailyCheckInAlertDto
-                {
-                    PatientId = item.Patient.Id,
-                    PatientName = item.Patient.FullName,
-                    PhoneNumber = item.Patient.PhoneNumber,
-                    Address = item.Patient.Address,
-                    LastCheckInAt = item.LastCheckIn,
-                    MissedDays = item.MissedDays
-                })
-                .ToList();
-        }
-
-        public async Task<bool> ConfirmByPersonnelAsync(string patientId, string personnelId)
-        {
-            var patient = await _context.Users.FirstOrDefaultAsync(user =>
-                user.Id == patientId &&
-                user.Role == UserRoles.Patient &&
-                user.DailyCheckInEnabled);
-            if (patient == null) return false;
-
-            if (_cloudStore?.IsConfigured == true && patient.SupabaseProfileId != null)
-            {
-                var confirmed = await _cloudStore.ConfirmAsync(
-                    patient.SupabaseProfileId,
-                    "Personnel");
-                if (!confirmed) return false;
-            }
-
-            patient.LastDailyCheckInAt = _clock.UtcNow;
-            patient.LastDailyCheckInSource = "Personnel";
-            patient.LastDailyCheckInConfirmedByUserId = personnelId;
-            patient.DailyCheckInStartedAt ??= _clock.UtcNow;
-            await _context.SaveChangesAsync();
-            return true;
-        }
-
-        private int CalculateMissedDays(DateTime? baseline)
-        {
-            if (baseline == null) return 0;
-            return Math.Max(0, _clock.CareDate(_clock.UtcNow).DayNumber - _clock.CareDate(baseline.Value).DayNumber);
-        }
     }
 }

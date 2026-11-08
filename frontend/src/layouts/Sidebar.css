@@ -66,6 +66,18 @@
   color: var(--bs-white);
 }
 
+.sidebar .nav-link.nav-link-create-appointment {
+  background-color: rgba(var(--bs-purple-rgb), 0.18);
+  color: var(--bs-purple);
+  font-weight: 600;
+}
+
+.sidebar .nav-link.nav-link-create-appointment:hover,
+.sidebar .nav-link.nav-link-create-appointment.active {
+  background-color: var(--bs-purple);
+  color: var(--bs-white);
+}
+
 /* ===== RESPONSIVE DESIGN ===== */
 
 /* Mobile layout - sidebar hidden, content takes full width */

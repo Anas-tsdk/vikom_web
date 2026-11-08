@@ -8,15 +8,18 @@ namespace backend.Services
     {
         private readonly IVisitRepository _visitRepository;
         private readonly IAppointmentRepository _appointmentRepository;
+        private readonly IAppointmentService _appointmentService;
         private readonly ICallLogRepository _callLogRepository;
 
         public VisitService(
             IVisitRepository visitRepository,
             IAppointmentRepository appointmentRepository,
+            IAppointmentService appointmentService,
             ICallLogRepository callLogRepository)
         {
             _visitRepository = visitRepository;
             _appointmentRepository = appointmentRepository;
+            _appointmentService = appointmentService;
             _callLogRepository = callLogRepository;
         }
 
@@ -187,7 +190,7 @@ namespace backend.Services
             visit.CompletedAt = DateTime.UtcNow;
             await _visitRepository.UpdateAsync(visit);
 
-            await SetAppointmentStatusAsync(visit.AppointmentId, "Completed");
+            await _appointmentService.MarkCompletedAsync(visit.AppointmentId);
             return await BuildDtoAsync(visit);
         }
 

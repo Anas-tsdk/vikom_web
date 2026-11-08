@@ -11,6 +11,8 @@ import type { DayAvailability, WeekAvailability } from '../../availability/types
 import { localeForLanguage } from '../../i18n';
 import { addWeeks, formatDateISO, getMonday } from '../../utils/dateUtils';
 import { calculateVisitDurationMinutes, getTaskDurationMinutes, recommendSlots } from '../utils/scheduling';
+import { APPOINTMENT_TASKS } from '../utils/taskCatalog';
+import './AppointmentForm.css';
 
 interface AppointmentFormProps {
   initialData?: Appointment;
@@ -21,14 +23,11 @@ interface AppointmentFormProps {
   onCancel: () => void;
 }
 
-const ALL_TASKS = [
-  { id: 'medisin', label: 'Medisin', description: 'Hjelp med medisinering og dosering' },
-  { id: 'bading', label: 'Bading', description: 'Hjelp med personlig hygiene og bading' },
-  { id: 'servering', label: 'Servering av måltider', description: 'Hjelp med måltider og servering' },
-  { id: 'husholdning', label: 'Husholdning', description: 'Lett husarbeid og rengjøring' },
-  { id: 'digitalhjelp', label: 'Digital hjelp', description: 'Hjelp med telefon, nettbrett eller PC' },
-  { id: 'annet', label: 'Annet', description: 'Andre oppgaver uten fastsatt tidsbruk' },
-] as const;
+interface CustomTask {
+  id: string;
+  name: string;
+  durationMinutes: number;
+}
 
 const BOOKING_WEEKS = 12;
 
@@ -44,7 +43,13 @@ const AppointmentForm: React.FC<AppointmentFormProps> = ({
   const locale = localeForLanguage(i18n.resolvedLanguage);
 
   const [selectedTaskIds, setSelectedTaskIds] = useState<string[]>([]);
+  const [customTasks, setCustomTasks] = useState<CustomTask[]>([]);
+  const [customTaskName, setCustomTaskName] = useState('');
+  const [customTaskDuration, setCustomTaskDuration] = useState('');
   const [slotSelectionTouched, setSlotSelectionTouched] = useState(Boolean(initialData?.id));
+  const [patientSearch, setPatientSearch] = useState('');
+  const [showPatientOptions, setShowPatientOptions] = useState(false);
+  const [activePatientIndex, setActivePatientIndex] = useState(0);
 
 
   // Form state
@@ -74,23 +79,27 @@ const AppointmentForm: React.FC<AppointmentFormProps> = ({
       Matlaging: 'servering',
       Cooking: 'servering',
       'Serving Meals': 'servering',
-      Housekeeping: 'husholdning',
       'Digital assistance': 'digitalhjelp',
-      Others: 'annet',
-      Other: 'annet',
-      Handel: 'annet',
-      Shopping: 'annet',
-      Transport: 'annet',
     };
 
-    const selectedIds = ALL_TASKS
+    const selectedIds = APPOINTMENT_TASKS
       .filter((task) =>
         taskLabels.includes(task.label) ||
         taskLabels.some((label) => legacyTaskAliases[label] === task.id),
       )
       .map((task) => task.id);
-
-    setSelectedTaskIds(selectedIds);
+    const knownLabels = new Set(APPOINTMENT_TASKS.flatMap((task) =>
+      [task.label, ...Object.keys(legacyTaskAliases).filter((label) => legacyTaskAliases[label] === task.id)],
+    ));
+    const legacyTasks = taskLabels
+      .filter((label) => !knownLabels.has(label))
+      .map((name, index) => ({
+        id: `saved-custom-${index}`,
+        name,
+        durationMinutes: getTaskDurationMinutes(name),
+      }));
+    setCustomTasks(legacyTasks);
+    setSelectedTaskIds([...selectedIds, ...legacyTasks.map((task) => task.id)]);
   }, [initialData]);
 
   // Dropdown options
@@ -113,16 +122,38 @@ const AppointmentForm: React.FC<AppointmentFormProps> = ({
   const currentAppointmentForPersonnel =
     selectedPersonnelId === initialData?.personnelId ? initialData : undefined;
   const selectedPatient = patients.find((patient) => patient.id === formData.patientId);
+  useEffect(() => {
+    if (selectedPatient) setPatientSearch(selectedPatient.fullName);
+  }, [selectedPatient]);
+
+  const filteredPatients = useMemo(() => {
+    const query = patientSearch.trim().toLocaleLowerCase(locale);
+    return [...patients]
+      .filter((patient) => !query || [
+        patient.fullName,
+        patient.email,
+        patient.phoneNumber,
+        patient.address,
+      ].some((value) => value?.toLocaleLowerCase(locale).includes(query)))
+      .sort((a, b) => a.fullName.localeCompare(b.fullName, locale, { sensitivity: 'base' }));
+  }, [locale, patientSearch, patients]);
   const selectedTaskLabels = useMemo(
     () => selectedTaskIds.flatMap((id) => {
-      const label = ALL_TASKS.find((task) => task.id === id)?.label;
+      const label = APPOINTMENT_TASKS.find((task) => task.id === id)?.label
+        ?? customTasks.find((task) => task.id === id)?.name;
       return label ? [label] : [];
     }),
-    [selectedTaskIds],
+    [customTasks, selectedTaskIds],
   );
+  const customTaskDurationMinutes = customTasks
+    .filter((task) => selectedTaskIds.includes(task.id))
+    .reduce((total, task) =>
+      total + (getTaskDurationMinutes(task.name) === 0 ? task.durationMinutes : 0), 0);
+  const additionalDurationForScheduling =
+    (formData.additionalDurationMinutes ?? 0) + customTaskDurationMinutes;
   const visitDurationMinutes = calculateVisitDurationMinutes(
     selectedTaskLabels,
-    formData.additionalDurationMinutes ?? 0,
+    additionalDurationForScheduling,
   );
   const patientSchedulingDataReady = !formData.patientId || (
     Boolean(selectedPatient) &&
@@ -140,7 +171,7 @@ const AppointmentForm: React.FC<AppointmentFormProps> = ({
       patientAppointments,
       selectedPatient,
       selectedTaskLabels,
-      formData.additionalDurationMinutes ?? 0,
+      additionalDurationForScheduling,
       new Date(),
       currentAppointmentForPersonnel,
       initialData,
@@ -152,7 +183,7 @@ const AppointmentForm: React.FC<AppointmentFormProps> = ({
       patientAppointments,
       selectedPatient,
       selectedTaskLabels,
-      formData.additionalDurationMinutes,
+      additionalDurationForScheduling,
       currentAppointmentForPersonnel,
       initialData,
     ],
@@ -328,13 +359,7 @@ const AppointmentForm: React.FC<AppointmentFormProps> = ({
     setSlotSelectionTouched(false);
     setAllDaysData([]);
     setNurseAppointments([]);
-    setFormData(prev => ({
-      ...prev,
-      availabilityId: 0,
-      tasks: '',
-      additionalDurationMinutes: 0,
-    }));
-    setSelectedTaskIds([]);
+    setFormData(prev => ({ ...prev, availabilityId: 0 }));
 
     if (errors.personnelId || errors.date || errors.availabilityId || errors.tasks) {
       setErrors(prev => ({ 
@@ -386,15 +411,68 @@ const AppointmentForm: React.FC<AppointmentFormProps> = ({
     }
   };
 
+  const addCustomTask = () => {
+    const name = customTaskName.trim();
+    const durationMinutes = Number(customTaskDuration);
+    if (!name || !Number.isInteger(durationMinutes) || durationMinutes < 1) {
+      setErrors((previous) => ({
+        ...previous,
+        customTask: t('Enter a task name and a duration of at least one minute.'),
+      }));
+      return;
+    }
+    if (
+      getTaskDurationMinutes(name) > 0 ||
+      customTasks.some((task) => task.name.toLocaleLowerCase() === name.toLocaleLowerCase())
+    ) {
+      setErrors((previous) => ({
+        ...previous,
+        customTask: t('Custom task names must be unique and cannot match a standard task.'),
+      }));
+      return;
+    }
+
+    const task = { id: `custom-${crypto.randomUUID()}`, name, durationMinutes };
+    setCustomTasks((previous) => [...previous, task]);
+    setSelectedTaskIds((previous) => [...previous, task.id]);
+    setCustomTaskName('');
+    setCustomTaskDuration('');
+    setErrors((previous) => ({ ...previous, customTask: '' }));
+  };
+
   // Handles patient selection
-  const handlePatientChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
-    const { value } = e.target;
-    setFormData(prev => ({ ...prev, patientId: value }));
+  const handlePatientChange = (patientId: string) => {
+    if (patientId === formData.patientId) return;
+    setFormData((previous) => ({ ...previous, patientId }));
     setPatientAppointments([]);
     setPatientAppointmentsLoadedFor(null);
     setSlotSelectionTouched(false);
     if (errors.patientId) {
       setErrors(prev => ({ ...prev, patientId: '' }));
+    }
+  };
+
+  const selectPatient = (patient: PatientListDto) => {
+    handlePatientChange(patient.id);
+    setPatientSearch(patient.fullName);
+    setShowPatientOptions(false);
+    setActivePatientIndex(0);
+  };
+
+  const handlePatientSearchKeyDown = (event: React.KeyboardEvent<HTMLInputElement>) => {
+    if (event.key === 'Escape') {
+      setShowPatientOptions(false);
+    } else if (event.key === 'ArrowDown') {
+      event.preventDefault();
+      setShowPatientOptions(true);
+      setActivePatientIndex((index) => Math.max(0, Math.min(index + 1, filteredPatients.length - 1)));
+    } else if (event.key === 'ArrowUp') {
+      event.preventDefault();
+      setActivePatientIndex((index) => Math.max(index - 1, 0));
+    } else if (event.key === 'Enter' && showPatientOptions) {
+      event.preventDefault();
+      const patient = filteredPatients[activePatientIndex];
+      if (patient) selectPatient(patient);
     }
   };
 
@@ -413,7 +491,7 @@ const AppointmentForm: React.FC<AppointmentFormProps> = ({
   // Capability data is not part of the current personnel API, so every real
   // task is offered. The previous numeric-ID mock silently mismatched Identity
   // GUIDs and gave a false impression that permissions were enforced.
-  const allowedTasks = ALL_TASKS;
+  const allowedTasks = APPOINTMENT_TASKS;
 
   // Validates form before submission
   const validate = (): boolean => {
@@ -463,7 +541,8 @@ const AppointmentForm: React.FC<AppointmentFormProps> = ({
 
     // Convert selected task IDs back into a comma-separated string for backend
     const selectedTaskLabels = selectedTaskIds
-      .map((id) => ALL_TASKS.find((task) => task.id === id)?.label)
+      .map((id) => APPOINTMENT_TASKS.find((task) => task.id === id)?.label
+        ?? customTasks.find((task) => task.id === id)?.name)
       .filter(Boolean);
     const selectedSlot = availableSlots.find((slot) => slot.id === formData.availabilityId);
     if (!selectedSlot) return;
@@ -471,7 +550,7 @@ const AppointmentForm: React.FC<AppointmentFormProps> = ({
     onSubmit({
       ...formData,
       tasks: selectedTaskLabels.join(', '),
-      additionalDurationMinutes: formData.additionalDurationMinutes ?? 0,
+      additionalDurationMinutes: additionalDurationForScheduling,
       startTime: selectedSlot.startTime,
       endTime: selectedSlot.endTime,
     });
@@ -505,23 +584,65 @@ const AppointmentForm: React.FC<AppointmentFormProps> = ({
         </Alert>
       )}
 
-      {/* Patient selection */}
+      {/* Patient search and selection */}
       <Form.Group className="mb-3">
         <Form.Label>{t('Klient')} <span className="text-danger">*</span></Form.Label>
         {errors.patientId && <div className="text-danger small mb-1">{errors.patientId}</div>}
-        <Form.Select
-          value={formData.patientId}
-          onChange={handlePatientChange}
-          isInvalid={!!errors.patientId}
-          disabled={Boolean(initialData?.id) || lockPatientSelection}
-        >
-          <option value="">{t('-- Velg pasient --')}</option>
-          {patients.map((patient) => (
-            <option key={patient.id} value={patient.id}>
-              {patient.fullName}
-            </option>
-          ))}
-        </Form.Select>
+        <div className="patient-picker">
+          <Form.Control
+            type="search"
+            role="combobox"
+            aria-autocomplete="list"
+            aria-expanded={showPatientOptions}
+            aria-controls="appointment-patient-options"
+            aria-activedescendant={
+              showPatientOptions && filteredPatients[activePatientIndex]
+                ? `appointment-patient-option-${filteredPatients[activePatientIndex].id}`
+                : undefined
+            }
+            placeholder={t("Begin typing a patient's name, email or address")}
+            value={patientSearch}
+            onFocus={() => setShowPatientOptions(true)}
+            onBlur={() => setShowPatientOptions(false)}
+            onChange={(event) => {
+              const value = event.target.value;
+              setPatientSearch(value);
+              setShowPatientOptions(true);
+              setActivePatientIndex(0);
+              if (formData.patientId) handlePatientChange('');
+            }}
+            onKeyDown={handlePatientSearchKeyDown}
+            isInvalid={!!errors.patientId}
+            disabled={Boolean(initialData?.id) || lockPatientSelection}
+            autoComplete="off"
+          />
+          {showPatientOptions && !initialData?.id && !lockPatientSelection && (
+            <div
+              id="appointment-patient-options"
+              className="patient-picker-options"
+              role="listbox"
+            >
+              {filteredPatients.length > 0 ? filteredPatients.map((patient, index) => (
+                <div
+                  id={`appointment-patient-option-${patient.id}`}
+                  role="option"
+                  aria-selected={patient.id === formData.patientId}
+                  className={`patient-picker-option${index === activePatientIndex ? ' active' : ''}`}
+                  key={patient.id}
+                  tabIndex={-1}
+                  onMouseDown={(event) => event.preventDefault()}
+                  onMouseEnter={() => setActivePatientIndex(index)}
+                  onClick={() => selectPatient(patient)}
+                >
+                  <span className="d-block fw-semibold">{patient.fullName}</span>
+                  {patient.email && <span className="d-block small text-muted">{patient.email}</span>}
+                </div>
+              )) : (
+                <div className="patient-picker-empty">{t('Ingen pasienter samsvarer med søket.')}</div>
+              )}
+            </div>
+          )}
+        </div>
       </Form.Group>
 
       {/* Personnel selection */}
@@ -667,8 +788,58 @@ const AppointmentForm: React.FC<AppointmentFormProps> = ({
                 onChange={(e) => handleTaskToggle(task.id, e.target.checked)}
               />
             ))}
+            {customTasks.map((task) => (
+              <div className="d-flex align-items-center gap-2" key={task.id}>
+                <Form.Check
+                  type="checkbox"
+                  id={`task-${task.id}`}
+                  label={`${task.name} · +${task.durationMinutes} min`}
+                  checked={selectedTaskIds.includes(task.id)}
+                  onChange={(event) => handleTaskToggle(task.id, event.target.checked)}
+                />
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="outline-danger"
+                  aria-label={t('Remove custom task')}
+                  onClick={() => {
+                    setCustomTasks((previous) => previous.filter((item) => item.id !== task.id));
+                    setSelectedTaskIds((previous) => previous.filter((id) => id !== task.id));
+                  }}
+                >
+                  <i className="bi bi-x-lg" aria-hidden="true" />
+                </Button>
+              </div>
+            ))}
           </div>
         ) : null}
+        <div className="row g-2 mt-2">
+          <div className="col-md-6">
+            <Form.Control
+              aria-label={t('Custom task name')}
+              placeholder={t('Custom task name')}
+              value={customTaskName}
+              onChange={(event) => setCustomTaskName(event.target.value)}
+            />
+          </div>
+          <div className="col-md-3">
+            <Form.Control
+              aria-label={t('Duration in minutes')}
+              type="number"
+              min={1}
+              step={1}
+              placeholder={t('Minutes')}
+              value={customTaskDuration}
+              onChange={(event) => setCustomTaskDuration(event.target.value)}
+            />
+          </div>
+          <div className="col-md-3">
+            <Button type="button" variant="outline-primary" className="w-100" onClick={addCustomTask}>
+              {t('Add task')}
+            </Button>
+          </div>
+        </div>
+        {errors.customTask && <div className="text-danger small mt-1">{errors.customTask}</div>}
       </Form.Group>
 
       <Form.Group className="mb-3">
@@ -700,7 +871,7 @@ const AppointmentForm: React.FC<AppointmentFormProps> = ({
         >
           {initialData ? t('Oppdater') : t('Opprett')}
         </Button>
-        <Button variant="outline-secondary" onClick={onCancel}>
+        <Button variant="outline-secondary" type="button" onClick={onCancel}>
           {t('Avbryt')}
         </Button>
       </div>

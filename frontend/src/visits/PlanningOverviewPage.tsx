@@ -12,6 +12,7 @@ import EmptyState from '../components/common/EmptyState';
 import PlannedVisitModal from './components/PlannedVisitModal';
 import AppointmentModal from '../appointments/components/AppointmentModal';
 import InteractiveVisitMap from './components/InteractiveVisitMap';
+import RouteAppointmentOptimizer from './components/RouteAppointmentOptimizer';
 import { searchAddresses } from '../patients/services/AddressSearchService';
 import { getDrivingRoute, type PlannedDrivingRoute, type RouteLeg } from './services/RoutePlanningService';
 import { localeForLanguage } from '../i18n';
@@ -104,6 +105,7 @@ const PlanningOverviewPage: React.FC = () => {
   const [detailsAppointment, setDetailsAppointment] = useState<Appointment | null>(null);
   const [editAppointment, setEditAppointment] = useState<Appointment | undefined>();
   const [showEditModal, setShowEditModal] = useState(false);
+  const [showRouteOptimizer, setShowRouteOptimizer] = useState(false);
   const [origin, setOrigin] = useState<Position | null>(null);
   const [locating, setLocating] = useState(false);
   const [route, setRoute] = useState<PlannedDrivingRoute | null>(null);
@@ -389,6 +391,15 @@ const PlanningOverviewPage: React.FC = () => {
             {origin ? t('Startposisjon er satt') : t('Bruk min posisjon som start')}
           </Button>
         )}
+        {isHeadNurse && selectedPersonnelId && (
+          <Button
+            className="planning-location-button"
+            variant="outline-primary"
+            onClick={() => setShowRouteOptimizer(true)}
+          >
+            <i className="bi bi-signpost-split me-2" aria-hidden="true"></i>{t('Optimize daily route')}
+          </Button>
+        )}
       </div>
 
       {routeError && <Alert variant="warning" className="route-alert">{routeError}</Alert>}
@@ -488,6 +499,16 @@ const PlanningOverviewPage: React.FC = () => {
 
       <PlannedVisitModal show={detailsAppointment !== null} onClose={() => setDetailsAppointment(null)} appointment={detailsAppointment} />
       <AppointmentModal show={showEditModal} onClose={() => setShowEditModal(false)} initialData={editAppointment} onSubmit={handleAppointmentSubmit} />
+      {isHeadNurse && selectedPersonnelId && (
+        <RouteAppointmentOptimizer
+          show={showRouteOptimizer}
+          personnelId={selectedPersonnelId}
+          date={selectedDate}
+          appointments={appointments}
+          onHide={() => setShowRouteOptimizer(false)}
+          onSaved={() => { void loadAppointments(); }}
+        />
+      )}
     </div>
   );
 };

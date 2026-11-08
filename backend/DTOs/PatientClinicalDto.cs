@@ -11,6 +11,8 @@ namespace backend.DTOs
         public string? NextOfKinRelation { get; set; }
         public string? GeneralPractitioner { get; set; }
         public string? Allergies { get; set; }
+        public string? AccessInstructions { get; set; }
+        public string? MedicationEquipmentNotes { get; set; }
         public List<string> Diagnoses { get; set; } = new();
         public List<MedicationDto> Medications { get; set; } = new();
         public List<string> ConditionFlags { get; set; } = new();

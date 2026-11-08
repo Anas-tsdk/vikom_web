@@ -19,6 +19,11 @@ internal static class AppointmentSummaryMapper
         {
             Id = appointment.Id,
             PatientName = appointment.Patient?.FullName ?? string.Empty,
+            PatientId = appointment.PatientId,
+            PatientUsername = appointment.Patient?.ProfileUsername,
+            PatientAddress = appointment.Patient?.Address ?? string.Empty,
+            PatientAccessInstructions = appointment.Patient?.AccessInstructions,
+            PatientMedicationEquipmentNotes = appointment.Patient?.MedicationEquipmentNotes,
             PersonnelId = appointment.Availability?.PersonnelId ?? string.Empty,
             PersonnelName = appointment.Availability?.Personnel?.FullName ?? string.Empty,
             Tasks = appointment.Tasks,

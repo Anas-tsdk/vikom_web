@@ -45,6 +45,16 @@ namespace backend.Services
                    await IsHeadNurseAsync(principal);
         }
 
+        public async Task<bool> CanViewPersonnelAsync(
+            ClaimsPrincipal principal,
+            string personnelId)
+        {
+            var userId = GetUserId(principal);
+            return !string.IsNullOrWhiteSpace(userId) &&
+                   await IsPortalStaffAsync(userId) &&
+                   await IsPortalStaffAsync(personnelId);
+        }
+
         public async Task<bool> CanAccessPatientAsync(
             ClaimsPrincipal principal,
             string patientIdOrProfileUsername)

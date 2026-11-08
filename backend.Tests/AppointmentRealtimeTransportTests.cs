@@ -76,7 +76,7 @@ public class AppointmentRealtimeTransportTests : IDisposable
         });
 
         Assert.Equal("Pending", created.PatientResponseStatus);
-        Assert.Equal("10:40", created.EndTime);
+        Assert.Equal("10:50", created.EndTime);
         Assert.Equal(2, handler.RequestCount);
         Assert.EndsWith(
             "/realtime/v1/api/broadcast/webrtc-signaling/events/message",
@@ -90,7 +90,7 @@ public class AppointmentRealtimeTransportTests : IDisposable
         var payloadJson = request.RootElement.GetProperty("payload").GetString();
         Assert.NotNull(payloadJson);
         using var payload = JsonDocument.Parse(payloadJson);
-        Assert.Equal("10:40", payload.RootElement.GetProperty("endTime").GetString());
+        Assert.Equal("10:50", payload.RootElement.GetProperty("endTime").GetString());
     }
 
     private sealed class TestHttpClientFactory(HttpClient client) : IHttpClientFactory

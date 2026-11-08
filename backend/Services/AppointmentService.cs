@@ -74,6 +74,17 @@ namespace backend.Services
                 if (availability == null)
                     throw new InvalidOperationException("Availability not found");
 
+                if (availability.IsAppointmentArchive)
+                    throw new InvalidOperationException("Availability slot is not bookable");
+
+                if (availability.Appointment?.Status == "Completed")
+                {
+                    await ArchiveCompletedAppointmentSlotAsync(availability.Appointment);
+                    availability = await _availabilityRepository.GetByIdAsync(appointmentDto.AvailabilityId);
+                    if (availability == null)
+                        throw new InvalidOperationException("Availability not found");
+                }
+
                 if (availability.Appointment != null)
                     throw new InvalidOperationException("Availability slot is already booked");
 
@@ -169,6 +180,16 @@ namespace backend.Services
                     var newAvailability = await _availabilityRepository.GetByIdAsync(appointmentDto.AvailabilityId);
                     if (newAvailability == null)
                         throw new InvalidOperationException("Availability not found");
+                    if (newAvailability.IsAppointmentArchive)
+                        throw new InvalidOperationException("Availability slot is not bookable");
+                    if (newAvailability.Appointment?.Status == "Completed" &&
+                        newAvailability.Appointment.Id != existing.Id)
+                    {
+                        await ArchiveCompletedAppointmentSlotAsync(newAvailability.Appointment);
+                        newAvailability = await _availabilityRepository.GetByIdAsync(appointmentDto.AvailabilityId);
+                        if (newAvailability == null)
+                            throw new InvalidOperationException("Availability not found");
+                    }
                     if (newAvailability.Appointment != null && newAvailability.Appointment.Id != existing.Id)
                         throw new InvalidOperationException("Availability slot is already booked");
                     if (newAvailability.Date.Date + newAvailability.StartTime <= DateTime.Now)
@@ -266,6 +287,8 @@ namespace backend.Services
                     }
 
                     existing.Status = newStatus;
+                    if (newStatus == "Completed")
+                        MoveCompletedAppointmentToArchive(existing);
                     updated = true;
                 }
 
@@ -304,6 +327,34 @@ namespace backend.Services
                 }
 
                 return MapToDto(result!);
+            }
+            catch (DbUpdateException ex) when (IsOverlapConstraint(ex))
+            {
+                throw new InvalidOperationException(
+                    "The nurse or patient already has an overlapping appointment",
+                    ex);
+            }
+            finally
+            {
+                BookingLock.Release();
+            }
+        }
+
+        public async Task MarkCompletedAsync(int id)
+        {
+            await BookingLock.WaitAsync();
+            try
+            {
+                var appointment = await _appointmentRepository.GetByIdAsync(id);
+                if (appointment == null)
+                    throw new InvalidOperationException("Appointment not found");
+
+                appointment.Status = "Completed";
+                MoveCompletedAppointmentToArchive(appointment);
+                var updated = await _appointmentRepository.UpdateAsync(appointment);
+                var result = await _appointmentRepository.GetByIdAsync(updated.Id);
+                if (result != null)
+                    await EmitAppointmentRealtimeEventAsync(result, "updated");
             }
             catch (DbUpdateException ex) when (IsOverlapConstraint(ex))
             {
@@ -704,6 +755,36 @@ namespace backend.Services
                 candidate.StartTime < appointment.EndTime);
         }
 
+        private async Task ArchiveCompletedAppointmentSlotAsync(Appointment appointment)
+        {
+            if (appointment.Status != "Completed")
+                return;
+
+            MoveCompletedAppointmentToArchive(appointment);
+            await _appointmentRepository.UpdateAsync(appointment);
+        }
+
+        private static void MoveCompletedAppointmentToArchive(Appointment appointment)
+        {
+            var availability = appointment.Availability;
+            if (availability == null || availability.IsAppointmentArchive)
+                return;
+
+            appointment.Availability = new Availability
+            {
+                PersonnelId = availability.PersonnelId,
+                Date = availability.Date,
+                StartTime = appointment.StartTime,
+                EndTime = appointment.EndTime,
+                Notes = availability.Notes,
+                IsAppointmentArchive = true
+            };
+            appointment.AvailabilityId = 0;
+        }
+
+        private static bool IsBlockingAppointment(Appointment appointment) =>
+            appointment.Status is not ("Cancelled" or "Completed");
+
         private async Task<TimeSpan> ValidateScheduleAsync(
             Availability candidate,
             User patient,
@@ -750,7 +831,7 @@ namespace backend.Services
                     candidate.Date.Date))
                 .Where(appointment =>
                     appointment.Id != ignoredAppointmentId &&
-                    appointment.Status != "Cancelled")
+                    IsBlockingAppointment(appointment))
                 .OrderBy(appointment => appointment.StartTime)
                 .ToList();
 
@@ -761,7 +842,7 @@ namespace backend.Services
             var patientAppointments = await _appointmentRepository.GetByPatientIdAsync(patient.Id);
             if (patientAppointments.Any(appointment =>
                 appointment.Id != ignoredAppointmentId &&
-                appointment.Status != "Cancelled" &&
+                IsBlockingAppointment(appointment) &&
                 appointment.Availability.Date.Date == candidate.Date.Date &&
                 appointment.StartTime < endTime &&
                 candidate.StartTime < appointment.EndTime))
@@ -809,6 +890,8 @@ namespace backend.Services
                 PatientId = appointment.PatientId,
                 PatientName = appointment.Patient?.FullName ?? string.Empty,
                 PatientAddress = appointment.Patient?.Address ?? string.Empty,
+                PatientAccessInstructions = appointment.Patient?.AccessInstructions,
+                PatientMedicationEquipmentNotes = appointment.Patient?.MedicationEquipmentNotes,
                 PatientLatitude = appointment.Patient?.Latitude,
                 PatientLongitude = appointment.Patient?.Longitude,
                 PatientSupabaseProfileId = appointment.Patient?.SupabaseProfileId,

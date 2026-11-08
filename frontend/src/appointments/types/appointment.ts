@@ -4,6 +4,8 @@ export interface Appointment {
   patientId: string;
   patientName?: string;
   patientAddress?: string;
+  patientAccessInstructions?: string | null;
+  patientMedicationEquipmentNotes?: string | null;
   patientLatitude?: number | null;
   patientLongitude?: number | null;
   availabilityId: number;
@@ -49,6 +51,11 @@ export interface AppointmentCreateDto {
 export interface AppointmentSummary {
   id: number;
   patientName: string;
+  patientId?: string;
+  patientUsername?: string | null;
+  patientAddress?: string | null;
+  patientAccessInstructions?: string | null;
+  patientMedicationEquipmentNotes?: string | null;
   personnelId?: string;
   personnelName: string;
   // Stores comma-separated list of tasks (e.g., "Medication, Vitals, Exercises")

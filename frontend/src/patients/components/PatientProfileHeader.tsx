@@ -45,6 +45,10 @@ const PatientProfileHeader: React.FC<PatientProfileHeaderProps> = ({
           <div className="vk-profile-identity-text">
             <p className="vk-profile-eyebrow">{t('Profil')}</p>
             <h1 className="vk-profile-name">{patient.fullName}</h1>
+            <p className="vk-profile-national-id">
+              <span>{t('Personnummer')}:</span>{' '}
+              {patient.socialSecurityNumber || t('Ikke oppgitt')}
+            </p>
             <div className="vk-profile-chips">
               {/* <Badge bg="secondary">Pasient</Badge> */}
               {contactChips.map((chip) => (

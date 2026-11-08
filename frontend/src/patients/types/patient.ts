@@ -39,6 +39,8 @@ export interface PatientClinical {
   nextOfKinRelation?: string | null;
   generalPractitioner?: string | null;
   allergies?: string | null;
+  accessInstructions?: string | null;
+  medicationEquipmentNotes?: string | null;
   diagnoses: string[];
   medications: Medication[];
   conditionFlags: string[];
@@ -52,6 +54,7 @@ export interface PatientDetailsDto {
   email: string;
   phoneNumber: string;
   address?: string;
+  socialSecurityNumber?: string | null;
   latitude?: number | null;
   longitude?: number | null;
   supabaseProfileId?: string | null;
@@ -74,6 +77,7 @@ export interface PatientUpdateDto {
   email: string;
   phoneNumber?: string | null;
   address?: string;
+  socialSecurityNumber?: string | null;
   latitude?: number | null;
   longitude?: number | null;
   supabaseProfileId?: string | null;
@@ -82,6 +86,8 @@ export interface PatientUpdateDto {
   nextOfKinRelation?: string | null;
   generalPractitioner?: string | null;
   allergies?: string | null;
+  accessInstructions?: string | null;
+  medicationEquipmentNotes?: string | null;
   diagnoses?: string[];
   medications?: Medication[];
   conditionFlags?: string[];
@@ -96,6 +102,9 @@ export interface PatientCreateDto {
   email: string;
   phoneNumber?: string | null;
   address?: string;
+  socialSecurityNumber?: string | null;
+  accessInstructions?: string | null;
+  medicationEquipmentNotes?: string | null;
   latitude?: number | null;
   longitude?: number | null;
   supabaseProfileId?: string | null;

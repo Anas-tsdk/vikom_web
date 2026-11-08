@@ -10,8 +10,8 @@ export interface RecommendedSlot extends AvailabilitySlot {
 const TASK_DURATIONS: Record<string, number> = {
   medisin: 5,
   medication: 5,
-  bading: 15,
-  bathing: 15,
+  bading: 25,
+  bathing: 25,
   matlaging: 10,
   cooking: 10,
   'servering av måltider': 10,

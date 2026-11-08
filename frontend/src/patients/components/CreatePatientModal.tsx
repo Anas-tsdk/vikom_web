@@ -23,7 +23,10 @@ const CreatePatientModal: React.FC<CreatePatientModalProps> = ({ show, onHide, o
   const [fullName, setFullName] = useState<string>('');
   const [email, setEmail] = useState<string>('');
   const [phoneNumber, setPhoneNumber] = useState<string>('');
+  const [socialSecurityNumber, setSocialSecurityNumber] = useState('');
   const [address, setAddress] = useState<string>('');
+  const [accessInstructions, setAccessInstructions] = useState('');
+  const [medicationEquipmentNotes, setMedicationEquipmentNotes] = useState('');
   const [latitude, setLatitude] = useState<number | null>(null);
   const [longitude, setLongitude] = useState<number | null>(null);
   const [supabaseLink, setSupabaseLink] = useState<SupabaseLinkValue | null>(null);
@@ -36,7 +39,10 @@ const CreatePatientModal: React.FC<CreatePatientModalProps> = ({ show, onHide, o
       setFullName('');
       setEmail('');
       setPhoneNumber('');
+      setSocialSecurityNumber('');
       setAddress('');
+      setAccessInstructions('');
+      setMedicationEquipmentNotes('');
       setLatitude(null);
       setLongitude(null);
       setSupabaseLink(null);
@@ -59,7 +65,10 @@ const CreatePatientModal: React.FC<CreatePatientModalProps> = ({ show, onHide, o
         fullName: fullName.trim(),
         email: email.trim(),
         phoneNumber: phoneNumber.trim() || null,
+        socialSecurityNumber: socialSecurityNumber.trim() || null,
         address: address.trim(),
+        accessInstructions: accessInstructions.trim() || null,
+        medicationEquipmentNotes: medicationEquipmentNotes.trim() || null,
         latitude,
         longitude,
         supabaseProfileId: supabaseLink?.supabaseProfileId ?? null,
@@ -111,6 +120,10 @@ const CreatePatientModal: React.FC<CreatePatientModalProps> = ({ show, onHide, o
               onChange={(e) => setPhoneNumber(e.target.value)}
             />
           </Form.Group>
+          <Form.Group className="mb-3" controlId="createPatientSocialSecurityNumber">
+            <Form.Label>{t('Personnummer')}</Form.Label>
+            <Form.Control value={socialSecurityNumber} onChange={(event) => setSocialSecurityNumber(event.target.value)} autoComplete="off" />
+          </Form.Group>
 
           <AddressAutocomplete
             idPrefix="createPatient"
@@ -121,6 +134,15 @@ const CreatePatientModal: React.FC<CreatePatientModalProps> = ({ show, onHide, o
               setLongitude(nextLongitude);
             }}
           />
+
+          <Form.Group className="mb-3" controlId="createPatientAccessInstructions">
+            <Form.Label>{t('Tilgang til boligen')}</Form.Label>
+            <Form.Control as="textarea" rows={2} value={accessInstructions} onChange={(event) => setAccessInstructions(event.target.value)} />
+          </Form.Group>
+          <Form.Group className="mb-3" controlId="createPatientMedicationEquipmentNotes">
+            <Form.Label>{t('Medisin og utstyr')}</Form.Label>
+            <Form.Control as="textarea" rows={2} value={medicationEquipmentNotes} onChange={(event) => setMedicationEquipmentNotes(event.target.value)} />
+          </Form.Group>
 
           <SupabaseProfileField value={supabaseLink} onChange={setSupabaseLink} />
         </Modal.Body>

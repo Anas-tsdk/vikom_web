@@ -5,6 +5,7 @@ using backend.Models;
 using backend.Services;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Identity.EntityFrameworkCore;
+using Microsoft.AspNetCore.DataProtection;
 using Microsoft.Data.Sqlite;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging.Abstractions;
@@ -67,7 +68,8 @@ public class PatientSupabaseLinkTests : IDisposable
             new PatientUserLinkRepository(_context),
             new CallLogService(new CallLogRepository(_context), userRepository),
             _userManager,
-            _context);
+            _context,
+            new EphemeralDataProtectionProvider());
     }
 
     private static UserManager<User> BuildUserManager(ApplicationDbContext context) =>
@@ -135,6 +137,29 @@ public class PatientSupabaseLinkTests : IDisposable
         Assert.Equal(IngridHandle, saved.ProfileUsername);
         Assert.True(saved.DailyCheckInEnabled);
         Assert.NotNull(saved.DailyCheckInStartedAt);
+    }
+
+    [Fact]
+    public async Task Patient_identity_is_protected_at_rest_and_returned_in_authorized_details()
+    {
+        const string socialSecurityNumber = "12345678901";
+        var patient = await AddPatientAsync(
+            "patient.identity@homecare.local",
+            "Identity Patient",
+            "identity.patient");
+        var dto = UpdateDtoFor(patient, null);
+        dto.SocialSecurityNumber = socialSecurityNumber;
+        dto.AccessInstructions = "Use the side entrance";
+        dto.MedicationEquipmentNotes = "Bring the inhaler";
+
+        var updated = await _service.UpdatePatientAsync(patient.Id, dto);
+        var saved = await ReloadAsync(patient.Id);
+
+        Assert.Equal(socialSecurityNumber, updated?.SocialSecurityNumber);
+        Assert.NotEqual(socialSecurityNumber, saved.SocialSecurityNumberProtected);
+        Assert.DoesNotContain(socialSecurityNumber, saved.SocialSecurityNumberProtected);
+        Assert.Equal("Use the side entrance", updated?.Clinical.AccessInstructions);
+        Assert.Equal("Bring the inhaler", updated?.Clinical.MedicationEquipmentNotes);
     }
 
     [Fact]

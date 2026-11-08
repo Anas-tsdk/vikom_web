@@ -9,6 +9,7 @@ using backend.Services;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Identity.EntityFrameworkCore;
+using Microsoft.AspNetCore.DataProtection;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Data.Sqlite;
 using Microsoft.EntityFrameworkCore;
@@ -163,7 +164,7 @@ public sealed class StaffRolesAndAccessTests : IDisposable
         var head = await AddUserAsync("head.directory@example.test", UserRoles.HeadNurse);
         var nurse = await AddUserAsync("nurse.directory@example.test", UserRoles.Nurse);
         await AddUserAsync("legacy.directory@example.test", UserRoles.LegacyPersonnel);
-        await AddUserAsync("patient.directory@example.test", UserRoles.Patient);
+        var patient = await AddUserAsync("patient.directory@example.test", UserRoles.Patient);
 
         var headResult = await PersonnelControllerFor(head).GetPersonnel();
         var headDtos = Assert.IsAssignableFrom<IEnumerable<UserDto>>(
@@ -174,6 +175,21 @@ public sealed class StaffRolesAndAccessTests : IDisposable
         var nurseDto = Assert.Single(Assert.IsAssignableFrom<IEnumerable<UserDto>>(
             Assert.IsType<OkObjectResult>(nurseResult.Result).Value));
         Assert.Equal(nurse.Id, nurseDto.Id);
+
+        var scheduleOptions = Assert.IsAssignableFrom<IEnumerable<PersonnelScheduleOptionDto>>(
+            Assert.IsType<OkObjectResult>(
+                (await PersonnelControllerFor(nurse).GetScheduleOptions()).Result).Value).ToList();
+        Assert.Equal(3, scheduleOptions.Count);
+        Assert.Contains(scheduleOptions, option => option.Id == head.Id);
+        Assert.DoesNotContain(scheduleOptions, option => option.Id == patient.Id);
+
+        var callOptions = Assert.IsAssignableFrom<IEnumerable<PersonnelCallOptionDto>>(
+            Assert.IsType<OkObjectResult>(
+                (await PersonnelControllerFor(nurse).GetCallOptions()).Result).Value).ToList();
+        Assert.Equal(3, callOptions.Count);
+        Assert.Contains(callOptions, option =>
+            option.Id == head.Id && option.Role == UserRoles.HeadNurse);
+        Assert.DoesNotContain(callOptions, option => option.Id == patient.Id);
     }
 
     [Fact]
@@ -197,6 +213,7 @@ public sealed class StaffRolesAndAccessTests : IDisposable
         var nursePrincipal = PrincipalFor(nurse);
         Assert.True(await _access.CanManagePersonnelAsync(nursePrincipal, nurse.Id));
         Assert.False(await _access.CanManagePersonnelAsync(nursePrincipal, otherNurse.Id));
+        Assert.True(await _access.CanViewPersonnelAsync(nursePrincipal, otherNurse.Id));
         Assert.True(await _access.CanAccessPatientAsync(nursePrincipal, linkedPatient.Id));
         Assert.True(await _access.CanAccessPatientAsync(nursePrincipal, "linked.patient"));
         Assert.False(await _access.CanAccessPatientAsync(nursePrincipal, unlinkedPatient.Id));
@@ -720,6 +737,7 @@ public sealed class StaffRolesAndAccessTests : IDisposable
         var visitService = new VisitService(
             new VisitRepository(_context),
             appointmentRepository,
+            appointmentService,
             new CallLogRepository(_context));
 
         return WithUser(
@@ -741,7 +759,8 @@ public sealed class StaffRolesAndAccessTests : IDisposable
             new PatientUserLinkRepository(_context),
             callLogService,
             _userManager,
-            _context);
+            _context,
+            new EphemeralDataProtectionProvider());
         var profileDirectory = new SupabaseProfileDirectory(
             new NoopHttpClientFactory(),
             new ConfigurationBuilder().Build(),

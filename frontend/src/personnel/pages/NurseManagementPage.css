@@ -16,6 +16,7 @@
 
 .nurse-card {
   display: flex;
+  align-items: flex-start;
   gap: var(--space-3);
   padding: var(--space-4);
   border: 1px solid var(--border-color);
@@ -42,6 +43,7 @@
 }
 
 .nurse-card__body { display: flex; flex-direction: column; gap: var(--space-2); min-width: 0; }
+.nurse-card__actions { display: flex; flex-wrap: wrap; gap: var(--space-2); margin-top: var(--space-2); }
 .nurse-card__body > span { overflow-wrap: anywhere; color: var(--text-muted); font-size: var(--fs-sm); }
 .nurse-card__heading { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-2); }
 .nurse-card__heading h2 { margin: 0; color: var(--bs-dark); font-size: var(--fs-md); }

@@ -27,6 +27,8 @@ namespace backend.Models
 
         public string? Notes { get; set; }
 
+        public bool IsAppointmentArchive { get; set; }
+
         // Parent window reference
         public int? AvailabilityWindowId { get; set; }
         

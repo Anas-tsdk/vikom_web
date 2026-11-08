@@ -3,11 +3,13 @@ import { Alert, Button, Form, Modal, Spinner } from 'react-bootstrap';
 import { Link, Navigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { getUserInfo } from '../../auth/AuthService';
-import { isHeadNurseRole } from '../../auth/roles';
+import { isHeadNurseRole, isPortalRole } from '../../auth/roles';
 import EmptyState from '../../components/common/EmptyState';
 import PageHeader from '../../components/common/PageHeader';
+import { useStaffCalling } from '../components/StaffCallingContext';
 import PersonnelService, {
   type CreateNurseRequest,
+  type PersonnelCallOption,
   type NurseSummary,
 } from '../services/PersonnelService';
 import './NurseManagementPage.css';
@@ -28,34 +30,42 @@ const emptyForm: NurseForm = {
 const NurseManagementPage: React.FC = () => {
   const { t, i18n } = useTranslation();
   const userInfo = getUserInfo();
-  const authorized = isHeadNurseRole(userInfo?.role);
-  const [nurses, setNurses] = useState<NurseSummary[]>([]);
+  const authorized = isPortalRole(userInfo?.role);
+  const canManage = isHeadNurseRole(userInfo?.role);
+  const [nurses, setNurses] = useState<PersonnelCallOption[]>([]);
+  const [staffDetails, setStaffDetails] = useState<NurseSummary[]>([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [showCreate, setShowCreate] = useState(false);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
   const [form, setForm] = useState<NurseForm>(emptyForm);
+  const { callNurse, isBusy } = useStaffCalling();
 
   const loadNurses = useCallback(async () => {
     try {
       setLoading(true);
       setError('');
-      setNurses(await PersonnelService.getAll());
+      const callOptions = await PersonnelService.getCallOptions();
+      const details = canManage ? await PersonnelService.getAll() : [];
+      setNurses(callOptions);
+      setStaffDetails(details);
     } catch {
       setError(t('Kunne ikke laste sykepleiere'));
     } finally {
       setLoading(false);
     }
-  }, [t]);
+  }, [canManage, t]);
 
   useEffect(() => {
     if (authorized) void loadNurses();
     else setLoading(false);
   }, [authorized, loadNurses]);
 
-  const sortedNurses = useMemo(() => [...nurses].sort((left, right) =>
-    left.fullName.localeCompare(right.fullName, i18n.resolvedLanguage)), [i18n.resolvedLanguage, nurses]);
+  const sortedNurses = useMemo(() => nurses
+    .filter((nurse) => nurse.role === 'Nurse' || nurse.role === 'HeadNurse')
+    .sort((left, right) => left.fullName.localeCompare(right.fullName, i18n.resolvedLanguage)),
+  [i18n.resolvedLanguage, nurses]);
 
   if (!authorized) return <Navigate to="/dashboard" replace />;
 
@@ -112,12 +122,12 @@ const NurseManagementPage: React.FC = () => {
     <div className="nurse-management-page personnel-page">
       <PageHeader
         title={t('Sykepleiere')}
-        subtitle={t('Administrer sykepleierkontoer og tilgangsnivåer.')}
-        actions={(
+        subtitle={canManage ? t('Administrer sykepleierkontoer og tilgangsnivåer.') : t('Ring dine kolleger over ViKom.')}
+        actions={canManage ? (
           <Button onClick={() => { setError(''); setSuccess(''); setShowCreate(true); }}>
             <i className="bi bi-person-plus me-2" aria-hidden="true"></i>{t('Registrer sykepleier')}
           </Button>
-        )}
+        ) : undefined}
       />
 
       {error && !showCreate && <Alert variant="danger">{error}</Alert>}
@@ -129,26 +139,56 @@ const NurseManagementPage: React.FC = () => {
         <EmptyState icon="people" text={t('Ingen sykepleiere registrert.')} />
       ) : (
         <div className="nurse-grid">
-          {sortedNurses.map((nurse) => (
-            <Link
-              className="nurse-card"
-              key={nurse.id}
-              to={`/availability?personnelId=${encodeURIComponent(nurse.id)}`}
-              aria-label={t('Administrer tilgjengeligheten til {{name}}.', { name: nurse.fullName })}
-            >
-              <span className="nurse-avatar" aria-hidden="true"><i className="bi bi-person"></i></span>
-              <div className="nurse-card__body">
-                <div className="nurse-card__heading">
-                  <h2>{nurse.fullName}</h2>
-                  <span className={`nurse-role nurse-role--${nurse.role === 'HeadNurse' ? 'head' : 'normal'}`}>
-                    {nurse.role === 'HeadNurse' ? t('Ledende sykepleier') : t('Sykepleier')}
-                  </span>
+          {sortedNurses.map((nurse) => {
+            const details = staffDetails.find((member) => member.id === nurse.id);
+            return (
+              <article className="nurse-card" key={nurse.id}>
+                <span className="nurse-avatar" aria-hidden="true"><i className="bi bi-person"></i></span>
+                <div className="nurse-card__body">
+                  <div className="nurse-card__heading">
+                    <h2>{nurse.fullName}</h2>
+                    <span className={`nurse-role nurse-role--${nurse.role === 'HeadNurse' ? 'head' : 'normal'}`}>
+                      {nurse.role === 'HeadNurse' ? t('Ledende sykepleier') : t('Sykepleier')}
+                    </span>
+                  </div>
+                  {details?.email && <span><i className="bi bi-envelope me-2" aria-hidden="true"></i>{details.email}</span>}
+                  {details?.phoneNumber && <span><i className="bi bi-telephone me-2" aria-hidden="true"></i>{details.phoneNumber}</span>}
+                  <div className="nurse-card__actions">
+                    {canManage && (
+                      <Link
+                        className="btn btn-outline-secondary btn-sm"
+                        to={`/availability?personnelId=${encodeURIComponent(nurse.id)}`}
+                      >
+                        <i className="bi bi-calendar3 me-1" aria-hidden="true"></i>{t('Tilgjengelighet')}
+                      </Link>
+                    )}
+                    {nurse.id !== userInfo?.userId && (
+                      <>
+                        <Button
+                          size="sm"
+                          variant="outline-primary"
+                          disabled={isBusy}
+                          aria-label={`${t('Ring')} ${nurse.fullName}`}
+                          onClick={() => callNurse(nurse, 'audio')}
+                        >
+                          <i className="bi bi-telephone me-1" aria-hidden="true"></i>{t('Ring')}
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant="primary"
+                          disabled={isBusy}
+                          aria-label={`${t('Videoanrop')} ${nurse.fullName}`}
+                          onClick={() => callNurse(nurse, 'video')}
+                        >
+                          <i className="bi bi-camera-video me-1" aria-hidden="true"></i>{t('Videoanrop')}
+                        </Button>
+                      </>
+                    )}
+                  </div>
                 </div>
-                <span><i className="bi bi-envelope me-2" aria-hidden="true"></i>{nurse.email}</span>
-                {nurse.phoneNumber && <span><i className="bi bi-telephone me-2" aria-hidden="true"></i>{nurse.phoneNumber}</span>}
-              </div>
-            </Link>
-          ))}
+              </article>
+            );
+          })}
         </div>
       )}
 

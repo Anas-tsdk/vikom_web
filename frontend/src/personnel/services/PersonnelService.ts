@@ -11,6 +11,17 @@ export interface NurseSummary {
   address?: string | null;
 }
 
+export interface PersonnelScheduleOption {
+  id: string;
+  fullName: string;
+}
+
+export interface PersonnelCallOption {
+  id: string;
+  fullName: string;
+  role: 'HeadNurse' | 'Nurse' | 'Personnel';
+}
+
 export interface CreateNurseRequest {
   userName: string;
   email: string;
@@ -24,6 +35,22 @@ export interface CreateNurseRequest {
 const PersonnelService = {
   getAll: async (): Promise<NurseSummary[]> => {
     const response = await fetch(`${API_URL}/api/personnel`, {
+      headers: { 'Content-Type': 'application/json', ...getAuthHeader() },
+    });
+    if (!response.ok) throw new Error('Kunne ikke laste sykepleiere');
+    return response.json();
+  },
+
+  getScheduleOptions: async (): Promise<PersonnelScheduleOption[]> => {
+    const response = await fetch(`${API_URL}/api/personnel/schedule-options`, {
+      headers: { 'Content-Type': 'application/json', ...getAuthHeader() },
+    });
+    if (!response.ok) throw new Error('Kunne ikke laste sykepleiere');
+    return response.json();
+  },
+
+  getCallOptions: async (): Promise<PersonnelCallOption[]> => {
+    const response = await fetch(`${API_URL}/api/personnel/call-options`, {
       headers: { 'Content-Type': 'application/json', ...getAuthHeader() },
     });
     if (!response.ok) throw new Error('Kunne ikke laste sykepleiere');

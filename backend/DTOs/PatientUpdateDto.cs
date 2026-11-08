@@ -19,6 +19,8 @@ namespace backend.DTOs
         public string? PhoneNumber { get; set; }
 
         public string? Address { get; set; }
+        [StringLength(64)]
+        public string? SocialSecurityNumber { get; set; }
         [Range(-90, 90)] public double? Latitude { get; set; }
         [Range(-180, 180)] public double? Longitude { get; set; }
 
@@ -27,6 +29,8 @@ namespace backend.DTOs
         public string? NextOfKinRelation { get; set; }
         public string? GeneralPractitioner { get; set; }
         public string? Allergies { get; set; }
+        public string? AccessInstructions { get; set; }
+        public string? MedicationEquipmentNotes { get; set; }
         public List<string> Diagnoses { get; set; } = new();
         public List<string> ConditionFlags { get; set; } = new();
         public string? TreatmentPlan { get; set; }

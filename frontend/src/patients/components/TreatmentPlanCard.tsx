@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { Form } from 'react-bootstrap';
+import { Alert, Button, Form, Modal } from 'react-bootstrap';
 import SectionCard from '../../components/common/SectionCard';
 import Badge from '../../components/common/Badge';
 import { useTranslation } from 'react-i18next';
@@ -11,6 +11,8 @@ interface TreatmentPlanCardProps {
   treatmentPlan?: string | null;
   conditionFlags: string[];
   canEdit?: boolean;
+  canEditConditionFlags?: boolean;
+  onEditConditionFlags?: () => void;
   onSaved?: (treatmentPlan: string | null) => void;
   className?: string;
 }
@@ -21,27 +23,29 @@ const TreatmentPlanCard: React.FC<TreatmentPlanCardProps> = ({
   treatmentPlan,
   conditionFlags,
   canEdit,
+  canEditConditionFlags,
+  onEditConditionFlags,
   onSaved,
   className,
 }) => {
   const { t } = useTranslation();
-  const [editing, setEditing] = useState(false);
+  const [showEditor, setShowEditor] = useState(false);
   const [draft, setDraft] = useState(treatmentPlan ?? '');
   const [savedPlan, setSavedPlan] = useState(treatmentPlan ?? '');
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
 
   useEffect(() => {
-    if (!editing) {
+    if (!showEditor) {
       const currentPlan = treatmentPlan ?? '';
       setDraft(currentPlan);
       setSavedPlan(currentPlan);
     }
-  }, [editing, treatmentPlan]);
+  }, [showEditor, treatmentPlan]);
 
   const handleSave = async () => {
     if (draft === savedPlan) {
-      setEditing(false);
+      setShowEditor(false);
       return;
     }
 
@@ -55,7 +59,7 @@ const TreatmentPlanCard: React.FC<TreatmentPlanCardProps> = ({
       setSavedPlan(normalizedPlan);
       setDraft(normalizedPlan);
       onSaved?.(updatedPlan);
-      setEditing(false);
+      setShowEditor(false);
     } catch (saveError) {
       setError(t('Kunne ikke lagre endringene. Prøv igjen.'));
       console.error(saveError);
@@ -64,48 +68,32 @@ const TreatmentPlanCard: React.FC<TreatmentPlanCardProps> = ({
     }
   };
 
-  const action = canEdit && patientId ? (
-    editing ? (
-      <div className="d-flex gap-2">
-        <IconButton icon="check-lg" title={t('Lagre')} onClick={handleSave} loading={saving} />
+  const action = (canEdit && patientId) || canEditConditionFlags ? (
+    <div className="d-flex gap-2">
+      {canEdit && patientId && (
         <IconButton
-          icon="x-lg"
-          title={t('Avbryt')}
+          icon="pencil"
+          title={t('Rediger daglige gjøremål')}
           onClick={() => {
             setDraft(savedPlan);
             setError('');
-            setEditing(false);
+            setShowEditor(true);
           }}
-          disabled={saving}
         />
-      </div>
-    ) : (
-      <IconButton
-        icon="pencil"
-        title={t('Rediger')}
-        onClick={() => {
-          setDraft(savedPlan);
-          setError('');
-          setEditing(true);
-        }}
-      />
-    )
+      )}
+      {canEditConditionFlags && onEditConditionFlags && (
+        <IconButton
+          icon="pencil"
+          title={t('Rediger tilstandsmerknader')}
+          onClick={onEditConditionFlags}
+        />
+      )}
+    </div>
   ) : undefined;
 
   return (
     <SectionCard title={t('Daglige gjøremål')} icon="journal-medical" action={action} className={className}>
-      {editing ? (
-        <>
-          <Form.Control
-            as="textarea"
-            rows={4}
-            value={draft}
-            onChange={(event) => setDraft(event.target.value)}
-            autoFocus
-          />
-          {error && <div className="text-danger small mt-2">{error}</div>}
-        </>
-      ) : savedPlan.trim() ? (
+      {savedPlan.trim() ? (
         <p className="mb-0" style={{ whiteSpace: 'pre-wrap' }}>{savedPlan}</p>
       ) : (
         <p className="text-muted mb-0">{t('Ingen daglige gjøremål registrert.')}</p>
@@ -118,6 +106,37 @@ const TreatmentPlanCard: React.FC<TreatmentPlanCardProps> = ({
           ))}
         </div>
       )}
+      <Modal show={showEditor} onHide={() => !saving && setShowEditor(false)} centered>
+        <Modal.Header closeButton>
+          <Modal.Title>{t('Rediger daglige gjøremål')}</Modal.Title>
+        </Modal.Header>
+        <Modal.Body>
+          {error && <Alert variant="danger">{error}</Alert>}
+          <Form.Control
+            as="textarea"
+            rows={5}
+            value={draft}
+            onChange={(event) => setDraft(event.target.value)}
+            autoFocus
+          />
+        </Modal.Body>
+        <Modal.Footer>
+          <Button
+            variant="outline-secondary"
+            onClick={() => {
+              setDraft(savedPlan);
+              setError('');
+              setShowEditor(false);
+            }}
+            disabled={saving}
+          >
+            {t('Avbryt')}
+          </Button>
+          <Button variant="primary" onClick={() => void handleSave()} disabled={saving}>
+            {saving ? t('Lagrer...') : t('Lagre endringer')}
+          </Button>
+        </Modal.Footer>
+      </Modal>
     </SectionCard>
   );
 };

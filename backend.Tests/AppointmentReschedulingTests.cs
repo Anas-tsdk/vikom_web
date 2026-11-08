@@ -86,8 +86,47 @@ public sealed class AppointmentReschedulingTests : IDisposable
         });
 
         Assert.Equal("09:00", result.StartTime);
-        Assert.Equal("10:30", result.EndTime);
+        Assert.Equal("10:40", result.EndTime);
         Assert.Equal(10, result.AdditionalDurationMinutes);
+    }
+
+    [Fact]
+    public async Task Completing_an_appointment_releases_its_slot_for_rebooking()
+    {
+        var personnel = AddUser("completed-slot.nurse@example.test", UserRoles.Nurse);
+        var originalPatient = AddUser("completed-slot.patient@example.test", UserRoles.Patient);
+        var nextPatient = AddUser("completed-slot.next.patient@example.test", UserRoles.Patient);
+        var slot = AddAvailability(personnel.Id, DateTime.Today.AddDays(3), 9);
+        var appointment = new Appointment
+        {
+            PatientId = originalPatient.Id,
+            AvailabilityId = slot.Id,
+            Tasks = "Medisin",
+            StartTime = slot.StartTime,
+            EndTime = slot.StartTime.Add(TimeSpan.FromMinutes(15)),
+            Status = "InProgress",
+        };
+        _context.Appointments.Add(appointment);
+        await _context.SaveChangesAsync();
+
+        var service = CreateService();
+        await service.MarkCompletedAsync(appointment.Id);
+
+        Assert.Equal("Completed", appointment.Status);
+        Assert.NotEqual(slot.Id, appointment.AvailabilityId);
+        Assert.True(appointment.Availability!.IsAppointmentArchive);
+        Assert.Contains(
+            (await new AvailabilityRepository(_context).GetFreeAsync()),
+            availability => availability.Id == slot.Id);
+
+        var replacement = await service.CreateAsync(new AppointmentDto
+        {
+            PatientId = nextPatient.Id,
+            AvailabilityId = slot.Id,
+            Tasks = "Medisin",
+        });
+
+        Assert.Equal(slot.Id, replacement.AvailabilityId);
     }
 
     [Fact]

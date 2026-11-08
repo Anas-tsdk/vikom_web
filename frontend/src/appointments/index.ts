@@ -5,6 +5,7 @@ export { default as AppointmentDeleteModal } from './components/AppointmentDelet
 
 // Page
 export { default as AppointmentListPage } from './pages/AppointmentListPage';
+export { default as AppointmentCreationPage } from './pages/AppointmentCreationPage';
 export { default as CancelledAppointmentsPage } from './pages/CancelledAppointmentsPage';
 
 // Service

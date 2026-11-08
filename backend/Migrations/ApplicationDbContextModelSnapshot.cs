@@ -212,6 +212,10 @@ namespace backend.Migrations
                     b.Property<int?>("AvailabilityWindowId")
                         .HasColumnType("INTEGER");
 
+                    b.Property<bool>("IsAppointmentArchive")
+                        .HasColumnType("INTEGER")
+                        .HasDefaultValue(false);
+
                     b.Property<DateTime>("Date")
                         .HasColumnType("TEXT");
 
@@ -419,6 +423,9 @@ namespace backend.Migrations
                     b.Property<string>("Address")
                         .HasColumnType("TEXT");
 
+                    b.Property<string>("AccessInstructions")
+                        .HasColumnType("TEXT");
+
                     b.Property<string>("Allergies")
                         .HasColumnType("TEXT");
 
@@ -496,6 +503,9 @@ namespace backend.Migrations
                     b.Property<DateTime?>("NotesUpdatedAt")
                         .HasColumnType("TEXT");
 
+                    b.Property<string>("MedicationEquipmentNotes")
+                        .HasColumnType("TEXT");
+
                     b.Property<string>("PasswordHash")
                         .HasColumnType("TEXT");
 
@@ -513,6 +523,9 @@ namespace backend.Migrations
                         .HasColumnType("TEXT");
 
                     b.Property<string>("SecurityStamp")
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("SocialSecurityNumberProtected")
                         .HasColumnType("TEXT");
 
                     b.Property<string>("SupabaseProfileId")

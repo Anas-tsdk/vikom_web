@@ -15,6 +15,7 @@ import VisitDetailsModal from '../../visits/components/VisitDetailsModal';
 import PlannedVisitModal from '../../visits/components/PlannedVisitModal';
 import type { Appointment } from '../types/appointment';
 import { localeForLanguage } from '../../i18n';
+import { formatDateISO } from '../../utils/dateUtils';
 import { isHeadNurseRole } from '../../auth/roles';
 import PersonnelService, { type NurseSummary } from '../../personnel/services/PersonnelService';
 import { signalingService, isSupabaseConfigured } from '../../services/SupabaseSignalingService';
@@ -41,7 +42,7 @@ const formatDateTime = (appointment: Appointment, locale: string) => {
 };
 
 const AppointmentListPage: React.FC = () => {
-  const [searchParams, setSearchParams] = useSearchParams();
+  const [searchParams] = useSearchParams();
   const navigate = useNavigate();
   const { t, i18n } = useTranslation();
   const locale = localeForLanguage(i18n.resolvedLanguage);
@@ -68,7 +69,7 @@ const AppointmentListPage: React.FC = () => {
   const [acceptingProposalId, setAcceptingProposalId] = useState<number | null>(null);
   const [proposalError, setProposalError] = useState<string>('');
   const [patientFilter, setPatientFilter] = useState<string>('');
-  const [dateFilter, setDateFilter] = useState<string>('');
+  const [dateFilter, setDateFilter] = useState<string>(() => formatDateISO(new Date()));
 
   // Active tab state
   const [activeTab, setActiveTab] = useState<PersonnelTab>(
@@ -149,18 +150,6 @@ const AppointmentListPage: React.FC = () => {
       window.clearInterval(interval);
     };
   }, [loadAppointments, userId]);
-
-  // The dashboard's "Legg til nytt besøk" lands here with ?ny=1 to open the
-  // create form straight away. The param is cleared so a refresh or back
-  // navigation doesn't reopen the modal.
-  useEffect(() => {
-    if (searchParams.get('ny') && isHeadNurse) {
-      setSelectedAppointment(undefined);
-      setShowModal(true);
-      setSearchParams({}, { replace: true });
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
 
   const handleAcceptProposal = async (appointment: Appointment) => {
     if (!appointment.id) return;
@@ -335,12 +324,6 @@ const AppointmentListPage: React.FC = () => {
     return !isWithin24Hours(appointment) && appointment.status === 'Booked';
   };
 
-  // opens modal to create new appointment
-  const handleCreate = () => {
-    setSelectedAppointment(undefined);
-    setShowModal(true);
-  };
-
   // opens modal to edit existing appointment
   const handleEdit = (appointment: Appointment) => {
     setSelectedAppointment(appointment);
@@ -491,11 +474,6 @@ const AppointmentListPage: React.FC = () => {
           : t('Start og fullfør oppgaver for pasientene dine direkte her.')}
         actions={
           <div className="d-flex flex-wrap align-items-center justify-content-end gap-2">
-            {isHeadNurse && (
-              <button className="btn btn-primary" type="button" onClick={handleCreate}>
-                <i className="bi bi-calendar-plus me-2" aria-hidden="true"></i>{t('Ny avtale')}
-              </button>
-            )}
             <button
               className="btn btn-outline-secondary"
               type="button"
@@ -522,7 +500,7 @@ const AppointmentListPage: React.FC = () => {
                 setLoading(true);
                 setSelectedPersonnelId(event.target.value);
                 setPatientFilter('');
-                setDateFilter('');
+                setDateFilter(formatDateISO(new Date()));
               }}
             >
               {nurses.map((nurse) => <option key={nurse.id} value={nurse.id}>{nurse.fullName}</option>)}
@@ -554,8 +532,8 @@ const AppointmentListPage: React.FC = () => {
         <button
           type="button"
           className="btn btn-outline-secondary"
-          disabled={!patientFilter && !dateFilter}
-          onClick={() => { setPatientFilter(''); setDateFilter(''); }}
+          disabled={!patientFilter && dateFilter === formatDateISO(new Date())}
+          onClick={() => { setPatientFilter(''); setDateFilter(formatDateISO(new Date())); }}
         >
           {t('Nullstill filtre')}
         </button>
@@ -567,7 +545,7 @@ const AppointmentListPage: React.FC = () => {
         onChange={(key) => setActiveTab(key as PersonnelTab)}
         card
       >
-        {showList(activeTab as PersonnelTab)}
+        {showList(activeTab)}
       </Tabs>
 
       <VisitDetailsModal

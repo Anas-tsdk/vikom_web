@@ -96,6 +96,45 @@ namespace backend.Controllers
             }
         }
 
+        [HttpGet("schedule-options")]
+        public async Task<ActionResult<IEnumerable<PersonnelScheduleOptionDto>>> GetScheduleOptions()
+        {
+            try
+            {
+                var personnel = await _userRepository.GetPersonnelAsync();
+                return Ok(personnel.Select(member => new PersonnelScheduleOptionDto
+                {
+                    Id = member.Id,
+                    FullName = member.FullName
+                }));
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error getting personnel schedule options");
+                return StatusCode(500, "An error occurred while retrieving personnel schedule options");
+            }
+        }
+
+        [HttpGet("call-options")]
+        public async Task<ActionResult<IEnumerable<PersonnelCallOptionDto>>> GetCallOptions()
+        {
+            try
+            {
+                var personnel = await _userRepository.GetPersonnelAsync();
+                return Ok(personnel.Select(member => new PersonnelCallOptionDto
+                {
+                    Id = member.Id,
+                    FullName = member.FullName,
+                    Role = member.Role
+                }));
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error getting personnel call options");
+                return StatusCode(500, "An error occurred while retrieving personnel call options");
+            }
+        }
+
         // GET: api/personnel/{id}
         [HttpGet("{id}")]
         public async Task<ActionResult<UserDto>> GetPersonnelById(string id)

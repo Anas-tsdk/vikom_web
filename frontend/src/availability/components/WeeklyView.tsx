@@ -7,9 +7,10 @@ import { parseISODate, getDayName, getDayNumber, isToday } from '../../utils/dat
 interface WeeklyViewProps {
   weekData: WeekAvailability;
   onDayClick: (date: string, window?: AvailabilityWindow) => void;
+  readOnly?: boolean;
 }
 
-const WeeklyView: React.FC<WeeklyViewProps> = ({ weekData, onDayClick }) => {
+const WeeklyView: React.FC<WeeklyViewProps> = ({ weekData, onDayClick, readOnly = false }) => {
   return (
     <Row className="g-3">
       {weekData.days.map((dayData) => {
@@ -22,6 +23,7 @@ const WeeklyView: React.FC<WeeklyViewProps> = ({ weekData, onDayClick }) => {
               dayNumber={getDayNumber(date)}
               isToday={isToday(date)}
               onClick={onDayClick}
+              readOnly={readOnly}
             />
           </Col>
         );

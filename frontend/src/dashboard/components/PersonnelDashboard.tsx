@@ -1,19 +1,17 @@
 import React, { useState, useEffect } from 'react';
 import { Dropdown } from 'react-bootstrap';
 import { useTranslation } from 'react-i18next';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link } from 'react-router-dom';
 import { fetchPersonnelDashboard } from '../services/DashboardService';
+import PatientService from '../../patients/services/PatientService';
+import type { PatientDetailsDto } from '../../patients/types/patient';
 import { fetchWeekAvailability } from '../../availability/services/AvailabilityService';
-import type { AvailabilitySummary, WeekAvailability } from '../../availability/types/availability';
-import TaskBadges from '../../components/common/TaskBadges';
+import type { WeekAvailability } from '../../availability/types/availability';
 import PageHeader from '../../components/common/PageHeader';
 import SectionCard from '../../components/common/SectionCard';
 import StatTile from '../../components/common/StatTile';
-import AppointmentCard from '../../appointments/components/AppointmentCard';
 import EmptyState from '../../components/common/EmptyState';
-import VisitDetailsModal from '../../visits/components/VisitDetailsModal';
 import type { PersonnelViewModel } from '../types/dashboard';
-import type { AppointmentSummary } from '../../appointments/types/appointment';
 import { localeForLanguage } from '../../i18n';
 import { getUserInfo } from '../../auth/AuthService';
 import { isHeadNurseRole } from '../../auth/roles';
@@ -31,17 +29,8 @@ const SCHEDULE_START_MINUTES = 6 * 60;
 const SCHEDULE_END_MINUTES = 22 * 60;
 const SCHEDULE_DURATION_MINUTES = SCHEDULE_END_MINUTES - SCHEDULE_START_MINUTES;
 
-// "<weekday> <month> <day> • <start> - <end>" line for the recent appointments list.
-const formatRecentDateTime = (appointment: AppointmentSummary, locale: string) => {
-  const datePart = appointment.date
-    ? new Date(appointment.date).toLocaleDateString(locale, { weekday: 'long', month: 'short', day: 'numeric' })
-    : '';
-  return `${datePart} • ${appointment.startTime} - ${appointment.endTime}`;
-};
-
 // personnel dashboard component
 const PersonnelDashboard: React.FC = () => {
-  const navigate = useNavigate();
   const { t, i18n } = useTranslation();
   const locale = localeForLanguage(i18n.resolvedLanguage);
   const isHeadNurse = isHeadNurseRole(getUserInfo()?.role);
@@ -54,11 +43,8 @@ const PersonnelDashboard: React.FC = () => {
   const [availabilityWeekLoading, setAvailabilityWeekLoading] = useState(false);
   const [availabilityWeekError, setAvailabilityWeekError] = useState<string | null>(null);
   const [timelineFilter, setTimelineFilter] = useState<'alle' | 'fysisk' | 'digitalt'>('alle');
-  const [detailsVisitId, setDetailsVisitId] = useState<number | null>(null);
-  const [displayedMonthDate, setDisplayedMonthDate] = useState<Date>(() => {
-    const now = new Date();
-    return new Date(now.getFullYear(), now.getMonth(), 1);
-  });
+  const [nextVisitPatient, setNextVisitPatient] = useState<PatientDetailsDto | null>(null);
+  const [nextVisitPatientError, setNextVisitPatientError] = useState<string | null>(null);
 
   // fetches dashboard data on mount
   useEffect(() => {
@@ -76,6 +62,30 @@ const PersonnelDashboard: React.FC = () => {
 
     loadDashboard();
   }, [t]);
+
+  const nextVisitPatientId = dashboard?.upcomingAppointments[0]?.patientId;
+
+  useEffect(() => {
+    if (!nextVisitPatientId) {
+      setNextVisitPatient(null);
+      setNextVisitPatientError(null);
+      return;
+    }
+
+    let active = true;
+    setNextVisitPatient(null);
+    setNextVisitPatientError(null);
+    PatientService.getById(nextVisitPatientId)
+      .then((patient) => {
+        if (active) setNextVisitPatient(patient);
+      })
+      .catch((loadError: unknown) => {
+        console.error('Error loading next-visit patient details:', loadError);
+        if (active) setNextVisitPatientError(t('Kunne ikke laste pasientdetaljer.'));
+      });
+
+    return () => { active = false; };
+  }, [nextVisitPatientId, t]);
 
   useEffect(() => {
     if (!dashboard?.personnelId) return;
@@ -119,66 +129,6 @@ const PersonnelDashboard: React.FC = () => {
   }
 
   const today = new Date();
-  const displayedYear = displayedMonthDate.getFullYear();
-  const displayedMonth = displayedMonthDate.getMonth();
-  const firstDayOfMonth = new Date(displayedYear, displayedMonth, 1);
-  const daysInMonth = new Date(displayedYear, displayedMonth + 1, 0).getDate();
-  const daysInPreviousMonth = new Date(displayedYear, displayedMonth, 0).getDate();
-  const firstDayWeekIndex = (firstDayOfMonth.getDay() + 6) % 7;
-  const totalCalendarCells = 42;
-
-  const monthLabel = firstDayOfMonth.toLocaleDateString(locale, {
-    month: 'long',
-    year: 'numeric',
-  });
-
-  const weekDayLabels = Array.from({ length: 7 }, (_, index) =>
-    new Date(2024, 0, 1 + index).toLocaleDateString(locale, { weekday: 'narrow' }),
-  );
-
-  const appointmentDateSet = new Set(
-    dashboard.upcomingAppointments.map((appointment) => {
-      const date = new Date(appointment.date);
-      date.setHours(0, 0, 0, 0);
-      return date.getTime();
-    })
-  );
-
-  const calendarDays = Array.from({ length: totalCalendarCells }, (_, index) => {
-    const dayOffset = index - firstDayWeekIndex;
-    const dayNumber = dayOffset + 1;
-
-    if (dayNumber <= 0) {
-      const previousMonthDate = new Date(displayedYear, displayedMonth - 1, daysInPreviousMonth + dayNumber);
-      previousMonthDate.setHours(0, 0, 0, 0);
-      return {
-        key: `prev-${index}`,
-        date: previousMonthDate,
-        day: previousMonthDate.getDate(),
-        isCurrentMonth: false,
-      };
-    }
-
-    if (dayNumber > daysInMonth) {
-      const nextMonthDate = new Date(displayedYear, displayedMonth + 1, dayNumber - daysInMonth);
-      nextMonthDate.setHours(0, 0, 0, 0);
-      return {
-        key: `next-${index}`,
-        date: nextMonthDate,
-        day: nextMonthDate.getDate(),
-        isCurrentMonth: false,
-      };
-    }
-
-    const currentMonthDate = new Date(displayedYear, displayedMonth, dayNumber);
-    currentMonthDate.setHours(0, 0, 0, 0);
-    return {
-      key: `current-${dayNumber}`,
-      date: currentMonthDate,
-      day: dayNumber,
-      isCurrentMonth: true,
-    };
-  });
 
   const dayTimelineDateLabel = today.toLocaleDateString(locale, {
     day: 'numeric',
@@ -233,18 +183,12 @@ const PersonnelDashboard: React.FC = () => {
     .map((appointment) => {
       const notes = appointment.availabilityNotes?.trim() ?? '';
       const visitType = getVisitType(notes);
-      const notesMatch = notes.match(/^([^,]+),\s*(.+)$/);
-      const zone = notesMatch ? notesMatch[1].trim() : '';
-      const address = notesMatch ? notesMatch[2].trim() : notes;
-
       return {
         id: appointment.id,
         startTime: appointment.startTime,
         endTime: appointment.endTime,
         patientName: appointment.patientName,
         tasks: appointment.tasks,
-        zone,
-        address,
         visitType,
         tone: visitType === 'Digitalt' ? 'blue' : 'olive',
       };
@@ -263,32 +207,12 @@ const PersonnelDashboard: React.FC = () => {
   });
 
   const todayDateKey = toDateKey(today);
-  const availabilityByDate = (availabilityWeek?.days ?? [])
-    .flatMap((day) =>
-      day.windows.flatMap((window) =>
-        (window.slots ?? []).map((slot) => ({
-          id: slot.id,
-          date: day.date,
-          startTime: slot.startTime,
-          endTime: slot.endTime,
-          notes: window.notes ?? '',
-          isBooked: slot.isBooked,
-        })),
-      ),
-    )
-    .reduce<Record<string, AvailabilitySummary[]>>((groupedAvailability, availability) => {
-      const dateKey = availability.date;
-
-      if (!groupedAvailability[dateKey]) {
-        groupedAvailability[dateKey] = [];
-      }
-
-      groupedAvailability[dateKey].push(availability);
-      return groupedAvailability;
-    }, {});
-
-  const orderedAvailabilityDateKeys = Object.keys(availabilityByDate)
-    .sort((firstKey, secondKey) => firstKey.localeCompare(secondKey));
+  const moveAvailabilityWeek = (offset: number) => {
+    const next = new Date(selectedAvailabilityWeekStart);
+    next.setDate(next.getDate() + offset * 7);
+    setSelectedAvailabilityWeekStart(next);
+    setSelectedAvailabilityDateKey(toDateKey(next));
+  };
 
   const baseWindowDate = new Date(today);
   baseWindowDate.setFullYear(
@@ -310,11 +234,7 @@ const PersonnelDashboard: React.FC = () => {
     };
   });
 
-  const defaultAvailabilityDateKey =
-    availabilityWindowDays.some((day) => day.dateKey === todayDateKey) &&
-    availabilityByDate[todayDateKey]
-      ? todayDateKey
-      : orderedAvailabilityDateKeys[0] ?? availabilityWindowDays[0]?.dateKey ?? todayDateKey;
+  const defaultAvailabilityDateKey = todayDateKey;
 
   const activeAvailabilityDateKey = selectedAvailabilityDateKey || defaultAvailabilityDateKey;
 
@@ -374,20 +294,30 @@ const PersonnelDashboard: React.FC = () => {
 
   const nowMarkerIndex = timelineItems.findIndex((item) => currentMinutes < toMinutes(item.startTime));
 
-  const selectCalendarDate = (date: Date) => {
-    const selectedDate = new Date(date.getFullYear(), date.getMonth(), date.getDate());
-    setSelectedAvailabilityDateKey(toDateKey(selectedDate));
-    setSelectedAvailabilityWeekStart(getMonday(selectedDate));
-    if (selectedDate.getMonth() !== displayedMonth || selectedDate.getFullYear() !== displayedYear) {
-      setDisplayedMonthDate(new Date(selectedDate.getFullYear(), selectedDate.getMonth(), 1));
-    }
-  };
 
   return (
     <div className="personnel-dashboard">
       <PageHeader
         title={t('Velkommen tilbake, {{name}}!', { name: dashboard.personnelName })}
         subtitle={t('Her er en oversikt over timeplanen og pasientene dine')}
+        actions={(
+          <>
+            {isHeadNurse && (
+              <Link to="/appointments/create" className="btn btn-primary">
+                <i className="bi bi-calendar-plus me-2" aria-hidden="true"></i>
+                {t('Opprett avtale')}
+              </Link>
+            )}
+            <Link to="/availability" className="btn btn-outline-secondary">
+              <i className="bi bi-arrow-repeat me-2" aria-hidden="true"></i>
+              {t('Oppdater tilgjengelighet')}
+            </Link>
+            <Link to="/planning" className="btn btn-outline-secondary">
+              <i className="bi bi-geo-alt me-2" aria-hidden="true"></i>
+              {t('Daily route')}
+            </Link>
+          </>
+        )}
       />
 
       {/* displays quick stats overview with key metrics */}
@@ -398,78 +328,71 @@ const PersonnelDashboard: React.FC = () => {
         <StatTile icon="x-circle" label={t('Avlyste')} value={dashboard.cancelledAppointments} />
       </div>
 
+      {dashboard.upcomingAppointments[0] && (
+        <SectionCard title={t('Next visit')} icon="signpost-split" className="next-visit-card">
+          {(() => {
+            const appointment = dashboard.upcomingAppointments[0];
+            const patientKey = appointment.patientId ?? appointment.patientUsername;
+            const patientHref = patientKey
+              ? `/patients/${encodeURIComponent(patientKey)}`
+              : '/patients';
+            const journalHref = `/besok/${appointment.id}${appointment.visitType === 'Digital' ? '?type=Digital' : ''}`;
+            const accessInstructions =
+              nextVisitPatient?.clinical.accessInstructions ?? appointment.patientAccessInstructions;
+            const medicationEquipmentNotes =
+              nextVisitPatient?.clinical.medicationEquipmentNotes ?? appointment.patientMedicationEquipmentNotes;
+            return (
+              <div className="next-visit-content">
+                <div className="next-visit-details">
+                  <div className="next-visit-primary">
+                    <div className="fw-bold fs-5">{appointment.patientName}</div>
+                    <div className="text-muted">
+                    {new Date(appointment.date).toLocaleDateString(locale, {
+                      weekday: 'long', day: 'numeric', month: 'long',
+                    })} · {appointment.startTime}–{appointment.endTime}
+                    </div>
+                    {appointment.patientAddress && (
+                      <div className="mt-2"><i className="bi bi-geo-alt me-2" aria-hidden="true"></i>{appointment.patientAddress}</div>
+                    )}
+                    <div className="next-visit-national-id">
+                      <strong>{t('Personnummer')}:</strong>{' '}
+                      {nextVisitPatient?.socialSecurityNumber || t('Ikke oppgitt')}
+                    </div>
+                  </div>
+                  <div className="next-visit-preparation">
+                    {appointment.tasks && (
+                      <div><strong>{t('Tasks')}:</strong> {appointment.tasks}</div>
+                    )}
+                    <div>
+                      <strong>{t('Tilgang til boligen')}:</strong>{' '}
+                      {accessInstructions || t('Ikke oppgitt')}
+                    </div>
+                    <div>
+                      <strong>{t('Medisin og utstyr')}:</strong>{' '}
+                      {medicationEquipmentNotes || t('Ikke oppgitt')}
+                    </div>
+                    {nextVisitPatientError && (
+                      <div className="text-danger">{nextVisitPatientError}</div>
+                    )}
+                  </div>
+                </div>
+                <div className="next-visit-actions">
+                  <Link to={patientHref} className="btn btn-outline-primary">
+                    <i className="bi bi-person-lines-fill me-2" aria-hidden="true"></i>{t('Open patient details')}
+                  </Link>
+                  <Link to={journalHref} className="btn btn-primary">
+                    <i className="bi bi-journal-text me-2" aria-hidden="true"></i>
+                    {appointment.visitId ? t('Open journal') : t('Start visit')}
+                  </Link>
+                </div>
+              </div>
+            );
+          })()}
+        </SectionCard>
+      )}
+
       <div className="top-content">
         <div className="mini-column">
-          {/* Calendar overview section */}
-          <SectionCard title={t('Kalenderoversikt')} icon="calendar3" className="calendar-overview">
-            <div className="calendar-header-row">
-              <button
-                type="button"
-                className="calendar-nav-btn"
-                aria-label={t('Forrige måned')}
-                onClick={() => setDisplayedMonthDate(new Date(displayedYear, displayedMonth - 1, 1))}
-              >
-                <i className="bi bi-chevron-left"></i>
-              </button>
-              <h3 className="calendar-month-label">{monthLabel}</h3>
-              <button
-                type="button"
-                className="calendar-nav-btn"
-                aria-label={t('Neste måned')}
-                onClick={() => setDisplayedMonthDate(new Date(displayedYear, displayedMonth + 1, 1))}
-              >
-                <i className="bi bi-chevron-right"></i>
-              </button>
-            </div>
-
-            <div className="calendar-weekdays" role="presentation">
-              {weekDayLabels.map((label, index) => (
-                <span key={`${label}-${index}`} className="calendar-weekday">
-                  {label}
-                </span>
-              ))}
-            </div>
-
-            <div className="calendar-grid">
-              {calendarDays.map((calendarDay) => {
-                const isInSelectedWeek =
-                  calendarDay.date >= selectedAvailabilityWeekStart &&
-                  calendarDay.date < new Date(
-                    selectedAvailabilityWeekStart.getFullYear(),
-                    selectedAvailabilityWeekStart.getMonth(),
-                    selectedAvailabilityWeekStart.getDate() + 7,
-                  );
-
-                const isToday =
-                  calendarDay.date.getDate() === today.getDate() &&
-                  calendarDay.date.getMonth() === today.getMonth() &&
-                  calendarDay.date.getFullYear() === today.getFullYear();
-
-                const hasAppointment = appointmentDateSet.has(calendarDay.date.getTime());
-                const isSelectedDay = toDateKey(calendarDay.date) === activeAvailabilityDateKey;
-
-                return (
-                  <button
-                    key={calendarDay.key}
-                    type="button"
-                    className={`calendar-day ${calendarDay.isCurrentMonth ? '' : 'outside-month'} ${isInSelectedWeek ? 'selected-week' : ''} ${isToday ? 'today' : ''} ${isSelectedDay ? 'selected-day' : ''} ${hasAppointment ? 'has-appointment' : ''}`}
-                    aria-label={calendarDay.date.toLocaleDateString(locale, {
-                      weekday: 'long',
-                      day: 'numeric',
-                      month: 'long',
-                      year: 'numeric',
-                    })}
-                    aria-pressed={isSelectedDay}
-                    onClick={() => selectCalendarDate(calendarDay.date)}
-                  >
-                    <span className="day-number">{calendarDay.day}</span>
-                    {hasAppointment && <span className="appointment-dot" aria-hidden="true" />}
-                  </button>
-                );
-              })}
-            </div>
-          </SectionCard>
-
           <SectionCard
             title={t('Kommende avtaler')}
             icon="clock"
@@ -516,17 +439,12 @@ const PersonnelDashboard: React.FC = () => {
 
                       <div className={`timeline-row ${item.isCurrent ? 'active' : ''} ${item.isPast ? 'past' : ''}`}>
                         <div className="timeline-time">{item.isCurrent ? nowTimeLabel : item.startTime}</div>
-                        <div className={`timeline-item timeline-tone-${item.tone} ${item.isCurrent ? 'active' : ''} ${item.isPast ? 'past' : ''}`}>
-                          <div className="timeline-item-content">
-                            <p className="timeline-patient-name">{item.patientName}</p>
-                            <TaskBadges tasks={item.tasks} variant="secondary" className="timeline-task-badges" />
-                            {item.visitType === 'Fysisk' ? (
-                              <p className="timeline-address">{item.zone && item.address ? `${item.zone}, ${item.address}` : (item.address || item.zone || t('Adresse ikke oppgitt'))}</p>
-                            ) : (
-                              <p className="timeline-visit-type">{t('Digitalt besøk')}</p>
-                            )}
-                          </div>
-                        </div>
+                        <div
+                          className={`timeline-item timeline-tone-${item.tone} ${item.isCurrent ? 'active' : ''} ${item.isPast ? 'past' : ''}`}
+                          role="img"
+                          aria-label={`${item.patientName}, ${item.startTime}–${item.endTime}${item.tasks ? `, ${item.tasks}` : ''}`}
+                          title={`${item.patientName} · ${item.startTime}–${item.endTime}`}
+                        />
                       </div>
                     </React.Fragment>
                   ))}
@@ -549,37 +467,6 @@ const PersonnelDashboard: React.FC = () => {
         </div>
 
         <div className="availability-column">
-          <div className="availability-quick-actions" role="group" aria-label={t('Hurtighandlinger')}>
-            {isHeadNurse && (
-              <button
-                type="button"
-                className="quick-action-btn"
-                onClick={() => navigate('/appointments?ny=1')}
-              >
-                <i className="bi bi-calendar-plus"></i>
-                <span>{t('Legg til nytt besøk')}</span>
-              </button>
-            )}
-
-            <button
-              type="button"
-              className="quick-action-btn"
-              onClick={() => navigate('/availability')}
-            >
-              <i className="bi bi-arrow-repeat"></i>
-              <span>{t('Oppdater tilgjengelighet')}</span>
-            </button>
-
-            <button
-              type="button"
-              className="quick-action-btn"
-              onClick={() => navigate('/planning')}
-            >
-              <i className="bi bi-geo-alt"></i>
-              <span>{t('Daily route')}</span>
-            </button>
-          </div>
-
           <SectionCard
             title={t('Kommende tilgjengelighet')}
             icon="calendar-week"
@@ -596,8 +483,16 @@ const PersonnelDashboard: React.FC = () => {
                 <p className="text-danger mb-0" role="alert">{availabilityWeekError}</p>
               ) : (
                 <div className="availability-day-planner">
-                  <div className="availability-days-nav">
-                    <div className="availability-days-strip">
+                  <div className="availability-days-nav d-flex align-items-center gap-2">
+                    <button
+                      type="button"
+                      className="btn btn-outline-secondary btn-sm flex-shrink-0"
+                      aria-label={t('Forrige uke')}
+                      onClick={() => moveAvailabilityWeek(-1)}
+                    >
+                      <i className="bi bi-chevron-left" aria-hidden="true"></i>
+                    </button>
+                    <div className="availability-days-strip flex-grow-1">
                       {availabilityWindowDays.map((day) => {
                         const isActive = day.dateKey === activeAvailabilityDateKey;
 
@@ -623,6 +518,14 @@ const PersonnelDashboard: React.FC = () => {
                         );
                       })}
                     </div>
+                    <button
+                      type="button"
+                      className="btn btn-outline-secondary btn-sm flex-shrink-0"
+                      aria-label={t('Neste uke')}
+                      onClick={() => moveAvailabilityWeek(1)}
+                    >
+                      <i className="bi bi-chevron-right" aria-hidden="true"></i>
+                    </button>
                   </div>
 
                   {activeAvailabilityDateLabel && (
@@ -649,7 +552,7 @@ const PersonnelDashboard: React.FC = () => {
                         {positionedAppointments.length > 0 ? (
                           <div
                             className="availability-schedule-track"
-                            style={{ height: '4.5rem' }}
+                            style={{ height: '3rem' }}
                             role="list"
                           >
                             {positionedAppointments.map((appointment) => (
@@ -664,14 +567,6 @@ const PersonnelDashboard: React.FC = () => {
                                 aria-label={appointment.label}
                                 role="listitem"
                               >
-                                <span className="availability-schedule-event-time">
-                                  {appointment.startTime}
-                                </span>
-                                {appointment.width >= 6.3 && (
-                                  <span className="availability-schedule-event-patient">
-                                    {appointment.patientName}
-                                  </span>
-                                )}
                               </article>
                             ))}
                           </div>
@@ -687,54 +582,12 @@ const PersonnelDashboard: React.FC = () => {
               )}
           </SectionCard>
 
-          <SectionCard
-            title={t('Siste avtaler')}
-            icon="clock-history"
-            action={
-              <Link to="/appointments/archive" className="btn btn-secondary btn-sm">
-                {t('Besøksarkiv')}
-              </Link>
-            }
-          >
-              {dashboard.recentAppointments.length > 0 ? (
-                <div className="d-flex flex-column gap-3">
-                  {dashboard.recentAppointments.map((appointment) => (
-                    <AppointmentCard
-                      key={appointment.id}
-                      appointment={appointment}
-                      dateTimeText={formatRecentDateTime(appointment, locale)}
-                      subject={appointment.patientName ? t('Pasient: {{name}}', { name: appointment.patientName }) : null}
-                      actions={
-                        appointment.visitId ? (
-                          <button
-                            type="button"
-                            className="btn btn-secondary btn-sm"
-                            onClick={() => setDetailsVisitId(appointment.visitId ?? null)}
-                          >
-                            <i className="bi bi-info-circle me-1" aria-hidden="true"></i>
-                            {t('Info')}
-                          </button>
-                        ) : undefined
-                      }
-                    />
-                  ))}
-                </div>
-              ) : (
-                <EmptyState icon="calendar-x" text={t('Ingen nylige avtaler å vise.')} />
-              )}
-          </SectionCard>
         </div>
       </div>
 
       {/*
         Kommende avtaler er midlertidig kommentert ut etter ønske.
       */}
-
-      <VisitDetailsModal
-        show={detailsVisitId !== null}
-        onClose={() => setDetailsVisitId(null)}
-        visitId={detailsVisitId}
-      />
 
     </div>
   );

@@ -1,0 +1,43 @@
+.patient-picker {
+  position: relative;
+}
+
+.patient-picker-options {
+  position: absolute;
+  z-index: 1050;
+  top: calc(100% + 0.25rem);
+  right: 0;
+  left: 0;
+  max-height: 16rem;
+  overflow-y: auto;
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-default);
+  background: var(--bs-body-bg);
+  box-shadow: var(--bs-box-shadow);
+}
+
+.patient-picker-option {
+  display: block;
+  width: 100%;
+  padding: 0.5rem 0.75rem;
+  border: 0;
+  border-bottom: 1px solid var(--bs-border-color);
+  background: transparent;
+  color: var(--bs-body-color);
+  text-align: left;
+  cursor: pointer;
+}
+
+.patient-picker-option:last-child {
+  border-bottom: 0;
+}
+
+.patient-picker-option:hover,
+.patient-picker-option.active {
+  background: var(--bs-primary-bg-subtle);
+}
+
+.patient-picker-empty {
+  padding: 0.75rem;
+  color: var(--bs-secondary-color);
+}

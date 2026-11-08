@@ -127,6 +127,7 @@ builder.Services.AddAuthorization(options =>
     options.AddPolicy(backend.Services.AuthorizationPolicies.HeadNurse, policy =>
         policy.RequireRole(backend.Models.UserRoles.HeadNurse));
 });
+builder.Services.AddDataProtection();
 
 // Register repositories
 builder.Services.AddHttpClient();

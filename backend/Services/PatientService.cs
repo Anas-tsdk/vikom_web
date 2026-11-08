@@ -3,6 +3,7 @@ using backend.DAL;
 using backend.DAL.Repositories;
 using backend.Models;
 using Microsoft.AspNetCore.Identity;
+using Microsoft.AspNetCore.DataProtection;
 
 namespace backend.Services
 {
@@ -19,6 +20,7 @@ namespace backend.Services
         // this is the one instance they and UserManager all share, so it is what a
         // multi-step write has to begin the transaction on.
         private readonly ApplicationDbContext _context;
+        private readonly IDataProtector _patientDataProtector;
 
         public PatientService(
             IUserRepository userRepository,
@@ -27,6 +29,7 @@ namespace backend.Services
             ICallLogService callLogService,
             UserManager<User> userManager,
             ApplicationDbContext context,
+            IDataProtectionProvider dataProtectionProvider,
             ISupabaseDailyCheckInStore? dailyCheckIns = null)
         {
             _userRepository = userRepository;
@@ -35,6 +38,8 @@ namespace backend.Services
             _callLogService = callLogService;
             _userManager = userManager;
             _context = context;
+            _patientDataProtector = dataProtectionProvider.CreateProtector(
+                "Vikom.Patient.SocialSecurityNumber.v1");
             _dailyCheckIns = dailyCheckIns;
         }
 
@@ -175,6 +180,7 @@ namespace backend.Services
                 Email = patient.Email ?? string.Empty,
                 PhoneNumber = patient.PhoneNumber ?? string.Empty,
                 Address = patient.Address ?? string.Empty,
+                SocialSecurityNumber = UnprotectSocialSecurityNumber(patient.SocialSecurityNumberProtected),
                 Latitude = patient.Latitude,
                 Longitude = patient.Longitude,
                 SupabaseProfileId = patient.SupabaseProfileId,
@@ -217,6 +223,9 @@ namespace backend.Services
                 Role = "Patient",
                 PhoneNumber = string.IsNullOrWhiteSpace(dto.PhoneNumber) ? null : dto.PhoneNumber.Trim(),
                 Address = string.IsNullOrWhiteSpace(dto.Address) ? null : dto.Address.Trim(),
+                SocialSecurityNumberProtected = ProtectSocialSecurityNumber(dto.SocialSecurityNumber),
+                AccessInstructions = Clean(dto.AccessInstructions),
+                MedicationEquipmentNotes = Clean(dto.MedicationEquipmentNotes),
                 Latitude = dto.Latitude,
                 Longitude = dto.Longitude,
                 EmailConfirmed = true,
@@ -314,6 +323,7 @@ namespace backend.Services
             patient.FullName = dto.FullName;
             patient.PhoneNumber = dto.PhoneNumber;
             patient.Address = dto.Address;
+            patient.SocialSecurityNumberProtected = ProtectSocialSecurityNumber(dto.SocialSecurityNumber);
             patient.Latitude = dto.Latitude;
             patient.Longitude = dto.Longitude;
             patient.DateOfBirth = dto.DateOfBirth?.Date;
@@ -321,6 +331,8 @@ namespace backend.Services
             patient.NextOfKinRelation = Clean(dto.NextOfKinRelation);
             patient.GeneralPractitioner = Clean(dto.GeneralPractitioner);
             patient.Allergies = Clean(dto.Allergies);
+            patient.AccessInstructions = Clean(dto.AccessInstructions);
+            patient.MedicationEquipmentNotes = Clean(dto.MedicationEquipmentNotes);
             patient.Diagnoses = JoinList(dto.Diagnoses);
             patient.ConditionFlags = JoinList(dto.ConditionFlags);
             patient.TreatmentPlan = Clean(dto.TreatmentPlan);
@@ -439,6 +451,12 @@ namespace backend.Services
 
         private static string? Clean(string? value) =>
             string.IsNullOrWhiteSpace(value) ? null : value.Trim();
+
+        private string? ProtectSocialSecurityNumber(string? value) =>
+            string.IsNullOrWhiteSpace(value) ? null : _patientDataProtector.Protect(value.Trim());
+
+        private string? UnprotectSocialSecurityNumber(string? value) =>
+            string.IsNullOrWhiteSpace(value) ? null : _patientDataProtector.Unprotect(value);
 
         private static string? JoinList(IEnumerable<string>? values)
         {

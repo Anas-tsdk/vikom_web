@@ -18,6 +18,7 @@ interface AppointmentCardData {
   patientProposedStartTime?: string | null;
   patientProposedEndTime?: string | null;
   tasks: string;
+  patientAddress?: string | null;
 }
 
 interface AppointmentCardProps {
@@ -115,6 +116,12 @@ const AppointmentCard: React.FC<AppointmentCardProps> = ({
         </div>
 
         <TaskBadges tasks={appointment.tasks} variant={taskVariant} />
+        {appointment.patientAddress && (
+          <div className="text-muted small mt-2">
+            <i className="bi bi-geo-alt me-1" aria-hidden="true"></i>
+            {appointment.patientAddress}
+          </div>
+        )}
 
         {hasProposal && (
           <div className="alert alert-warning mt-3 mb-0" role="status">

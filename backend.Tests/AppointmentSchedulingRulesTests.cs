@@ -8,7 +8,7 @@ public sealed class AppointmentSchedulingRulesTests
 {
     [Theory]
     [InlineData("Medisin", 15)]
-    [InlineData("Bading", 25)]
+    [InlineData("Bading", 35)]
     [InlineData("Servering av måltider", 20)]
     [InlineData("Husholdning", 35)]
     [InlineData("Digital hjelp", 25)]
@@ -25,7 +25,7 @@ public sealed class AppointmentSchedulingRulesTests
             "Medisin, Bading, Servering av måltider, Husholdning, Digital hjelp, Annet",
             10);
 
-        Assert.Equal(90, duration);
+        Assert.Equal(100, duration);
     }
 
     [Fact]

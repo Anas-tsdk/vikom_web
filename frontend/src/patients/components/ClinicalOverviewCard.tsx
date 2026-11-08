@@ -44,7 +44,11 @@ const ClinicalOverviewCard: React.FC<ClinicalOverviewCardProps> = ({ clinical, a
       <InfoRow icon="calendar-heart" label={t('Født')} value={dobValue} />
       <InfoRow icon="people" label={t('Pårørende')} value={kin} />
       <InfoRow icon="hospital" label={t('Fastlege')} value={clinical.generalPractitioner} />
-      <InfoRow icon="exclamation-triangle" label={t('Allergier')} value={clinical.allergies} />
+      <InfoRow
+        icon="exclamation-triangle"
+        label={t('Allergier')}
+        value={clinical.allergies ? <span className="text-danger fw-semibold">{clinical.allergies}</span> : undefined}
+      />
     </SectionCard>
   );
 };

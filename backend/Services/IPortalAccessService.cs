@@ -13,6 +13,7 @@ namespace backend.Services
     {
         string? GetUserId(ClaimsPrincipal principal);
         Task<bool> IsHeadNurseAsync(ClaimsPrincipal principal);
+        Task<bool> CanViewPersonnelAsync(ClaimsPrincipal principal, string personnelId);
         Task<bool> CanManagePersonnelAsync(ClaimsPrincipal principal, string personnelId);
         Task<bool> CanAccessPatientAsync(ClaimsPrincipal principal, string patientId);
         Task<bool> IsPortalStaffAsync(string userId);

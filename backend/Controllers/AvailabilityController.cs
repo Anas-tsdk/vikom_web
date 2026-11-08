@@ -56,7 +56,7 @@ namespace backend.Controllers
                     return NotFound();
                 if (!await _access.IsPortalStaffAsync(availability.PersonnelId))
                     return BadRequest("The availability owner is not a nurse");
-                if (!await _access.CanManagePersonnelAsync(User, availability.PersonnelId))
+                if (!await _access.CanViewPersonnelAsync(User, availability.PersonnelId))
                     return Forbid();
 
                 return Ok(availability);
@@ -76,7 +76,7 @@ namespace backend.Controllers
             {
                 if (!await _access.IsPortalStaffAsync(personnelId))
                     return BadRequest("The selected user is not a nurse");
-                if (!await _access.CanManagePersonnelAsync(User, personnelId)) return Forbid();
+                if (!await _access.CanViewPersonnelAsync(User, personnelId)) return Forbid();
 
                 var availabilities = await _availabilityService.GetByPersonnelIdAsync(personnelId);
                 return Ok(availabilities);
@@ -219,7 +219,7 @@ namespace backend.Controllers
                     return BadRequest("Invalid date format");
                 if (!await _access.IsPortalStaffAsync(personnelId))
                     return BadRequest("The selected user is not a nurse");
-                if (!await _access.CanManagePersonnelAsync(User, personnelId)) return Forbid();
+                if (!await _access.CanViewPersonnelAsync(User, personnelId)) return Forbid();
 
                 var weekData = await _availabilityService.GetWeekAvailabilityAsync(personnelId, parsedDate);
                 return Ok(weekData);
@@ -243,7 +243,7 @@ namespace backend.Controllers
                     return BadRequest("Invalid date format");
                 if (!await _access.IsPortalStaffAsync(personnelId))
                     return BadRequest("The selected user is not a nurse");
-                if (!await _access.CanManagePersonnelAsync(User, personnelId)) return Forbid();
+                if (!await _access.CanViewPersonnelAsync(User, personnelId)) return Forbid();
 
                 var dayData = await _availabilityService.GetDayAvailabilityAsync(personnelId, parsedDate);
                 return Ok(dayData);
@@ -374,7 +374,7 @@ namespace backend.Controllers
             var targetPersonnelId = string.IsNullOrWhiteSpace(personnelId) ? userId : personnelId;
             if (!await _access.IsPortalStaffAsync(targetPersonnelId))
                 return BadRequest("The selected user is not a nurse");
-            if (!await _access.CanManagePersonnelAsync(User, targetPersonnelId)) return Forbid();
+            if (!await _access.CanViewPersonnelAsync(User, targetPersonnelId)) return Forbid();
             return Ok(await _availabilityService.GetWeeklyScheduleAsync(targetPersonnelId));
         }
 

@@ -22,6 +22,11 @@
   grid-template-columns: minmax(200px, .8fr) minmax(220px, 1fr) minmax(180px, .5fr) auto;
 }
 
+.appointment-create-tab {
+  max-width: 900px;
+  margin-inline: auto;
+}
+
 @media (max-width: 991px) {
   .appointment-list-page {
     padding: var(--space-5);

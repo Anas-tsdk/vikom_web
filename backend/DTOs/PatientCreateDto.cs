@@ -22,6 +22,10 @@ namespace backend.DTOs
         public string? PhoneNumber { get; set; }
 
         public string? Address { get; set; }
+        [StringLength(64)]
+        public string? SocialSecurityNumber { get; set; }
+        public string? AccessInstructions { get; set; }
+        public string? MedicationEquipmentNotes { get; set; }
         [Range(-90, 90)] public double? Latitude { get; set; }
         [Range(-180, 180)] public double? Longitude { get; set; }
 

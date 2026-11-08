@@ -4,6 +4,7 @@ import NavBar from './NavBar';
 import Sidebar from './Sidebar';
 import * as AuthService from '../auth/AuthService';
 import AppointmentStaffNotification from '../appointments/components/AppointmentStaffNotification';
+import StaffCallProvider from '../personnel/components/StaffCallProvider';
 import './Layout.css';
 
 /**
@@ -30,7 +31,7 @@ const Layout: React.FC = () => {
   const showNavBar = !noNavBarRoutes.includes(location.pathname);
 
   return (
-    <>
+    <StaffCallProvider>
       {/* conditionally renders navbar based on current route */}
       {showNavBar && <NavBar />}
       {isAuthenticated && <AppointmentStaffNotification />}
@@ -48,7 +49,7 @@ const Layout: React.FC = () => {
           <Outlet />
         </div>
       )}
-    </>
+    </StaffCallProvider>
   );
 };
 

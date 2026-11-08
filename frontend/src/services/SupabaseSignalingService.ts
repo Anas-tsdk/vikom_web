@@ -158,12 +158,20 @@ class SupabaseSignalingService {
         const payloadCallId = innerPayload && typeof innerPayload === 'object' && 'callId' in innerPayload
             ? (innerPayload as { callId?: unknown }).callId
             : undefined;
-        if (typeof payloadCallId === 'string' && payloadCallId && this.currentCallId
+        if (type !== 'call_offer' && typeof payloadCallId === 'string' && payloadCallId && this.currentCallId
             && payloadCallId !== this.currentCallId) return;
 
         if (type && this.callbacks[type]) {
             this.callbacks[type].forEach(cb => cb(innerPayload));
         }
+    }
+
+    setCurrentCallId(callId: string | null): void {
+        this.currentCallId = callId;
+    }
+
+    getCurrentCallId(): string | null {
+        return this.currentCallId;
     }
 
     /**
@@ -294,6 +302,14 @@ class SupabaseSignalingService {
             sdpMid: candidate.sdpMid,
             sdpMLineIndex: candidate.sdpMLineIndex,
         });
+    }
+
+    async sendCallAnswer(callId: string, targetUserId: string, sdp: string): Promise<void> {
+        await this.broadcast(targetUserId, 'call_answer', { callId, sdp });
+    }
+
+    async sendCallRejected(callId: string, targetUserId: string, reason: string): Promise<void> {
+        await this.broadcast(targetUserId, 'call_rejected', { callId, reason });
     }
 
     async requestVideoUpgrade(callId: string, targetUserId: string): Promise<void> {

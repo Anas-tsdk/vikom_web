@@ -5,14 +5,48 @@
   padding: var(--space-6);
 }
 
+.patient-list-controls {
+  display: grid;
+  grid-template-columns: minmax(260px, 1fr) minmax(240px, 320px) auto;
+  gap: var(--space-3);
+  align-items: end;
+  margin-bottom: var(--space-4);
+  padding: var(--space-3);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-default);
+  background: var(--bs-light);
+}
+
+.patient-list-count {
+  padding-bottom: var(--space-2);
+  color: var(--bs-secondary-color);
+  white-space: nowrap;
+}
+
 @media (max-width: 991px) {
   .patient-list-page {
     padding: var(--space-5);
+  }
+
+  .patient-list-controls {
+    grid-template-columns: 1fr 1fr;
+  }
+
+  .patient-list-count {
+    grid-column: 1 / -1;
   }
 }
 
 @media (max-width: 767px) {
   .patient-list-page {
     padding: var(--space-4);
+  }
+
+  .patient-list-controls {
+    grid-template-columns: 1fr;
+  }
+
+  .patient-list-count {
+    grid-column: auto;
   }
 }

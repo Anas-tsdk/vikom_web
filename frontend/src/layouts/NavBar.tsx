@@ -6,7 +6,6 @@ import * as AuthService from '../auth/AuthService';
 import type { SupportedLanguage } from '../i18n';
 import { isHeadNurseRole, isPortalRole } from '../auth/roles';
 import './NavBar.css';
-import useDailyCheckInAlertCount from '../checkins/hooks/useDailyCheckInAlertCount';
 
 const languageOptions: ReadonlyArray<{
   code: SupportedLanguage;
@@ -30,7 +29,6 @@ const NavBar: React.FC = () => {
   const role = userInfo?.role;
   const [showMobileMenu, setShowMobileMenu] = useState(false);
   const [showLanguageMenu, setShowLanguageMenu] = useState(false);
-  const checkInAlertCount = useDailyCheckInAlertCount();
 
   // handles logout action
   const handleLogout = () => {
@@ -125,14 +123,12 @@ const NavBar: React.FC = () => {
                       {isHeadNurseRole(role) && (
                         <Nav.Link
                           as={Link}
-                          to="/alerts"
+                          to="/appointments/create"
                           onClick={closeMobileMenu}
-                          className={isActive('/alerts') ? 'active' : ''}
+                          className={`nav-link-create-appointment ${isActive('/appointments/create') ? 'active' : ''}`}
                         >
-                          {t('Trygghetsvarsler')}
-                          {checkInAlertCount > 0 && (
-                            <span className="badge rounded-pill text-bg-danger ms-2">{checkInAlertCount}</span>
-                          )}
+                          <i className="bi bi-calendar-plus me-2" aria-hidden="true"></i>
+                          {t('Opprett avtale')}
                         </Nav.Link>
                       )}
                       {isHeadNurseRole(role) && (
@@ -153,7 +149,7 @@ const NavBar: React.FC = () => {
                       >
                         {t('Daily route')}
                       </Nav.Link>
-                      {isHeadNurseRole(role) && (
+                      {isPortalRole(role) && (
                         <Nav.Link
                           as={Link}
                           to="/nurses"

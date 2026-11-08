@@ -20,7 +20,7 @@ import type { Appointment, AppointmentSummary } from '../../appointments/types/a
 import Breadcrumb from '../../components/common/Breadcrumb';
 import PatientProfileHeader from '../components/PatientProfileHeader';
 import PatientNotesCard from '../components/PatientNotesCard';
-import EditPatientModal from '../components/EditPatientModal';
+import EditPatientModal, { type PatientEditSection } from '../components/EditPatientModal';
 import ClinicalOverviewCard from '../components/ClinicalOverviewCard';
 import DiagnosesCard from '../components/DiagnosesCard';
 import MedicationsCard from '../components/MedicationsCard';
@@ -80,6 +80,7 @@ const PatientDetailsPage: React.FC = () => {
   const [showAppointmentModal, setShowAppointmentModal] = useState(false);
   const [callMediaType, setCallMediaType] = useState<'audio' | 'video'>('audio');
   const [showEditModal, setShowEditModal] = useState<boolean>(false);
+  const [editSection, setEditSection] = useState<PatientEditSection>('all');
   const [showAllPast, setShowAllPast] = useState<boolean>(false);
   const [activeTab, setActiveTab] = useState<RightTab>('upcoming');
   const [detailsVisitId, setDetailsVisitId] = useState<number | null>(null);
@@ -158,9 +159,14 @@ const PatientDetailsPage: React.FC = () => {
     await refreshPatient();
   };
 
-  const renderPatientEditAction = () =>
-    isHeadNurse
-      ? <IconButton icon="pencil" title={t('Rediger')} onClick={() => setShowEditModal(true)} />
+  const openPatientEditor = (section: PatientEditSection) => {
+    setEditSection(section);
+    setShowEditModal(true);
+  };
+
+  const renderPatientEditAction = (section: Exclude<PatientEditSection, 'all'>) =>
+    (section === 'profile' ? isHeadNurse : isPersonnel)
+      ? <IconButton icon="pencil" title={t('Rediger')} onClick={() => openPatientEditor(section)} />
       : undefined;
 
   if (loading) {
@@ -200,12 +206,11 @@ const PatientDetailsPage: React.FC = () => {
     ? `/besok/${ongoingVisit.id}${ongoingVisit.visitType === 'Digital' ? '?type=Digital' : ''}`
     : undefined;
 
-  // For personnel, clicking a row whose visit is currently Active (pågår) opens
-  // the visit-execution workspace — the same destination as the header shortcut.
+  // Only the assigned nurse can start or resume clinical execution from a row.
   const visitRowOnClick = (appt: AppointmentSummary) =>
     isPersonnel &&
     appt.personnelId === currentPersonnelId &&
-    appt.visitStatus === 'Active' &&
+    (appt.status === 'Booked' || appt.status === 'InProgress') &&
     appt.id
       ? () => navigate(`/besok/${appt.id}${appt.visitType === 'Digital' ? '?type=Digital' : ''}`)
       : undefined;
@@ -282,12 +287,12 @@ const PatientDetailsPage: React.FC = () => {
         patient={patient}
         onAudioCall={() => handleCallClick('audio')}
         onVideoCall={() => handleCallClick('video')}
-        onEdit={isHeadNurse ? () => setShowEditModal(true) : undefined}
+        onEdit={isHeadNurse ? () => openPatientEditor('all') : undefined}
         ongoingVisitHref={ongoingVisitHref}
       />
 
       <Row className="g-4">
-        <Col lg={4}>
+        <Col xs={12}>
           <div className="vk-card-stack">
 
             <SectionCard title={t('Linked account')} icon="person-check">
@@ -308,21 +313,37 @@ const PatientDetailsPage: React.FC = () => {
 
             <ClinicalOverviewCard
               clinical={patient.clinical}
-              action={renderPatientEditAction()}
+              action={renderPatientEditAction('clinical')}
             />
+            <SectionCard
+              title={t('Tilgang til boligen')}
+              icon="key"
+              action={renderPatientEditAction('accessInstructions')}
+            >
+              <InfoRow label={t('Tilgang til boligen')} value={patient.clinical.accessInstructions} />
+            </SectionCard>
+            <SectionCard
+              title={t('Medisin og utstyr')}
+              icon="box-seam"
+              action={renderPatientEditAction('medicationEquipmentNotes')}
+            >
+              <InfoRow label={t('Medisin og utstyr')} value={patient.clinical.medicationEquipmentNotes} />
+            </SectionCard>
             <DiagnosesCard
               diagnoses={patient.clinical.diagnoses}
-              action={renderPatientEditAction()}
+              action={renderPatientEditAction('diagnoses')}
             />
             <MedicationsCard
               medications={patient.clinical.medications}
-              action={renderPatientEditAction()}
+              action={renderPatientEditAction('medications')}
             />
             <TreatmentPlanCard
               patientId={patient.id}
               treatmentPlan={patient.clinical.treatmentPlan}
               conditionFlags={patient.clinical.conditionFlags}
               canEdit={isPersonnel}
+              canEditConditionFlags={isHeadNurse}
+              onEditConditionFlags={() => openPatientEditor('conditionFlags')}
               onSaved={(treatmentPlan) =>
                 setPatient((prev) =>
                   prev
@@ -345,7 +366,7 @@ const PatientDetailsPage: React.FC = () => {
           </div>
         </Col>
 
-        <Col lg={8}>
+        <Col xs={12}>
           <div className="vk-tabs-card">
             <ul className="vk-tabs-nav" role="tablist">
               {tabs.map((tab) => (
@@ -383,7 +404,22 @@ const PatientDetailsPage: React.FC = () => {
                         <AppointmentCard
                           key={appointment.id}
                           appointment={appointment}
-                          actions={renderVisitDoc(appointment)}
+                          actions={(
+                            <>
+                              {isPersonnel &&
+                                appointment.personnelId === currentPersonnelId &&
+                                (appointment.status === 'Booked' || appointment.status === 'InProgress') && (
+                                  <Button
+                                    variant={appointment.visitStatus === 'Active' ? 'warning' : 'primary'}
+                                    onClick={() => navigate(`/besok/${appointment.id}${appointment.visitType === 'Digital' ? '?type=Digital' : ''}`)}
+                                  >
+                                    <i className={`bi ${appointment.visitStatus === 'Active' ? 'bi-arrow-right-circle' : 'bi-play-circle'} me-2`} aria-hidden="true"></i>
+                                    {appointment.visitStatus === 'Active' ? t('Fortsett besøk') : t('Start besøk')}
+                                  </Button>
+                                )}
+                              {renderVisitDoc(appointment)}
+                            </>
+                          )}
                           onClick={visitRowOnClick(appointment)}
                         />
                       ))}
@@ -449,6 +485,7 @@ const PatientDetailsPage: React.FC = () => {
           onHide={() => setShowEditModal(false)}
           patient={patient}
           onSaved={(updated) => setPatient(updated)}
+          section={editSection}
         />
       )}
 

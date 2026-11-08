@@ -336,6 +336,7 @@ const CallModal: React.FC<CallModalProps> = ({
       signalingService.off('video_upgrade_request', onVideoUpgradeRequest);
       signalingService.off('video_upgrade_response', onVideoUpgradeResponse);
       signalingService.off('camera_state', onRemoteCameraState);
+      signalingService.setCurrentCallId(null);
       stopMediaAndPeerConnection();
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -503,7 +504,6 @@ const CallModal: React.FC<CallModalProps> = ({
     } catch (e) {
       console.error('Anrop feilet:', e);
       stopMediaAndPeerConnection();
-      signalingService.disconnect();
       outcomeRef.current = 'Failed';
       setCallState('Failed');
       const isMediaError = e instanceof DOMException && (
@@ -566,9 +566,7 @@ const CallModal: React.FC<CallModalProps> = ({
       // An accepted call that the nurse hangs up still counts as "reached".
       if (callState === 'Accepted') outcomeRef.current = 'Answered';
     }
-    // Tear down the realtime subscription so it doesn't linger after the modal
-    // closes; it is re-initialized on the next call.
-    signalingService.disconnect();
+    // The layout-level listener owns the shared subscription; clear only this call's filter.
     stopMediaAndPeerConnection();
     setCallState('Idle');
     // Report the outcome so a visit workspace can decide what to show next.

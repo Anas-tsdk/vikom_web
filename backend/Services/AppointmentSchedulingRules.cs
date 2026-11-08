@@ -11,8 +11,8 @@ namespace backend.Services
         {
             ["Medisin"] = 5,
             ["Medication"] = 5,
-            ["Bading"] = 15,
-            ["Bathing"] = 15,
+            ["Bading"] = 25,
+            ["Bathing"] = 25,
             ["Matlaging"] = 10,
             ["Cooking"] = 10,
             ["Servering av måltider"] = 10,

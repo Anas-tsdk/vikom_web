@@ -4,6 +4,11 @@ namespace backend.DTOs
     {
         public int Id { get; set; }
         public string PatientName { get; set; } = string.Empty;
+        public string PatientId { get; set; } = string.Empty;
+        public string? PatientUsername { get; set; }
+        public string PatientAddress { get; set; } = string.Empty;
+        public string? PatientAccessInstructions { get; set; }
+        public string? PatientMedicationEquipmentNotes { get; set; }
         public string PersonnelId { get; set; } = string.Empty;
         public string PersonnelName { get; set; } = string.Empty;
         // Stores comma-separated list of tasks (e.g., "Medication, Vitals, Exercises")

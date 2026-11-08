@@ -10,6 +10,7 @@ interface DayCardProps {
   dayNumber: number;
   isToday: boolean;
   onClick: (date: string, window?: AvailabilityWindow) => void;
+  readOnly?: boolean;
 }
 
 const DayCard: React.FC<DayCardProps> = ({ 
@@ -17,7 +18,8 @@ const DayCard: React.FC<DayCardProps> = ({
   dayName, 
   dayNumber, 
   isToday, 
-  onClick 
+  onClick,
+  readOnly = false,
 }) => {
   const { t } = useTranslation();
   const statusColor = (status: string): BadgeColor => {
@@ -33,7 +35,11 @@ const DayCard: React.FC<DayCardProps> = ({
   };
 
   const handleClick = () => {
-    // If there's a window, pass the first one (for edit)
+    if (readOnly) {
+      onClick(dayData.date);
+      return;
+    }
+
     const window = dayData.windows.length > 0 ? dayData.windows[0] : undefined;
     onClick(dayData.date, window);
   };

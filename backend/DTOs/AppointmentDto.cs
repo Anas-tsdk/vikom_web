@@ -12,6 +12,8 @@ namespace backend.DTOs
         public string? PatientName { get; set; }
 
         public string? PatientAddress { get; set; }
+        public string? PatientAccessInstructions { get; set; }
+        public string? PatientMedicationEquipmentNotes { get; set; }
         public double? PatientLatitude { get; set; }
         public double? PatientLongitude { get; set; }
 

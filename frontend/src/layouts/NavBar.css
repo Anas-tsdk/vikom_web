@@ -198,6 +198,16 @@
     transition: all 0.2s ease;
 }
 
+.mobile-sidebar-menu .nav-link.nav-link-create-appointment {
+    color: var(--bs-purple);
+    font-weight: 700;
+}
+
+.mobile-sidebar-menu .nav-link.nav-link-create-appointment.active {
+    color: var(--bs-white);
+    background-color: var(--bs-purple);
+}
+
 .mobile-sidebar-menu .nav-link:hover {
     color: var(--bs-dark);
 }

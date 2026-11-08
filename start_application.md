@@ -51,7 +51,3 @@ cloudflared tunnel --config /Users/sam/.cloudflared/config.yml run vikom-demo
 # Username: nurse@homecare.local
 # Password: Pass123!
 
-
-Login for Samuel:
-username: samuel.moser2211@gmail.com
-password: Borg!2211

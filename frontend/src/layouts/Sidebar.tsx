@@ -5,14 +5,12 @@ import { useTranslation } from 'react-i18next';
 import { getUserInfo } from '../auth/AuthService';
 import { isHeadNurseRole, isPortalRole } from '../auth/roles';
 import './Sidebar.css';
-import useDailyCheckInAlertCount from '../checkins/hooks/useDailyCheckInAlertCount';
 
 const Sidebar: React.FC = () => {
   const location = useLocation();
   const { t } = useTranslation();
   const userInfo = getUserInfo();
   const role = userInfo?.role;
-  const checkInAlertCount = useDailyCheckInAlertCount();
 
   // checks if current route matches the given path
   const isActive = (path: string) => location.pathname === path;
@@ -64,14 +62,11 @@ const Sidebar: React.FC = () => {
             {isHeadNurseRole(role) && (
               <Nav.Link
                 as={Link}
-                to="/alerts"
-                className={isActive('/alerts') ? 'active' : ''}
+                to="/appointments/create"
+                className={`nav-link-create-appointment ${isActive('/appointments/create') ? 'active' : ''}`}
               >
-                <i className="bi bi-shield-exclamation" aria-hidden="true"></i>
-                {t('Trygghetsvarsler')}
-                {checkInAlertCount > 0 && (
-                  <span className="badge rounded-pill text-bg-danger ms-auto">{checkInAlertCount}</span>
-                )}
+                <i className="bi bi-calendar-plus" aria-hidden="true"></i>
+                {t('Opprett avtale')}
               </Nav.Link>
             )}
             {isHeadNurseRole(role) && (
@@ -100,7 +95,7 @@ const Sidebar: React.FC = () => {
               <i className="bi bi-list-ul" aria-hidden="true"></i>
               {t('Daily route')}
             </Nav.Link>
-            {isHeadNurseRole(role) && (
+            {isPortalRole(role) && (
               <Nav.Link
                 as={Link}
                 to="/nurses"
