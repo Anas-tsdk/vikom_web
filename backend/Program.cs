@@ -81,7 +81,14 @@ builder.Services.AddIdentity<User, IdentityRole>(options =>
 
 // Configure JWT Authentication
 var jwtSettings = builder.Configuration.GetSection("Jwt");
-var key = Encoding.UTF8.GetBytes(jwtSettings["Key"]!);
+var jwtSigningKey = jwtSettings["Key"];
+if (string.IsNullOrWhiteSpace(jwtSigningKey) || jwtSigningKey.Length < 32)
+{
+    throw new InvalidOperationException(
+        "Jwt:Key is missing or too short. Configure it with .NET User Secrets " +
+        "for development or the Jwt__Key environment variable in deployment.");
+}
+var key = Encoding.UTF8.GetBytes(jwtSigningKey);
 
 // The TV app signs its patients in against Supabase, so device-facing endpoints
 // need to accept a Supabase-issued token. That is a SECOND scheme registered

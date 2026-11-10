@@ -1,5 +1,19 @@
 # ViKom - Homecare Management
 
+## Local backend secrets
+
+Never store signing keys, Supabase service-role keys, or JWT secrets in
+`appsettings*.json`. Configure local backend secrets with .NET User Secrets:
+
+```bash
+dotnet user-secrets set "Jwt:Key" "GENERATE_A_RANDOM_VALUE_OF_AT_LEAST_32_CHARACTERS" --project backend/backend.csproj
+dotnet user-secrets set "Supabase:ServiceRoleKey" "YOUR_SERVICE_ROLE_KEY" --project backend/backend.csproj
+dotnet user-secrets set "Supabase:JwtSecret" "YOUR_SUPABASE_JWT_SECRET" --project backend/backend.csproj
+```
+
+For deployment, use the equivalent environment variables `Jwt__Key`,
+`Supabase__ServiceRoleKey`, and `Supabase__JwtSecret`.
+
 ViKom is a homecare system split across two applications:
 
 - **This repo** - the web portal used by healthcare personnel (React frontend + ASP.NET Core Web API), and the backend that both applications share.
