@@ -188,7 +188,11 @@ const PersonnelDashboard: React.FC = () => {
         startTime: appointment.startTime,
         endTime: appointment.endTime,
         patientName: appointment.patientName,
-        tasks: appointment.tasks,
+        tasks: appointment.tasks
+          .split(',')
+          .map((task) => t(task.trim()))
+          .filter(Boolean)
+          .join(', '),
         visitType,
         tone: visitType === 'Digitalt' ? 'blue' : 'olive',
       };
@@ -439,12 +443,16 @@ const PersonnelDashboard: React.FC = () => {
 
                       <div className={`timeline-row ${item.isCurrent ? 'active' : ''} ${item.isPast ? 'past' : ''}`}>
                         <div className="timeline-time">{item.isCurrent ? nowTimeLabel : item.startTime}</div>
-                        <div
-                          className={`timeline-item timeline-tone-${item.tone} ${item.isCurrent ? 'active' : ''} ${item.isPast ? 'past' : ''}`}
-                          role="img"
-                          aria-label={`${item.patientName}, ${item.startTime}–${item.endTime}${item.tasks ? `, ${item.tasks}` : ''}`}
-                          title={`${item.patientName} · ${item.startTime}–${item.endTime}`}
-                        />
+                        <div className="timeline-appointment">
+                          <div
+                            className={`timeline-item timeline-tone-${item.tone} ${item.isCurrent ? 'active' : ''} ${item.isPast ? 'past' : ''}`}
+                            aria-hidden="true"
+                          />
+                          <div className="timeline-appointment-label">
+                            <span className="timeline-patient-name">{item.patientName}</span>
+                            {item.tasks && <span className="timeline-tasks">{item.tasks}</span>}
+                          </div>
+                        </div>
                       </div>
                     </React.Fragment>
                   ))}

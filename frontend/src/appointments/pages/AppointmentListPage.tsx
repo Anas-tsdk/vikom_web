@@ -482,6 +482,17 @@ const AppointmentListPage: React.FC = () => {
               <i className="bi bi-journals me-2" aria-hidden="true"></i>
               {t('Arkiv')}
             </button>
+            {isHeadNurse && (
+              <button
+                className="btn btn-primary btn-sm"
+                type="button"
+                aria-label={t('Opprett avtale')}
+                title={t('Opprett avtale')}
+                onClick={() => navigate('/appointments/create')}
+              >
+                <i className="bi bi-calendar-plus" aria-hidden="true"></i>
+              </button>
+            )}
           </div>
         }
       />

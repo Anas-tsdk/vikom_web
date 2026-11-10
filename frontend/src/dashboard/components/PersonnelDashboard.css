@@ -410,11 +410,43 @@
   color: var(--bs-primary);
 }
 
+.personnel-dashboard .timeline-appointment {
+  display: grid;
+  grid-template-columns: minmax(2.5rem, 0.18fr) minmax(0, 1fr);
+  align-items: center;
+  gap: 0.65rem;
+  min-width: 0;
+}
+
 .personnel-dashboard .timeline-item {
   border-radius: 1rem;
   min-height: 1.8rem;
   padding: 0;
   position: relative;
+}
+
+.personnel-dashboard .timeline-appointment-label {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 0.2rem 0.5rem;
+  min-width: 0;
+  font-size: var(--fs-sm);
+  line-height: 1.35;
+}
+
+.personnel-dashboard .timeline-patient-name {
+  color: var(--bs-dark);
+  font-weight: 650;
+  overflow-wrap: anywhere;
+}
+
+.personnel-dashboard .timeline-tasks {
+  color: var(--bs-secondary);
+}
+
+.personnel-dashboard .timeline-row.past .timeline-appointment-label {
+  opacity: 0.65;
 }
 
 .personnel-dashboard .timeline-item.active::before {
