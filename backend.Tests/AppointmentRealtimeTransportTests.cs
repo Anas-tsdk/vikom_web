@@ -77,11 +77,12 @@ public class AppointmentRealtimeTransportTests : IDisposable
 
         Assert.Equal("Pending", created.PatientResponseStatus);
         Assert.Equal("10:50", created.EndTime);
-        Assert.Equal(2, handler.RequestCount);
+        Assert.Equal(3, handler.RequestCount);
         Assert.EndsWith(
             "/realtime/v1/api/broadcast/webrtc-signaling/events/message",
             handler.RequestUri);
         Assert.Contains(patient.SupabaseProfileId, handler.RequestBodies);
+        Assert.Contains("notify_appointment", handler.RequestBodies);
         Assert.Contains("appointment_staff_event", handler.RequestBodies);
         Assert.Contains("patientResponseStatus", handler.RequestBodies);
         Assert.Contains("Pending", handler.RequestBodies);

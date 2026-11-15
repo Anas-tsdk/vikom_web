@@ -674,7 +674,14 @@ namespace backend.Services
 
                 var targets = new Dictionary<string, string>(StringComparer.Ordinal);
                 if (!string.IsNullOrWhiteSpace(targetSupabaseProfileId))
+                {
                     targets[targetSupabaseProfileId] = "appointment_event";
+                    await SendAppointmentPushAsync(
+                        supabaseUrl,
+                        targetSupabaseProfileId,
+                        payload,
+                        appointment.Id);
+                }
 
                 var assignedPersonnelId = appointment.Availability?.PersonnelId?.Trim();
                 if (!string.IsNullOrWhiteSpace(assignedPersonnelId))
@@ -716,6 +723,69 @@ namespace backend.Services
                     ex,
                     "Failed to send appointment realtime event for appointment {AppointmentId}",
                     appointment.Id);
+            }
+        }
+
+        /// <summary>
+        /// Wakes the Android app through Firebase. Realtime remains the fast path
+        /// while the app is open; this server-side push covers a sleeping or
+        /// stopped process, which then reloads the authoritative appointment from
+        /// the authenticated TV API before the patient answers it.
+        /// </summary>
+        private async Task SendAppointmentPushAsync(
+            string supabaseUrl,
+            string targetSupabaseProfileId,
+            Dictionary<string, object?> payload,
+            int appointmentId)
+        {
+            var serviceRoleKey =
+                _configuration["Supabase:ServiceRoleKey"]
+                ?? Environment.GetEnvironmentVariable("SUPABASE_SERVICE_ROLE_KEY");
+
+            if (string.IsNullOrWhiteSpace(serviceRoleKey))
+            {
+                _logger.LogWarning(
+                    "Supabase service role key is missing; appointment {AppointmentId} cannot send a Firebase wake-up",
+                    appointmentId);
+                return;
+            }
+
+            try
+            {
+                var client = _httpClientFactory.CreateClient();
+                using var request = new HttpRequestMessage(
+                    HttpMethod.Post,
+                    $"{supabaseUrl.TrimEnd('/')}/functions/v1/call-infrastructure");
+                request.Content = JsonContent.Create(new
+                {
+                    action = "notify_appointment",
+                    targetUserId = targetSupabaseProfileId,
+                    payload
+                });
+                request.Headers.Add("apikey", serviceRoleKey);
+                request.Headers.Authorization =
+                    new AuthenticationHeaderValue("Bearer", serviceRoleKey);
+
+                using var response = await client.SendAsync(request);
+                if (!response.IsSuccessStatusCode)
+                {
+                    var responseBody = await response.Content.ReadAsStringAsync();
+                    _logger.LogWarning(
+                        "Appointment Firebase wake-up failed for appointment {AppointmentId}, status {StatusCode}: {ResponseBody}",
+                        appointmentId,
+                        response.StatusCode,
+                        responseBody);
+                }
+            }
+            catch (Exception ex)
+            {
+                // Appointment creation must remain successful even if push is
+                // temporarily unavailable. The app also pulls pending invitations
+                // from REST on every launch and the realtime broadcast still runs.
+                _logger.LogError(
+                    ex,
+                    "Failed to send Firebase wake-up for appointment {AppointmentId}",
+                    appointmentId);
             }
         }
 
