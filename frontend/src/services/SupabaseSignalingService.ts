@@ -278,8 +278,6 @@ class SupabaseSignalingService {
         sdp: string,
         mediaType: 'audio' | 'video',
     ): Promise<void> {
-        if (!this.channel) throw new Error('Signaling service not initialized');
-
         // The TV App expects these exact fields in the inner payload
         const innerPayload = {
             callId,
@@ -339,8 +337,6 @@ class SupabaseSignalingService {
      * Broadcasts a call ended event to cancel an actively ringing outbound call.
      */
     async sendCallEnded(callId: string, targetUserId: string, reason: string = "caller_cancelled") {
-        if (!this.channel) return;
-
         const innerPayload = {
             callId,
             reason,

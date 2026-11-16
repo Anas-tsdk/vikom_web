@@ -260,7 +260,11 @@ const StaffCallProvider: React.FC<React.PropsWithChildren> = ({ children }) => {
     signalingService.on('call_rejected', onCallRejected);
     signalingService.on('call_ended', onCallEnded);
     void signalingService.initialize(staffUserId).catch((error: unknown) => {
-      signalingService.disconnect();
+      // The signaling service is shared with patient calls and appointment
+      // notifications. A failed background subscription must not tear down a
+      // newer connection established by one of those consumers. Patient calls
+      // can also continue through the authenticated HTTPS transport when
+      // Realtime is temporarily unavailable.
       console.error('Could not initialize staff calling', error);
     });
     return () => {
