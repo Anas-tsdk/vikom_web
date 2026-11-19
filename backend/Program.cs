@@ -229,6 +229,43 @@ if (app.Environment.IsDevelopment())
 }
 
 // Configure the HTTP request pipeline
+// Keep device requests diagnosable without logging bearer tokens or patient
+// payloads. Place this first so even CORS/authentication rejections are visible.
+app.Use(async (context, next) =>
+{
+    var isTvRequest = context.Request.Path.StartsWithSegments("/api/tv");
+    if (isTvRequest)
+    {
+        var incomingVersion = context.Request.Headers["X-ViKom-Version"].FirstOrDefault() ?? "unknown";
+        Console.WriteLine(
+            $"TV API received {context.Request.Method} {context.Request.Path}; " +
+            $"version={incomingVersion}; ip={context.Connection.RemoteIpAddress}");
+        TvApiDiagnosticLog.Append(
+            $"received {context.Request.Method} {context.Request.Path}; " +
+            $"version={incomingVersion}; ip={context.Connection.RemoteIpAddress}");
+    }
+    try
+    {
+        await next();
+    }
+    finally
+    {
+        if (isTvRequest)
+        {
+            var subject = context.User.FindFirst("sub")?.Value ?? "anonymous";
+            var version = context.Request.Headers["X-ViKom-Version"].FirstOrDefault() ?? "unknown";
+            Console.WriteLine(
+                $"TV API {context.Request.Method} {context.Request.Path} -> " +
+                $"{context.Response.StatusCode}; sub={subject}; version={version}; " +
+                $"ip={context.Connection.RemoteIpAddress}");
+            TvApiDiagnosticLog.Append(
+                $"{context.Request.Method} {context.Request.Path} -> " +
+                $"{context.Response.StatusCode}; sub={subject}; version={version}; " +
+                $"ip={context.Connection.RemoteIpAddress}");
+        }
+    }
+});
+
 if (app.Environment.IsDevelopment())
 {
     app.UseSwagger();
@@ -248,7 +285,7 @@ if (!app.Environment.IsDevelopment())
 // Enable CORS
 app.UseCors("AllowFrontend");
 
-// Enable authentication and authorization
+// Enable authentication and authorization.
 app.UseAuthentication();
 app.UseAuthorization();
 
@@ -267,4 +304,27 @@ static string ResolveDatabaseDirectory(string contentRootPath)
     }
 
     return AppContext.BaseDirectory;
+}
+
+static class TvApiDiagnosticLog
+{
+    private static readonly object Gate = new();
+    private static readonly string LogPath = Path.Combine(Path.GetTempPath(), "vikom-tv-api.log");
+
+    public static void Append(string message)
+    {
+        try
+        {
+            lock (Gate)
+            {
+                File.AppendAllText(
+                    LogPath,
+                    $"{DateTimeOffset.Now:O} TV API {message}{Environment.NewLine}");
+            }
+        }
+        catch
+        {
+            // Diagnostics must never make a patient request fail.
+        }
+    }
 }

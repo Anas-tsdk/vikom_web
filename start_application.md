@@ -1,4 +1,9 @@
-# Start the local ViKom site and public demo tunnel
+# Start the local ViKom site and public demo tunnel manually
+#
+# The macOS auto-start services are intentionally disabled. Nothing in this
+# stack runs until the three commands below are started in separate terminals.
+# The public tunnel expects the backend on 127.0.0.1:5084 and the frontend on
+# 127.0.0.1:4173.
 #
 # If these processes are already running, stop the old backend and frontend
 # Preview first with Ctrl+C. A backend can outlive its terminal, so check its
@@ -11,16 +16,21 @@
 #   ps -p <PID> -o pid,lstart,command
 # Only if it is the old ViKom backend from this checkout, stop that exact PID:
 #   kill -TERM <PID>
-# Confirm port 5084 is free before starting the backend below.
+# Confirm port 5084 is free before starting the backend below. Do not start a
+# second backend while this terminal is still running.
 
 # Terminal 1 - backend
 cd /Users/sam/Developer/vikom_web
-dotnet run --project backend --launch-profile http
+dotnet run --project backend --launch-profile https
 # This Development launch profile applies pending EF Core migrations at startup.
 # Keep this terminal running. Backend code changes take effect after restarting it.
 
 # The API's SQLite path is rooted at backend/, regardless of this terminal's
 # working directory. Confirm it started at http://localhost:5084/swagger.
+# Tablet API requests are also recorded in the macOS per-user temporary folder
+# as vikom-tv-api.log, including endpoint, HTTP status, app version and user id,
+# but never bearer tokens or patient response data. Locate it with:
+#   find "$(getconf DARWIN_USER_TEMP_DIR)" -name vikom-tv-api.log -maxdepth 1
 
 # Terminal 2 - build the latest frontend and serve it
 cd /Users/sam/Developer/vikom_web/frontend
@@ -46,8 +56,17 @@ env __VITE_ADDITIONAL_SERVER_ALLOWED_HOSTS=vikom-demo.framenex.com npm run previ
 # Keep this process running while the public site is in use.
 cloudflared tunnel --config /Users/sam/.cloudflared/config.yml run vikom-demo
 
+# Quick check after all three terminals are running:
+#   curl -I https://vikom-demo.framenex.com/
+#   curl -i https://vikom-demo.framenex.com/api/tv/me
+# The first command should return 200. The second should return 401 without a
+# login token; that 401 proves the public API route reaches the backend.
+
 # Development login for local testing:
-# Nurse Nora
+# Headnurse Nora
 # Username: nurse@homecare.local
 # Password: Pass123!
 
+# Nurse Nina credentials: 
+# Nursenina
+# Hallo123
